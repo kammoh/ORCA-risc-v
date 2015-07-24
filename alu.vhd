@@ -101,8 +101,7 @@ begin	 -- architecture rtl
 		  data_result := data1 or data2;
 		when AND_OP =>
 		  data_result := data1 and data2;
-		when others =>
-		  assert '0' report "Should not be here" severity error;
+		when others => null;
 	 end case;
 
 	 case instruction(6 downto 0) is
