@@ -35,14 +35,14 @@ architecture rtl of load_store_unit is
   constant UBYTE_SIZE : unsigned(2 downto 0) := "100";
   constant UHALF_SIZE : unsigned(2 downto 0) := "101";
 begin
-  p1 : process (clk) is
+  ls_proc : process (clk) is
     variable imm          : unsigned(REGISTER_SIZE-1 downto 0);
     variable fun3         : unsigned(2 downto 0);
     variable byte         : unsigned(7 downto 0);
     variable opcode       : unsigned(6 downto 0);
     variable data_out_int : unsigned(REGISTER_SIZE-1 downto 0);
     variable store_data   : unsigned(REGISTER_SIZE-1 downto 0);
-  begin  -- process p1
+  begin  -- process ls_proc
     if rising_edge(clk) then
       fun3   := unsigned(instruction(14 downto 12));
       opcode := unsigned(instruction(6 downto 0));
@@ -111,7 +111,7 @@ begin
     end if;  --clk
 
 
-  end process p1;
+  end process ls_proc;
 
 
 end architecture;

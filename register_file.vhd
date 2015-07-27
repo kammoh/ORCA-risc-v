@@ -26,7 +26,7 @@ architecture rtl of register_file is
 begin
   register_proc : process (clk) is
   begin
-	 if rising_edge(clk) then
+	 if falling_edge(clk) then
 
 													 --read before bypass
 		rs1_data <= registers(to_integer(unsigned(rs1_sel)));

@@ -37,7 +37,7 @@ begin	 -- architecture rtl
 
 
 
-  p1:process(rs1_data, rs2_data, instruction, sign_extension) is
+  alu_proc:process(rs1_data, rs2_data, instruction, sign_extension) is
 	 variable func					: std_logic_vector(2 downto 0);
 	 variable is_immediate		: std_logic;
 	 variable data1				: unsigned(REGISTER_SIZE-1 downto 0);

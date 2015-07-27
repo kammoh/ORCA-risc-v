@@ -47,7 +47,7 @@ architecture rtl of branch_unit is
 
 begin  -- architecture rtl
 
-  p1 : process (rs1_data,
+  br_proc : process (rs1_data,
                 rs2_data,
                 current_pc,
                 predicted_pc,
@@ -60,7 +60,7 @@ begin  -- architecture rtl
     variable calc_pc       : unsigned(REGISTER_SIZE-1 downto 0);
     variable not_jmp       : std_logic;
     variable branch_target : unsigned(REGISTER_SIZE-1 downto 0);
-  begin  -- process p1
+  begin  -- process br_proc
 
     data_out_en <= '0';
     next_pc     := unsigned(current_pc)+4;
@@ -123,6 +123,6 @@ begin  -- architecture rtl
     data_out <= std_logic_vector(next_pc);
 
 
-  end process p1;
+  end process br_proc;
 
 end architecture;
