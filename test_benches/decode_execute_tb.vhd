@@ -9,7 +9,6 @@ architecture rtl of decode_execute_tb is
   constant REGISTER_SIZE		 : integer := 32;
   constant REGISTER_NAME_SIZE	 : integer := 5;
   constant INSTRUCTION_SIZE	 : integer := 32;
-  constant SIGN_EXTENSION_SIZE : integer := 20;
 
   component decode_execute is
 	 generic(

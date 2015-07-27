@@ -22,17 +22,16 @@ end;
 
 architecture rtl of register_file is
   type register_list is array(31 downto 0) of std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal registers : register_list;
+  signal registers : register_list := (others => (others => '0'));
 begin
   register_proc : process (clk) is
   begin
 	 if falling_edge(clk) then
-
 													 --read before bypass
 		rs1_data <= registers(to_integer(unsigned(rs1_sel)));
 		rs2_data <= registers(to_integer(unsigned(rs2_sel)));
 		if writeback_enable = '1' and
-		  writeback_sel /= std_logic_vector(to_unsigned(0,REGISTER_NAME_SIZE)) then
+		  writeback_sel /= std_logic_vector(to_unsigned(0, REGISTER_NAME_SIZE)) then
 
 		  registers(to_integer(unsigned(writeback_sel))) <= writeback_data;
 		  if rs1_sel = writeback_sel then
@@ -42,7 +41,6 @@ begin
 			 rs2_data <= writeback_data;
 		  end if;
 		end if;
-		registers(0) <=std_logic_vector(to_unsigned(0,REGISTER_SIZE));
 	 end if;
   end process;
 end architecture;
