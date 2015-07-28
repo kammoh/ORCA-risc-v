@@ -12,6 +12,7 @@ entity branch_unit is
 	 SIGN_EXTENSION_SIZE : integer);
 
   port (
+	 clk				 : in	 std_logic;
 	 rs1_data		 : in	 std_logic_vector(REGISTER_SIZE-1 downto 0);
 	 rs2_data		 : in	 std_logic_vector(REGISTER_SIZE-1 downto 0);
 	 current_pc		 : in	 std_logic_vector(REGISTER_SIZE-1 downto 0);
@@ -47,12 +48,7 @@ architecture rtl of branch_unit is
 
 begin	 -- architecture rtl
 
-  br_proc : process (rs1_data,
-							rs2_data,
-							current_pc,
-							predicted_pc,
-							instr,
-							sign_extension) is
+  br_proc : process (clk) is
 	 variable opcode			: unsigned(6 downto 0);
 	 variable imm_val			: unsigned(REGISTER_SIZE-1 downto 0);	--ammount to add
 	 variable next_pc			: unsigned(REGISTER_SIZE-1 downto 0);	--instruction after
@@ -74,7 +70,7 @@ begin	 -- architecture rtl
 		  imm_val := unsigned(sign_extension(REGISTER_SIZE-13 downto 0) &
 									 instr(7) & instr(30 downto 25) &instr(11 downto 8) & "0");
 
-		  branch_target := unsigned(current_pc) + unsigned(imm_val);
+		  branch_target := unsigned(current_pc) + imm_val;
 		  case instr(14 downto 12) is
 			 when BEQ =>
 				if signed(rs1_data) = signed(rs2_data) then

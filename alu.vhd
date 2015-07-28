@@ -11,6 +11,7 @@ entity arithmetic_unit is
 	 SIGN_EXTENSION_SIZE : integer);
 
   port (
+	 clk				 : in	 std_logic;
 	 rs1_data		 : in	 std_logic_vector(REGISTER_SIZE-1 downto 0);
 	 rs2_data		 : in	 std_logic_vector(REGISTER_SIZE-1 downto 0);
 	 instruction	 : in	 std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
@@ -37,7 +38,7 @@ begin	 -- architecture rtl
 
 
 
-  alu_proc:process(rs1_data, rs2_data, instruction, sign_extension) is
+  alu_proc : process(clk) is
 	 variable func					: std_logic_vector(2 downto 0);
 	 variable is_immediate		: std_logic;
 	 variable data1				: unsigned(REGISTER_SIZE-1 downto 0);
@@ -90,12 +91,12 @@ begin	 -- architecture rtl
 		when SR_OP =>
 		  if arithmetic_shift = '1' then
 			 data_result := unsigned(SHIFT_RIGHT(signed(data1),
-														 to_integer(unsigned(data2(5 downto 0)))
-														 ));
+															 to_integer(unsigned(data2(5 downto 0)))
+															 ));
 		  else
 			 data_result := SHIFT_RIGHT(data1,
-											 to_integer(unsigned(data2(5 downto 0))
-															));
+												 to_integer(unsigned(data2(5 downto 0))
+																));
 		  end if;
 		when OR_OP =>
 		  data_result := data1 or data2;

@@ -40,6 +40,8 @@ architecture behavioural of decode_execute is
   constant SIGN_EXTENSION_SIZE : integer := REGISTER_SIZE -INSTRUCTION_SIZE + (REGISTER_SIZE -SHORTEST_IMMEDIATE);
   signal sign_extension			 : std_logic_vector(SIGN_EXTENSION_SIZE-1 downto 0);
 
+  signal ex_instr : std_logic_vector(INSTRUCTION_SIZE-1 downto 0);  --execute
+																						  --stage instruction
   -- read register values
   signal rs1_data : std_logic_vector(REGISTER_SIZE-1 downto 0);
   signal rs2_data : std_logic_vector(REGISTER_SIZE-1 downto 0);
@@ -52,6 +54,10 @@ architecture behavioural of decode_execute is
   signal alu_data_en	 : std_logic;
   signal ld_data_en	 : std_logic;
 
+  signal writeback_1hot : std_logic_vector(2 downto 0);
+  signal writeback_data : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal writeback_en	: std_logic;
+
   signal bad_predict : std_logic;
   signal new_pc		: std_logic_vector(REGISTER_SIZE-1 downto 0);
 
@@ -60,14 +66,19 @@ architecture behavioural of decode_execute is
 		REGISTER_SIZE		 : positive;
 		REGISTER_NAME_SIZE : positive);
 	 port(
-		clk				  : in  std_logic;
-		rs1_sel			  : in  std_logic_vector(REGISTER_NAME_SIZE -1 downto 0);
-		rs2_sel			  : in  std_logic_vector(REGISTER_NAME_SIZE -1 downto 0);
-		writeback_sel	  : in  std_logic_vector(REGISTER_NAME_SIZE -1 downto 0);
-		writeback_data	  : in  std_logic_vector(REGISTER_SIZE -1 downto 0);
-		writeback_enable : in  std_logic;
-		rs1_data			  : out std_logic_vector(REGISTER_SIZE -1 downto 0);
-		rs2_data			  : out std_logic_vector(REGISTER_SIZE -1 downto 0));
+		clk				  : in std_logic;
+		rs1_sel			  : in std_logic_vector(REGISTER_NAME_SIZE -1 downto 0);
+		rs2_sel			  : in std_logic_vector(REGISTER_NAME_SIZE -1 downto 0);
+		writeback_sel	  : in std_logic_vector(REGISTER_NAME_SIZE -1 downto 0);
+		writeback_data	  : in std_logic_vector(REGISTER_SIZE -1 downto 0);
+		writeback_enable : in std_logic;
+
+		ex_fwd_sel	: in std_logic_vector(REGISTER_NAME_SIZE -1 downto 0);
+		ex_fwd_data : in std_logic_vector(REGISTER_SIZE-1 downto 0);
+		ex_fwd_en	: in std_logic;
+
+		rs1_data : out std_logic_vector(REGISTER_SIZE -1 downto 0);
+		rs2_data : out std_logic_vector(REGISTER_SIZE -1 downto 0));
   end component;
 
   component arithmetic_unit is
@@ -76,6 +87,7 @@ architecture behavioural of decode_execute is
 		REGISTER_SIZE		  : integer;
 		SIGN_EXTENSION_SIZE : integer);
 	 port (
+		clk				: in	std_logic;
 		rs1_data			: in	std_logic_vector(REGISTER_SIZE-1 downto 0);
 		rs2_data			: in	std_logic_vector(REGISTER_SIZE-1 downto 0);
 		instruction		: in	std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
@@ -90,6 +102,7 @@ architecture behavioural of decode_execute is
 		INSTRUCTION_SIZE	  : integer;
 		SIGN_EXTENSION_SIZE : integer);
 	 port (
+		clk				: in	std_logic;
 		rs1_data			: in	std_logic_vector(REGISTER_SIZE-1 downto 0);
 		rs2_data			: in	std_logic_vector(REGISTER_SIZE-1 downto 0);
 		current_pc		: in	std_logic_vector(REGISTER_SIZE-1 downto 0);
@@ -133,13 +146,22 @@ begin
 		writeback_sel	  => wb_sel_in,
 		writeback_data	  => wb_data_in,
 		writeback_enable => wb_en_in,
+		ex_fwd_sel		  => ex_instr(11 downto 7),
+		ex_fwd_data		  => writeback_data,
+		ex_fwd_en		  => writeback_en,
 		rs1_data			  => rs1_data,
 		rs2_data			  => rs2_data
 		);
 
-  sign_extension <= std_logic_vector(
-	 resize(signed(instruction(INSTRUCTION_SIZE-1 downto INSTRUCTION_SIZE-1)), SIGN_EXTENSION_SIZE));
-
+  decode_stage : process (clk) is
+  begin	-- process decode_stage
+	 if rising_edge(clk) then				 -- rising clock edge
+		sign_extension <= std_logic_vector(
+		  resize(signed(instruction(INSTRUCTION_SIZE-1 downto INSTRUCTION_SIZE-1)),
+					SIGN_EXTENSION_SIZE));
+		ex_instr <= instruction;
+	 end if;
+  end process decode_stage;
 
 
   alu : component arithmetic_unit
@@ -147,24 +169,25 @@ begin
 		INSTRUCTION_SIZE	  => INSTRUCTION_SIZE,
 		REGISTER_SIZE		  => REGISTER_SIZE,
 		SIGN_EXTENSION_SIZE => SIGN_EXTENSION_SIZE)
-	 port map (
-		rs1_data			=> rs1_data,
-		rs2_data			=> rs2_data,
-		instruction		=> instruction,
-		sign_extension => sign_extension,
-		data_out			=> alu_data_out,
-		data_enable		=> alu_data_en);
+	 port map (clk				  => clk,
+				  rs1_data		  => rs1_data,
+				  rs2_data		  => rs2_data,
+				  instruction	  => ex_instr,
+				  sign_extension => sign_extension,
+				  data_out		  => alu_data_out,
+				  data_enable	  => alu_data_en);
 
 
   branch : component branch_unit
 	 generic map (REGISTER_SIZE		 => REGISTER_SIZE,
 					  INSTRUCTION_SIZE	 => INSTRUCTION_SIZE,
 					  SIGN_EXTENSION_SIZE => SIGN_EXTENSION_SIZE)
-	 port map(rs1_data		 => rs1_data,
+	 port map(clk				 => clk,
+				 rs1_data		 => rs1_data,
 				 rs2_data		 => rs2_data,
 				 current_pc		 => pc_current,
 				 predicted_pc	 => pc_next,
-				 instr			 => instruction,
+				 instr			 => ex_instr,
 				 sign_extension => sign_extension,
 				 data_out		 => br_data_out,
 				 data_out_en	 => br_data_en,
@@ -183,14 +206,28 @@ begin
 		valid				=> valid_input,
 		rs1_data			=> rs1_data,
 		rs2_data			=> rs2_data,
-		instruction		=> instruction,
+		instruction		=> ex_instr,
 		sign_extension => sign_extension,
 		data_out			=> ld_data_out,
 		data_enable		=> ld_data_en);
 
+  writeback_1hot(0) <= ld_data_en;
+  writeback_1hot(1) <= br_data_en;
+  writeback_1hot(2) <= alu_data_en;
+
+  with writeback_1hot select
+	 writeback_data <=
+	 alu_data_out	  when "100",
+	 br_data_out	  when "010",
+	 ld_data_out	  when "001",
+	 (others => 'X') when others;
+
+  writeback_en <= alu_data_en or br_data_en or ld_data_en;
+
   coalesce : process (clk, reset) is
-  begin	-- process coalesce
-	 if clk'event and clk = '1' then		 -- rising clock edge
+  begin	-- process coalesce_seq
+
+	 if rising_edge(clk) then				 -- rising clock edge
 		if reset = '1' then					 -- synchronous reset (active high)
 		  wb_data_out				<= (others => 'X');
 		  wb_en_out					<= '0';
@@ -198,33 +235,16 @@ begin
 		  wb_sel_out				<= (others => 'X');
 		  predict_corr				<= (others => 'X');
 		  predict_corr_en			<= '0';
-		else
-		  --default data_out to don't care
+		end if;
+		wb_en_out		 <= writeback_en;
+		wb_data_out		 <= writeback_data;
+		wb_sel_out		 <= ex_instr(11 downto 7);
+		predict_corr	 <= new_pc;
+		predict_corr_en <= bad_predict;
 
-		  stall_previous_stages <= '0';
 
-		  if alu_data_en = '1' then
-			 wb_en_out	 <= '1';
-			 wb_data_out <= alu_data_out;
-		  elsif br_data_en = '1' then
-			 wb_en_out	 <= '1';
-			 wb_data_out <= br_data_out;
-		  elsif ld_data_en = '1' then
-			 wb_en_out	 <= '1';
-			 wb_data_out <= ld_data_out;
-		  else
-			 wb_en_out	 <= '0';
-			 wb_data_out <= (others => 'X');
-		  end if;  --wb_en
-
-		  wb_sel_out		<= rd;
-		  predict_corr		<= new_pc;
-		  predict_corr_en <= bad_predict;
-		end if;	--reset
-	 end if;	 --clk
-
+	 end if;
   end process coalesce;
-
 
 
 end architecture;
