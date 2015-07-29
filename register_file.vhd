@@ -16,10 +16,6 @@ entity register_file is
 	 writeback_data	: in std_logic_vector(REGISTER_SIZE -1 downto 0);
 	 writeback_enable : in std_logic;
 
-	 ex_fwd_sel	 : in std_logic_vector(REGISTER_NAME_SIZE -1 downto 0);
-	 ex_fwd_data : in std_logic_vector(REGISTER_SIZE-1 downto 0);
-	 ex_fwd_en	 : in std_logic;
-
 	 rs1_data : out std_logic_vector(REGISTER_SIZE -1 downto 0);
 	 rs2_data : out std_logic_vector(REGISTER_SIZE -1 downto 0)
 
@@ -49,15 +45,6 @@ begin
 		  end if;
 		end if;
 
-		--register forwarding, priority over writback bypass
-		if ex_fwd_en = '1' and ex_fwd_sel /= ZERO then
-		  if ex_fwd_sel = rs1_sel then
-			 rs1_data <= ex_fwd_data;
-		  end if;
-		  if ex_fwd_sel = rs2_sel then
-			 rs2_data <= ex_fwd_data;
-		  end if;
-		end if;
 	 end if;	 --rising edge
   end process;
 end architecture;

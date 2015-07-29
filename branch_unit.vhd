@@ -58,67 +58,68 @@ begin	 -- architecture rtl
 	 variable branch_target : unsigned(REGISTER_SIZE-1 downto 0);
 
   begin	-- process br_proc
+	 if rising_edge(clk) then
+		data_out_en <= '0';
+		next_pc		:= unsigned(current_pc)+4;
+		opcode		:= unsigned(instr(6 downto 0));
 
-	 data_out_en <= '0';
-	 next_pc		 := unsigned(current_pc)+4;
-	 opcode		 := unsigned(instr(6 downto 0));
+		not_jmp := '0';
+		calc_pc := next_pc;
+		case opcode is
+		  when BRANCH =>
+			 imm_val := unsigned(sign_extension(REGISTER_SIZE-13 downto 0) &
+										instr(7) & instr(30 downto 25) &instr(11 downto 8) & "0");
 
-	 not_jmp := '0';
-	 calc_pc := next_pc;
-	 case opcode is
-		when BRANCH =>
-		  imm_val := unsigned(sign_extension(REGISTER_SIZE-13 downto 0) &
-									 instr(7) & instr(30 downto 25) &instr(11 downto 8) & "0");
+			 branch_target := unsigned(current_pc) + imm_val;
+			 case instr(14 downto 12) is
+				when BEQ =>
+				  if signed(rs1_data) = signed(rs2_data) then
+					 calc_pc := branch_target;
+				  end if;
+				when BNE =>
+				  if signed(rs1_data) /= signed(rs2_data) then
+					 calc_pc := branch_target;
+				  end if;
+				when BLT =>
+				  if signed(rs1_data) < signed(rs2_data) then
+					 calc_pc := branch_target;
+				  end if;
+				when BGE =>
+				  if signed(rs1_data) >= signed(rs2_data) then
+					 calc_pc := branch_target;
+				  end if;
+				when BLTU =>
+				  if unsigned(rs1_data) < unsigned(rs2_data) then
+					 calc_pc := branch_target;
+				  end if;
+				when BGEU =>
+				  if unsigned(rs1_data) /= unsigned(rs2_data) then
+					 calc_pc := branch_target;
+				  end if;
+				when others => null;
+			 end case;
 
-		  branch_target := unsigned(current_pc) + imm_val;
-		  case instr(14 downto 12) is
-			 when BEQ =>
-				if signed(rs1_data) = signed(rs2_data) then
-				  calc_pc := branch_target;
-				end if;
-			 when BNE =>
-				if signed(rs1_data) /= signed(rs2_data) then
-				  calc_pc := branch_target;
-				end if;
-			 when BLT =>
-				if signed(rs1_data) < signed(rs2_data) then
-				  calc_pc := branch_target;
-				end if;
-			 when BGE =>
-				if signed(rs1_data) >= signed(rs2_data) then
-				  calc_pc := branch_target;
-				end if;
-			 when BLTU =>
-				if unsigned(rs1_data) < unsigned(rs2_data) then
-				  calc_pc := branch_target;
-				end if;
-			 when BGEU =>
-				if unsigned(rs1_data) /= unsigned(rs2_data) then
-				  calc_pc := branch_target;
-				end if;
-			 when others => null;
-		  end case;
+		  when JALR =>
+			 imm_val := unsigned(sign_extension(REGISTER_SIZE-12-1 downto 0) &
+										instr(31 downto 21) & "0");
+			 calc_pc		 := imm_val + unsigned(rs1_data);
+			 data_out_en <= '1';
+		  when JAL =>
+			 imm_val := unsigned(sign_extension(REGISTER_SIZE-21 downto 0) &
+										instr(19 downto 12) & instr(20) & instr(30 downto 21) & "0");
+			 calc_pc		 := imm_val + unsigned(current_pc);
+			 data_out_en <= '1';
 
-		when JALR =>
-		  imm_val := unsigned(sign_extension(REGISTER_SIZE-12-1 downto 0) &
-									 instr(31 downto 21) & "0");
-		  calc_pc	  := imm_val + unsigned(rs1_data);
-		  data_out_en <= '1';
-		when JAL =>
-		  imm_val := unsigned(sign_extension(REGISTER_SIZE-21 downto 0) &
-									 instr(19 downto 12) & instr(20) & instr(30 downto 21) & "0");
-		  calc_pc	  := imm_val + unsigned(current_pc);
-		  data_out_en <= '1';
+		  when others => null;
+		end case;
+		bad_predict <= '0';
+		if calc_pc /= unsigned(predicted_pc) then
+		  bad_predict <= '1';
+		end if;
+		new_pc	<= std_logic_vector(calc_pc);
+		data_out <= std_logic_vector(next_pc);
 
-		when others => null;
-	 end case;
-	 bad_predict <= '0';
-	 if calc_pc /= unsigned(predicted_pc) then
-		bad_predict <= '1';
-	 end if;
-	 new_pc	 <= std_logic_vector(calc_pc);
-	 data_out <= std_logic_vector(next_pc);
-
+	 end if;	 --clk
 
   end process br_proc;
 

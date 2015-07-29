@@ -51,65 +51,68 @@ begin	 -- architecture rtl
 	 variable pretrunc_imm :
 		std_logic_vector(sign_extension_size + OP_IMM_IMMEDIATE_SIZE-1 downto 0);
   begin
-	 is_immediate := not instruction(5);
-	 data1		  := unsigned(rs1_data);
-	 data2		  := unsigned(rs2_data);
-	 pretrunc_imm := sign_extension & instruction(31 downto 20);
-	 func			  := instruction(14 downto 12);
+	 if rising_edge(clk) then
+		is_immediate := not instruction(5);
+		data1			 := unsigned(rs1_data);
+		data2			 := unsigned(rs2_data);
+		pretrunc_imm := sign_extension & instruction(31 downto 20);
+		func			 := instruction(14 downto 12);
 
-	 arithmetic_shift := instruction(30);
-	 subtract			:= not instruction(30);
+		arithmetic_shift := instruction(30);
+		subtract			  := not instruction(30);
 
-	 if is_immediate = '1' then
-		data2		:= unsigned(pretrunc_imm(31 downto 0));
-		subtract := '0';						 --never do subtract on immediate
+		if is_immediate = '1' then
+		  data2	  := unsigned(pretrunc_imm(31 downto 0));
+		  subtract := '0';					 --never do subtract on immediate
+		end if;
+
+		case func is
+		  when ADD_OP =>
+			 if sub = '1' then
+				data_result := data1 - data2;
+			 else
+				data_result := data1 + data2;
+			 end if;
+		  when SLL_OP =>
+			 data_result := SHIFT_LEFT(data1, to_integer(data2(5 downto 0)));
+		  when SLT_OP =>
+			 if data1 < data1 then
+				data_result := to_unsigned(1, REGISTER_SIZE);
+			 else
+				data_result := to_unsigned(0, REGISTER_SIZE);
+			 end if;
+		  when SLTU_OP =>
+			 if data1 < data1 then
+				data_result := to_unsigned(1, REGISTER_SIZE);
+			 else
+				data_result := to_unsigned(0, REGISTER_SIZE);
+			 end if;
+		  when XOR_OP =>
+			 data_result := data1 xor data2;
+		  when SR_OP =>
+			 if arithmetic_shift = '1' then
+				data_result := unsigned(SHIFT_RIGHT(signed(data1),
+																to_integer(unsigned(data2(5 downto 0)))
+																));
+			 else
+				data_result := SHIFT_RIGHT(data1,
+													to_integer(unsigned(data2(5 downto 0))
+																  ));
+			 end if;
+		  when OR_OP =>
+			 data_result := data1 or data2;
+		  when AND_OP =>
+			 data_result := data1 and data2;
+		  when others => null;
+		end case;
+
+		case instruction(6 downto 0) is
+		  when "0010011" => data_enable <= '1';
+		  when "0110011" => data_enable <= '1';
+		  when others	  => data_enable <= '0';
+		end case;
+		data_out <= std_logic_vector(data_result);
 	 end if;
 
-	 case func is
-		when ADD_OP =>
-		  if sub = '1' then
-			 data_result := data1 - data2;
-		  else
-			 data_result := data1 + data2;
-		  end if;
-		when SLL_OP =>
-		  data_result := SHIFT_LEFT(data1, to_integer(data2(5 downto 0)));
-		when SLT_OP =>
-		  if data1 < data1 then
-			 data_result := to_unsigned(1, REGISTER_SIZE);
-		  else
-			 data_result := to_unsigned(0, REGISTER_SIZE);
-		  end if;
-		when SLTU_OP =>
-		  if data1 < data1 then
-			 data_result := to_unsigned(1, REGISTER_SIZE);
-		  else
-			 data_result := to_unsigned(0, REGISTER_SIZE);
-		  end if;
-		when XOR_OP =>
-		  data_result := data1 xor data2;
-		when SR_OP =>
-		  if arithmetic_shift = '1' then
-			 data_result := unsigned(SHIFT_RIGHT(signed(data1),
-															 to_integer(unsigned(data2(5 downto 0)))
-															 ));
-		  else
-			 data_result := SHIFT_RIGHT(data1,
-												 to_integer(unsigned(data2(5 downto 0))
-																));
-		  end if;
-		when OR_OP =>
-		  data_result := data1 or data2;
-		when AND_OP =>
-		  data_result := data1 and data2;
-		when others => null;
-	 end case;
-
-	 case instruction(6 downto 0) is
-		when "0010011" => data_enable <= '1';
-		when "0110011" => data_enable <= '1';
-		when others		=> data_enable <= '0';
-	 end case;
-	 data_out <= std_logic_vector(data_result);
   end process;
 end architecture;
