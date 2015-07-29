@@ -66,9 +66,9 @@ architecture rtl of riscV1 is
 		rs2_data			: in std_logic_vector(REGISTER_SIZE-1 downto 0);
 		sign_extension : in std_logic_vector(SIGN_EXTENSION_SIZE-1 downto 0);
 
-		wb_sel  : out std_logic_vector(REGISTER_NAME_SIZE-1 downto 0);
-		wb_data : out std_logic_vector(REGISTER_SIZE-1 downto 0);
-		wb_en	  : out std_logic;
+		wb_sel  : inout std_logic_vector(REGISTER_NAME_SIZE-1 downto 0);
+		wb_data : inout std_logic_vector(REGISTER_SIZE-1 downto 0);
+		wb_en	  : inout std_logic;
 
 		predict_corr	 : out std_logic_vector(REGISTER_SIZE-1 downto 0);
 		predict_corr_en : out std_logic);
