@@ -119,7 +119,7 @@ begin  -- architecture rtl
             is_branch :=  '0';
         end case;
 
-        if calc_pc /= unsigned(predicted_pc) then
+        if calc_pc /= unsigned(predicted_pc) and is_branch = '1' then
           bad_predict <= is_branch;
         end if;
         new_pc   <= std_logic_vector(calc_pc);

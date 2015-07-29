@@ -13,7 +13,7 @@ package instructions is
   function LB (dest, base, offset : integer)
     return std_logic_vector;
 
-  function BRANCH (src1, src2, offset : integer; func : unsigned(2 downto 0))
+  function BRANCH (src1, src2, offset : integer; func : signed(2 downto 0))
     return std_logic_vector;
   function BEQ (src1, src2, offset : integer)
     return std_logic_vector;
@@ -28,7 +28,7 @@ package body instructions is
     func               : std_logic_vector(2 downto 0))
     return std_logic_vector is
   begin
-    return std_logic_vector(to_unsigned(immediate, 12)) &
+    return std_logic_vector(to_signed(immediate, 12)) &
       std_logic_vector(to_unsigned(rs1, 5))& func &
       std_logic_vector(to_unsigned(rd, 5))&"0010011";
   end;
@@ -42,30 +42,30 @@ package body instructions is
   function SB (
     src, base, offset : integer)
     return std_logic_vector is
-    variable imm : unsigned(11 downto 0);
+    variable imm : signed(11 downto 0);
   begin
-    imm := to_unsigned(offset, 12);
-    return std_logic_vector(imm(11 downto 5) &to_unsigned(src, 5) &
-                            to_unsigned(base, 5)&"000"&imm(4 downto 0)&"0100011");
+    imm := to_signed(offset, 12);
+    return std_logic_vector(imm(11 downto 5) &to_signed(src, 5) &
+                            to_signed(base, 5)&"000"&imm(4 downto 0)&"0100011");
   end;
   function LB (
     dest, base, offset : integer)
     return std_logic_vector is
-    variable imm : unsigned(11 downto 0);
+    variable imm : signed(11 downto 0);
   begin
-    imm := to_unsigned(offset, 12);
-    return std_logic_vector(imm & to_unsigned(base, 5)&"000"&to_unsigned(dest, 5)&"0000011");
+    imm := to_signed(offset, 12);
+    return std_logic_vector(imm & to_signed(base, 5)&"000"&to_signed(dest, 5)&"0000011");
   end;
 
   function BRANCH (
     src1, src2, offset : integer;
-    func               : unsigned(2 downto 0))
+    func               : signed(2 downto 0))
     return std_logic_vector is
-    variable imm : unsigned(12 downto 0);
+    variable imm : signed(12 downto 0);
   begin
-    imm := to_unsigned(offset, 13);
-    return std_logic_vector(imm(12)&imm(10 downto 5)&to_unsigned(src2, 5)
-                            &to_unsigned(src1, 5)& func &
+    imm := to_signed(offset, 13);
+    return std_logic_vector(imm(12)&imm(10 downto 5)&to_signed(src2, 5)
+                            &to_signed(src1, 5)& func &
                             imm(4 downto 1)& imm(11) & "1100011");
   end;
   function BEQ (src1, src2, offset : integer)

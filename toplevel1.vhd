@@ -112,7 +112,9 @@ architecture rtl of riscV1 is
   signal rs2_data			: std_logic_vector(REGISTER_SIZE-1 downto 0);
   signal sign_extension : std_logic_vector(REGISTER_SIZE-12-1 downto 0);
 
+  signal pipeline_flush : std_logic;
 begin	 -- architecture rtl
+  pipeline_flush <= reset or pc_corr_en;
   instr_fetch : component instruction_fetch
 	 generic map (
 		REGISTER_SIZE			=> REGISTER_SIZE,
@@ -136,7 +138,7 @@ begin	 -- architecture rtl
 		SIGN_EXTENSION_SIZE => SIGN_EXTENSION_SIZE)
 	 port map(
 		clk				=> clk,
-		reset				=> reset,
+		reset				=> pipeline_flush,
 		instruction		=> d_instr,
 		--writeback ,signals
 		wb_sel			=> wb_sel,
@@ -161,8 +163,8 @@ begin	 -- architecture rtl
 		SIGN_EXTENSION_SIZE => SIGN_EXTENSION_SIZE)
 	 port map (
 		clk				 => clk,
-		reset				 => reset,
-		pc_next			 => d_next_pc,
+		reset				 => pipeline_flush,
+		pc_next			 => e_next_pc,
 		pc_current		 => e_pc,
 		instruction		 => e_instr,
 		rs1_data			 => rs1_data,
