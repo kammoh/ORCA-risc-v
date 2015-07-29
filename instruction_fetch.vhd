@@ -29,16 +29,13 @@ architecture rtl of instruction_fetch is
       REGISTER_SIZE    : positive;
       INSTRUCTION_SIZE : positive);
     port (
-      pc         : in std_logic_vector(REGISTER_SIZE-1 downto 0);
-      instr      : in std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
-      pc_corr    : in std_logic_vector(REGISTER_SIZE-1 downto 0);
-      pc_corr_en : in std_logic;
-
+      pc      : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
+      instr   : in  std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
       next_pc : out std_logic_vector(REGISTER_SIZE-1 downto 0));
 
   end component pc_incr;
 
-  signal program_counter : std_logic_vector(REGISTER_SIZE -1 downto 0) := (others => '0');
+  signal program_counter : std_logic_vector(REGISTER_SIZE -1 downto 0) ;
 
   type memory_type is array(0 to INSTRUCTION_MEM_SIZE)
     of std_logic_vector(REGISTER_SIZE-1 downto 0);
@@ -72,15 +69,17 @@ begin  -- architecture rtl
   begin
     if clk'event and clk = '1' then
       if reset = '1' then
-        program_counter <= (others => '0');
-        instr <= (others => '0');
+        program_counter(1 downto 0) <="00";
+        program_counter(REGISTER_SIZE-1 downto 2) <= (others => '1');
+
+        instr           <= (others => '0');
       else
         if pc_corr_en = '1' then
           pc := unsigned(pc_corr);
         else
           pc := unsigned(generated_pc);
         end if;
-        instr <= memory(to_integer("00"&pc(31 downto 2)));
+        instr           <= memory(to_integer("00"&pc(31 downto 2)));
         program_counter <= std_logic_vector(pc);
       end if;  -- reset
 
@@ -93,11 +92,9 @@ begin  -- architecture rtl
       REGISTER_SIZE    => REGISTER_SIZE,
       INSTRUCTION_SIZE => INSTRUCTION_SIZE)
     port map (
-      pc         => program_counter,
-      instr      => instr,
-      pc_corr    => pc_corr,
-      pc_corr_en => pc_corr_en,
-      next_pc    => generated_pc);
+      pc      => program_counter,
+      instr   => instr,
+      next_pc => generated_pc);
 
   instr_out   <= instr;
   next_pc_out <= generated_pc;
