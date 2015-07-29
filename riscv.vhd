@@ -1,6 +1,6 @@
 library IEEE;
 use IEEE.STD_LOGIC_1164.all;
-entity riscV1 is
+entity riscV is
 
   generic (
 	 REGISTER_SIZE			 : integer;
@@ -9,7 +9,7 @@ entity riscV1 is
   port(clk	 : in std_logic;
 		 reset : in std_logic);
 
-end entity riscV1;
+end entity riscV;
 
 architecture rtl of riscV1 is
   constant REGISTER_NAME_SIZE	 : integer := 5;
