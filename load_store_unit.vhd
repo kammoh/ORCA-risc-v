@@ -1,16 +1,14 @@
 library ieee;
 use ieee.std_logic_1164.all;
 use IEEE.NUMERIC_STD.all;
---use IEEE.std_logic_arith.all;
+library riscv;
+
 
 entity load_store_unit is
-
-
   generic (
     REGISTER_SIZE       : integer;
     SIGN_EXTENSION_SIZE : integer;
-    INSTRUCTION_SIZE    : integer;
-    MEMORY_SIZE_BYTES   : integer);
+    INSTRUCTION_SIZE    : integer);
 
   port (
     clk            : in  std_logic;
@@ -19,106 +17,138 @@ entity load_store_unit is
     rs2_data       : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
     instruction    : in  std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
     sign_extension : in  std_logic_vector(SIGN_EXTENSION_SIZE-1 downto 0);
+    stall          : out std_logic;
     data_out       : out std_logic_vector(REGISTER_SIZE-1 downto 0);
-    data_enable    : out std_logic);
+    data_enable    : out std_logic;
+--memory-bus
+    address        : out std_logic_vector(REGISTER_SIZE-1 downto 0);
+    byte_en        : out std_logic_vector(REGISTER_SIZE/8 -1 downto 0);
+    write_en       : out std_logic;
+    read_en        : out std_logic;
+    write_data     : out std_logic_vector(REGISTER_SIZE-1 downto 0);
+    read_data      : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
+    busy           : in  std_logic);
+
 end entity load_store_unit;
 
 architecture rtl of load_store_unit is
-  type memory_type is array(MEMORY_SIZE_BYTES downto 0) of unsigned(7 downto 0);
-  signal memory : memory_type;
 
-  constant IMMEDIATE_SIZE : integer := 12;
+  constant BYTE_SIZE  : std_logic_vector(2 downto 0) := "000";
+  constant HALF_SIZE  : std_logic_vector(2 downto 0) := "001";
+  constant WORD_SIZE  : std_logic_vector(2 downto 0) := "010";
+  constant UBYTE_SIZE : std_logic_vector(2 downto 0) := "100";
+  constant UHALF_SIZE : std_logic_vector(2 downto 0) := "101";
 
-  constant BYTE_SIZE  : unsigned(2 downto 0) := "000";
-  constant HALF_SIZE  : unsigned(2 downto 0) := "001";
-  constant WORD_SIZE  : unsigned(2 downto 0) := "010";
-  constant UBYTE_SIZE : unsigned(2 downto 0) := "100";
-  constant UHALF_SIZE : unsigned(2 downto 0) := "101";
+  constant STORE_INSTR : std_logic_vector(6 downto 0) := "0100011";
+  constant LOAD_INSTR  : std_logic_vector(6 downto 0) := "0000011";
 
-  alias base   : std_logic_vector(REGISTER_SIZE-1 downto 0) is rs1_data;
-  alias source : std_logic_vector(REGISTER_SIZE-1 downto 0) is rs2_data;
+  alias base_address : std_logic_vector(REGISTER_SIZE-1 downto 0) is rs1_data;
+  alias source_data  : std_logic_vector(REGISTER_SIZE-1 downto 0) is rs2_data;
+
+  signal fun3         : std_logic_vector(2 downto 0);
+  signal latched_fun3 : std_logic_vector(2 downto 0);
+  signal opcode       : std_logic_vector(6 downto 0);
+  signal imm          : std_logic_vector(11 downto 0);
+
+  signal address_unaligned : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal alignment         : std_logic_vector(1 downto 0);
+
+  signal w0 : std_logic_vector(7 downto 0);
+  signal w1 : std_logic_vector(7 downto 0);
+  signal w2 : std_logic_vector(7 downto 0);
+  signal w3 : std_logic_vector(7 downto 0);
+
+  --individual register byte
+  signal r0 : std_logic_vector(7 downto 0);
+  signal r1 : std_logic_vector(7 downto 0);
+  --signal r2                : std_logic_vector(7 downto 0);
+  --signal r3                : std_logic_vector(7 downto 0);
 
 begin
-  ls_proc : process (clk) is
-    variable imm          : unsigned(REGISTER_SIZE-1 downto 0);
-    variable fun3         : unsigned(2 downto 0);
-    variable byte         : unsigned(7 downto 0);
-    variable opcode       : unsigned(6 downto 0);
-    variable data_out_int : unsigned(REGISTER_SIZE-1 downto 0);
-    variable store_data   : unsigned(REGISTER_SIZE-1 downto 0);
+
+  --prepare memory signals
+  opcode <= instruction(6 downto 0);
+  fun3   <= instruction(14 downto 12);
+
+  write_en <= '1' when opcode = STORE_INSTR and valid = '1' else '0';
+  read_en  <= '1' when opcode = LOAD_INSTR and valid = '1'  else '0';
+
+  imm <= instruction(31 downto 25) & instruction(11 downto 7) when instruction(5) = '1'
+         else instruction(31 downto 20);
+
+  address_unaligned <= std_logic_vector(unsigned(sign_extension(REGISTER_SIZE-12-1 downto 0) &
+                                                 imm)+unsigned(base_address));
+  --set the byte enables correctly, (Remember little endian)
+  byte_en <= "1000" when fun3 = BYTE_SIZE and address_unaligned(1 downto 0) = "00" else
+             "0100" when fun3 = BYTE_SIZE and address_unaligned(1 downto 0) = "01" else
+             "0010" when fun3 = BYTE_SIZE and address_unaligned(1 downto 0) = "10" else
+             "0001" when fun3 = BYTE_SIZE and address_unaligned(1 downto 0) = "11" else
+             "1100" when fun3 = HALF_SIZE and address_unaligned(1 downto 0) = "00" else
+             "0011" when fun3 = HALF_SIZE and address_unaligned(1 downto 0) = "10" else
+             "1111";
+
+  --move bytes around to be placed at correct address
+  w0 <= source_data(7 downto 0);
+  w1 <= source_data(7 downto 0) when fun3 = BYTE_SIZE and address_unaligned(1 downto 0) = "01" else
+        source_data(15 downto 8);
+  w2 <= source_data(7 downto 0) when ((fun3 = BYTE_SIZE and address_unaligned(1 downto 0) = "10") or
+                                      (fun3 = HALF_SIZE and address_unaligned(1 downto 0) = "00")) else
+        source_data(23 downto 16);
+  w3 <= source_data(7 downto 0) when fun3 = BYTE_SIZE and address_unaligned(1 downto 0) = "11" else
+        source_data(15 downto 8) when fun3 = WORD_SIZE and address_unaligned(1 downto 0) = "10" else
+        source_data(31 downto 24);
 
 
-  begin  -- process ls_proc
+
+  --little endian
+  write_data <= w0 & w1 & w2 & w3;
+                --align to word boundary
+  address <= address_unaligned(REGISTER_SIZE-1 downto 2) & "00";
+
+  --combinatorial output. busy depends on memory input lines, but it is not clocked
+  stall <= '1' when busy = '1' and valid = '1' and (opcode = STORE_INSTR or opcode = LOAD_INSTR) else '0';
+
+
+  --outputs, all of these assignments should happen on the rising edge,
+  -- they should only depend on latched signals
+  output_latch : process(clk)
+  begin
     if rising_edge(clk) then
-      fun3   := unsigned(instruction(14 downto 12));
-      opcode := unsigned(instruction(6 downto 0));
+      alignment    <= address_unaligned(1 downto 0);
+      latched_fun3 <= fun3;
+      if opcode = "0000011" and valid = '1' then
+        data_enable <= '1';
+      else
+        data_enable <= '0';
+      end if;
+    end if;
+  end process;
 
-      --default outputs
-      data_enable <= '0';
-      data_out    <= (others => 'X');
+  --sort the read data into to correct byte in the register
+  r0 <= read_data(31 downto 24) when ((BYTE_SIZE = latched_fun3 and alignment = "11") or
+                                      (UBYTE_SIZE = latched_fun3 and alignment = "11")) else
+        read_data(23 downto 16) when ((HALF_SIZE = latched_fun3 and alignment = "10")or
+                                      (UHALF_SIZE = latched_fun3 and alignment = "10") or
+                                      (BYTE_SIZE = latched_fun3 and alignment = "10")or
+                                      (UBYTE_SIZE = latched_fun3 and alignment = "10")) else
+        read_data(15 downto 8) when ((BYTE_SIZE = latched_fun3 and alignment = "01") or
+                                     (UBYTE_SIZE = latched_fun3 and alignment = "01")) else
+        read_data(7 downto 0);
 
-      --if data on inputs is not valid, don't do anything
-      if valid = '1' then
-        if opcode = "0100011" then      --store
-          imm := unsigned(sign_extension(REGISTER_SIZE-12-1 downto 0) &
-                          instruction(31 downto 25) & instruction(11 downto 7));
-          imm        := imm + unsigned(base);
-          store_data := unsigned(source);
-          case fun3 is
-            when BYTE_SIZE =>
-              memory(to_integer(imm)) <= store_data(7 downto 0);
-            when HALF_SIZE =>
-              memory(to_integer(imm))   <= store_data(7 downto 0);
-              memory(to_integer(imm)+1) <= store_data(15 downto 8);
-            when WORD_SIZE =>
-              memory(to_integer(imm))   <= store_data(7 downto 0);
-              memory(to_integer(imm)+1) <= store_data(15 downto 8);
-              memory(to_integer(imm)+2) <= store_data(23 downto 16);
-              memory(to_integer(imm)+3) <= store_data(31 downto 24);
-            when others => null;
-          end case;
+  r1 <= read_data(31 downto 24) when latched_fun3 = UHALF_SIZE and alignment(1) = '1' else
+        read_data(15 downto 8);
+  -- r2 <= read_data(23 downto 16);
+  -- r3 <= read_data(31 downto 24);
 
-        elsif opcode = "0000011" then   --load
+  --zero/sign extend the read data
+  with latched_fun3 select
+    data_out <=
+    std_logic_vector(resize(signed(r0), REGISTER_SIZE))      when BYTE_SIZE,
+    std_logic_vector(resize(signed(r1 & r0), REGISTER_SIZE)) when HALF_SIZE,
+    x"000000"&r0                                             when UBYTE_SIZE,
+    x"0000"&r1 & r0                                          when UHALF_SIZE,
+    read_data                                                when others;
 
-          imm := unsigned(sign_extension(REGISTER_SIZE-12-1 downto 0) &
-                          instruction(31 downto 20));
-          imm := imm + unsigned(base);
-          for i in 0 to 3 loop
-            byte                               := memory(to_integer(imm)+i);
-            data_out_int((i+1)*8-1 downto i*8) := byte;
-          end loop;  -- i
-          case fun3 is
-            when BYTE_SIZE =>
-              for i in 31 downto 8 loop
-                data_out_int(i) := data_out_int(7);
-              end loop;  -- i
-            when HALF_SIZE =>
-              for i in 31 downto 16 loop
-                data_out_int(i) := data_out_int(15);
-              end loop;  -- i
---          when WORD_SIZE => null;
-            when UBYTE_SIZE =>
-              for i in 31 downto 8 loop
-                data_out_int(i) := '0';
-              end loop;  -- i
-
-            when UHALF_SIZE =>
-              for i in 31 downto 16 loop
-                data_out_int(i) := '0';
-              end loop;  -- i
-
-            when others => null;
-          end case;
-          data_enable <= '1';
-          data_out    <= std_logic_vector(data_out_int);
-        end if;  --load/store
-
-      end if;  --data_valid
-
-    end if;  --clk
-
-
-  end process ls_proc;
 
 
 end architecture;

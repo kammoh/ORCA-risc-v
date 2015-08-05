@@ -2,6 +2,9 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.all;
 use IEEE.NUMERIC_STD.all;
 
+library riscv;
+use riscv.components.all;
+
 entity decode is
   generic(
     REGISTER_SIZE       : positive;
@@ -41,21 +44,6 @@ architecture behavioural of decode is
   alias rs2 : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0) is
     instruction(24 downto 20);
 
-  component register_file
-    generic(
-      REGISTER_SIZE      : positive;
-      REGISTER_NAME_SIZE : positive);
-    port(
-      clk              : in std_logic;
-      rs1_sel          : in std_logic_vector(REGISTER_NAME_SIZE -1 downto 0);
-      rs2_sel          : in std_logic_vector(REGISTER_NAME_SIZE -1 downto 0);
-      writeback_sel    : in std_logic_vector(REGISTER_NAME_SIZE -1 downto 0);
-      writeback_data   : in std_logic_vector(REGISTER_SIZE -1 downto 0);
-      writeback_enable : in std_logic;
-
-      rs1_data : out std_logic_vector(REGISTER_SIZE -1 downto 0);
-      rs2_data : out std_logic_vector(REGISTER_SIZE -1 downto 0));
-  end component;
 
 begin
   register_file_1 : component register_file

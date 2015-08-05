@@ -1,13 +1,18 @@
 library IEEE;
 use IEEE.STD_LOGIC_1164.all;
+use IEEE.NUMERIC_STD.all;
+library riscv;
+use riscv.components.all;
+use riscv.utils.all;
+
 entity riscV is
 
   generic (
     REGISTER_SIZE        : integer;
     INSTRUCTION_MEM_SIZE : integer;
     DATA_MEMORY_SIZE     : integer);
-  port(clk             : in std_logic;
-       reset           : in std_logic;
+  port(clk             : in  std_logic;
+       reset           : in  std_logic;
        program_counter : out std_logic_vector(REGISTER_SIZE-1 downto 0));
 
 end entity riscV;
@@ -17,80 +22,8 @@ architecture rtl of riscV is
   constant INSTRUCTION_SIZE    : integer := 32;
   constant SIGN_EXTENSION_SIZE : integer := 20;
 
-  component decode is
-    generic(
-      REGISTER_SIZE       : positive;
-      REGISTER_NAME_SIZE  : positive;
-      INSTRUCTION_SIZE    : positive;
-      SIGN_EXTENSION_SIZE : positive);
-    port(
-      clk         : in std_logic;
-      reset       : in std_logic;
-      instruction : in std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
-
-      --writeback signals
-      wb_sel    : in std_logic_vector(REGISTER_NAME_SIZE -1 downto 0);
-      wb_data   : in std_logic_vector(REGISTER_SIZE -1 downto 0);
-      wb_enable : in std_logic;
-
-      --output signals
-      rs1_data       : out std_logic_vector(REGISTER_SIZE -1 downto 0);
-      rs2_data       : out std_logic_vector(REGISTER_SIZE -1 downto 0);
-      sign_extension : out std_logic_vector(SIGN_EXTENSION_SIZE-1 downto 0);
-      --inputs just for carrying to next pipeline stage
-      pc_next_in     : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
-      pc_curr_in     : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
-      instr_in       : in  std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
-      pc_next_out    : out std_logic_vector(REGISTER_SIZE-1 downto 0);
-      pc_curr_out    : out std_logic_vector(REGISTER_SIZE-1 downto 0);
-      instr_out      : out std_logic_vector(INSTRUCTION_SIZE-1 downto 0));
-
-  end component;
-
-
-
-  component execute is
-    generic(
-      REGISTER_SIZE       : positive;
-      REGISTER_NAME_SIZE  : positive;
-      INSTRUCTION_SIZE    : positive;
-      SIGN_EXTENSION_SIZE : positive);
-    port(
-      clk   : in std_logic;
-      reset : in std_logic;
-
-      pc_next     : in std_logic_vector(REGISTER_SIZE-1 downto 0);
-      pc_current  : in std_logic_vector(REGISTER_SIZE-1 downto 0);
-      instruction : in std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
-
-      rs1_data       : in std_logic_vector(REGISTER_SIZE-1 downto 0);
-      rs2_data       : in std_logic_vector(REGISTER_SIZE-1 downto 0);
-      sign_extension : in std_logic_vector(SIGN_EXTENSION_SIZE-1 downto 0);
-
-      wb_sel  : inout std_logic_vector(REGISTER_NAME_SIZE-1 downto 0);
-      wb_data : inout std_logic_vector(REGISTER_SIZE-1 downto 0);
-      wb_en   : inout std_logic;
-
-      predict_corr    : out std_logic_vector(REGISTER_SIZE-1 downto 0);
-      predict_corr_en : out std_logic);
-  end component execute;
-
-  component instruction_fetch is
-    generic (
-      REGISTER_SIZE        : positive;
-      INSTRUCTION_SIZE     : positive;
-      INSTRUCTION_MEM_SIZE : positive);
-    port (
-      clk        : in std_logic;
-      reset      : in std_logic;
-      pc_corr    : in std_logic_vector(REGISTER_SIZE-1 downto 0);
-      pc_corr_en : in std_logic;
-
-      instr_out   : out std_logic_vector(REGISTER_SIZE-1 downto 0);
-      pc_out      : out std_logic_vector(REGISTER_SIZE-1 downto 0);
-      next_pc_out : out std_logic_vector(REGISTER_SIZE-1 downto 0));
-
-  end component instruction_fetch;
+  --address is in words, so subtract 2
+  constant DATA_ADDR_WIDTH : integer := log2(DATA_MEMORY_SIZE)-2;
 
   --signals going int fetch
   signal pc_corr_en : std_logic;
@@ -114,6 +47,16 @@ architecture rtl of riscV is
   signal sign_extension : std_logic_vector(REGISTER_SIZE-12-1 downto 0);
 
   signal pipeline_flush : std_logic;
+
+  signal data_address    : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal data_byte_en    : std_logic_vector(REGISTER_SIZE/8 -1 downto 0);
+  signal data_write_en   : std_logic;
+  signal data_read_en    : std_logic;
+  signal data_write_data : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal data_read_data  : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal data_busy       : std_logic;
+
+  signal data_address_int : integer range 0 to 2 ** DATA_ADDR_WIDTH -1;
 begin  -- architecture rtl
   pipeline_flush <= reset or pc_corr_en;
   instr_fetch : component instruction_fetch
@@ -175,7 +118,33 @@ begin  -- architecture rtl
       wb_data         => wb_data,
       wb_en           => wb_en,
       predict_corr    => pc_corr,
-      predict_corr_en => pc_corr_en);
+      predict_corr_en => pc_corr_en,
+      address         => data_address,
+      byte_en         => data_byte_en,
+      write_en        => data_write_en,
+      read_en         => data_read_en,
+      write_data      => data_write_data,
+      read_data       => data_read_data,
+      busy            => data_busy);
 
-  program_counter <= d_pc;
+  --should always be available right away
+  data_busy <= '0';
+  --NB there is some logic below that accounts for changing
+  --addresses from byte addresses to word addresses
+  data_address_int <= to_integer(unsigned(data_address(DATA_ADDR_WIDTH+2-1 downto 2)));
+  data_memory : component byte_enabled_simple_dual_port_ram
+    generic map (
+      ADDR_WIDTH => DATA_ADDR_WIDTH,
+      BYTE_WIDTH => 8,
+      BYTES      => REGISTER_SIZE/8)
+    port map (
+      clk   => clk,
+      we    => data_write_en,
+      be    => data_byte_en,
+      wdata => data_write_data,
+      waddr => data_address_int,
+      raddr => data_address_int,
+      q     => data_read_data);
+
+    program_counter <= d_pc;
 end architecture rtl;

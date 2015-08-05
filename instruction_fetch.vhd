@@ -2,8 +2,9 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.all;
 use IEEE.NUMERIC_STD.all;
 
-library work;
-use work.instructions.all;
+library riscv;
+use riscv.instructions.all;
+use riscv.components.all;
 
 entity instruction_fetch is
   generic (
@@ -23,17 +24,6 @@ entity instruction_fetch is
 end entity instruction_fetch;
 
 architecture rtl of instruction_fetch is
-  component pc_incr is
-
-    generic (
-      REGISTER_SIZE    : positive;
-      INSTRUCTION_SIZE : positive);
-    port (
-      pc      : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
-      instr   : in  std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
-      next_pc : out std_logic_vector(REGISTER_SIZE-1 downto 0));
-
-  end component pc_incr;
 
   signal program_counter : std_logic_vector(REGISTER_SIZE -1 downto 0);
 
@@ -57,7 +47,7 @@ architecture rtl of instruction_fetch is
     ADDI(1, 1, 1),                      --       0x34
     BNE(2, 0, -16),                     --       0x38
     NOP(0),
-    BEQ(0,0,-4),                         --infinite loop
+    JAL(0,0),                         --infinite loop
     others => NOP(0));
 
   signal instr : std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
