@@ -68,7 +68,7 @@ begin	 -- architecture rtl
 
 		case func is
 		  when ADD_OP =>
-			 if sub = '1' then
+			 if subtract = '1' then
 				data_result := data1 - data2;
 			 else
 				data_result := data1 + data2;

@@ -19,7 +19,8 @@ package instructions is
     return std_logic_vector;
   function BNE (src1, src2, offset : integer)
     return std_logic_vector;
-
+  function NOP(nul : integer)
+    return std_logic_vector;
 end instructions;
 package body instructions is
 
@@ -77,5 +78,11 @@ package body instructions is
     return std_logic_vector is
   begin
     return BRANCH(src1, src2, offset, "001");
+  end;
+
+  function NOP(nul : integer)
+    return std_logic_vector is
+  begin
+    return ADDI(0, 0, 0);
   end;
 end instructions;

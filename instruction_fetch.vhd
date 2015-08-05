@@ -56,7 +56,9 @@ architecture rtl of instruction_fetch is
     SB(3, 1, 10),                       --       0x30
     ADDI(1, 1, 1),                      --       0x34
     BNE(2, 0, -16),                     --       0x38
-    others => ADDI(0, 0, 0));
+    NOP(0),
+    BEQ(0,0,-4),                         --infinite loop
+    others => NOP(0));
 
   signal instr : std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
 
