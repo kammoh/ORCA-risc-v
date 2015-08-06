@@ -77,7 +77,8 @@ architecture rtl of memory_system is
     little_endian(SB(3, 1, 10)),        --    0x34   ptr[10]=C
     little_endian(ADDI(1, 1, 1)),       --    0x38   ptr++
     little_endian(BNE(2, 0, -16)),      --    0x3C }while(c!= 0)
-    little_endian(JAL(0, 0)),           --    0x40 infinite loop
+    little_endian(LW(1,0,0)),           --    0x40 load from instruction memory
+    little_endian(JAL(0, 0)),           --    0x44 infinite loop
     others => little_endian(NOP(0)));
 
   signal instr_local : word_t;
