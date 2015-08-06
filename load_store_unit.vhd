@@ -1,7 +1,7 @@
 library ieee;
 use ieee.std_logic_1164.all;
 use IEEE.NUMERIC_STD.all;
-library riscv;
+library work;
 
 
 entity load_store_unit is
@@ -102,8 +102,8 @@ begin
 
   --little endian
   write_data <= w0 & w1 & w2 & w3;
-                --align to word boundary
-  address <= address_unaligned(REGISTER_SIZE-1 downto 2) & "00";
+  --align to word boundary
+  address    <= address_unaligned(REGISTER_SIZE-1 downto 2) & "00";
 
   --combinatorial output. busy depends on memory input lines, but it is not clocked
   stall <= '1' when busy = '1' and valid = '1' and (opcode = STORE_INSTR or opcode = LOAD_INSTR) else '0';
@@ -125,20 +125,13 @@ begin
   end process;
 
   --sort the read data into to correct byte in the register
-  r0 <= read_data(31 downto 24) when ((BYTE_SIZE = latched_fun3 and alignment = "11") or
-                                      (UBYTE_SIZE = latched_fun3 and alignment = "11")) else
-        read_data(23 downto 16) when ((HALF_SIZE = latched_fun3 and alignment = "10")or
-                                      (UHALF_SIZE = latched_fun3 and alignment = "10") or
-                                      (BYTE_SIZE = latched_fun3 and alignment = "10")or
-                                      (UBYTE_SIZE = latched_fun3 and alignment = "10")) else
-        read_data(15 downto 8) when ((BYTE_SIZE = latched_fun3 and alignment = "01") or
-                                     (UBYTE_SIZE = latched_fun3 and alignment = "01")) else
+  r0 <= read_data(31 downto 24) when alignment= "00" else
+        read_data(23 downto 16) when alignment= "01" else
+        read_data(15 downto 8) when alignment = "10" else
+        read_data(7 downto 0);
+  r1 <= read_data(23 downto 16) when alignment = "00" else
         read_data(7 downto 0);
 
-  r1 <= read_data(31 downto 24) when latched_fun3 = UHALF_SIZE and alignment(1) = '1' else
-        read_data(15 downto 8);
-  -- r2 <= read_data(23 downto 16);
-  -- r3 <= read_data(31 downto 24);
 
   --zero/sign extend the read data
   with latched_fun3 select

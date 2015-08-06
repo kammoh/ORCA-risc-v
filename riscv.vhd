@@ -1,9 +1,9 @@
 library IEEE;
 use IEEE.STD_LOGIC_1164.all;
 use IEEE.NUMERIC_STD.all;
-library riscv;
-use riscv.components.all;
-use riscv.utils.all;
+library work;
+use work.components.all;
+use work.utils.all;
 
 entity riscV is
 
@@ -25,7 +25,11 @@ architecture rtl of riscV is
   --address is in words, so subtract 2
   constant DATA_ADDR_WIDTH : integer := log2(DATA_MEMORY_SIZE)-2;
 
+  --address is in words, so subtract 2
+  constant INSTR_ADDR_WIDTH : integer := log2(INSTRUCTION_MEM_SIZE)-2;
+
   --signals going int fetch
+
   signal pc_corr_en : std_logic;
   signal pc_corr    : std_logic_vector(REGISTER_SIZE-1 downto 0);
 
@@ -48,6 +52,7 @@ architecture rtl of riscV is
 
   signal pipeline_flush : std_logic;
 
+
   signal data_address    : std_logic_vector(REGISTER_SIZE-1 downto 0);
   signal data_byte_en    : std_logic_vector(REGISTER_SIZE/8 -1 downto 0);
   signal data_write_en   : std_logic;
@@ -56,14 +61,20 @@ architecture rtl of riscV is
   signal data_read_data  : std_logic_vector(REGISTER_SIZE-1 downto 0);
   signal data_busy       : std_logic;
 
-  signal data_address_int : integer range 0 to 2 ** DATA_ADDR_WIDTH -1;
+  signal data_address_word  : integer range 0 to 2 ** DATA_ADDR_WIDTH -1;
+  signal instr_address      : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal instr_address_word : integer range 0 to 2 ** DATA_ADDR_WIDTH -1;
+  signal instr_mem_busy     : std_logic;
+  signal instr_data         : std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
+
 begin  -- architecture rtl
   pipeline_flush <= reset or pc_corr_en;
+
+
   instr_fetch : component instruction_fetch
     generic map (
-      REGISTER_SIZE        => REGISTER_SIZE,
-      INSTRUCTION_SIZE     => INSTRUCTION_SIZE,
-      INSTRUCTION_MEM_SIZE => INSTRUCTION_MEM_SIZE)
+      REGISTER_SIZE    => REGISTER_SIZE,
+      INSTRUCTION_SIZE => INSTRUCTION_SIZE)
     port map (
       clk        => clk,
       reset      => reset,
@@ -72,7 +83,11 @@ begin  -- architecture rtl
 
       instr_out   => d_instr,
       pc_out      => d_pc,
-      next_pc_out => d_next_pc);
+      next_pc_out => d_next_pc,
+
+      instr_address => instr_address,
+      instr_in      => instr_data,
+      instr_busy    => instr_mem_busy);
 
   D : component decode
     generic map(
@@ -127,24 +142,23 @@ begin  -- architecture rtl
       read_data       => data_read_data,
       busy            => data_busy);
 
-  --should always be available right away
-  data_busy <= '0';
-  --NB there is some logic below that accounts for changing
-  --addresses from byte addresses to word addresses
-  data_address_int <= to_integer(unsigned(data_address(DATA_ADDR_WIDTH+2-1 downto 2)));
-  data_memory : component byte_enabled_simple_dual_port_ram
-    generic map (
-      ADDR_WIDTH => DATA_ADDR_WIDTH,
-      BYTE_WIDTH => 8,
-      BYTES      => REGISTER_SIZE/8)
-    port map (
-      clk   => clk,
-      we    => data_write_en,
-      be    => data_byte_en,
-      wdata => data_write_data,
-      waddr => data_address_int,
-      raddr => data_address_int,
-      q     => data_read_data);
 
-    program_counter <= d_pc;
+  MEM : component memory_system
+    generic map (
+      REGISTER_SIZE => REGISTER_SIZE)
+    port map (
+      clk        => clk,
+      instr_addr => instr_address,
+      data_addr  => data_address,
+      data_we    => data_write_en,
+      data_be    => data_byte_en,
+      data_wdata => data_write_data,
+      data_rdata => data_read_data,
+      instr_data => instr_data);
+
+  --should always be available right away
+  data_busy         <= '0';
+  data_address_word <= to_integer(unsigned(data_address(DATA_ADDR_WIDTH+2-1 downto 2)));
+
+  program_counter <= d_pc;
 end architecture rtl;

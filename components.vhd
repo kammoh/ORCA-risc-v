@@ -1,7 +1,7 @@
 library IEEE;
 use IEEE.STD_LOGIC_1164.all;
 use IEEE.NUMERIC_STD.all;
-library riscv;
+library work;
 
 package components is
 
@@ -71,9 +71,8 @@ package components is
 
   component instruction_fetch is
     generic (
-      REGISTER_SIZE        : positive;
-      INSTRUCTION_SIZE     : positive;
-      INSTRUCTION_MEM_SIZE : positive);
+      REGISTER_SIZE    : positive;
+      INSTRUCTION_SIZE : positive);
     port (
       clk        : in std_logic;
       reset      : in std_logic;
@@ -82,7 +81,11 @@ package components is
 
       instr_out   : out std_logic_vector(REGISTER_SIZE-1 downto 0);
       pc_out      : out std_logic_vector(REGISTER_SIZE-1 downto 0);
-      next_pc_out : out std_logic_vector(REGISTER_SIZE-1 downto 0));
+      next_pc_out : out std_logic_vector(REGISTER_SIZE-1 downto 0);
+
+      instr_address : out std_logic_vector(REGISTER_SIZE-1 downto 0);
+      instr_in      : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
+      instr_busy    : in  std_logic);
   end component instruction_fetch;
 
   component arithmetic_unit is
@@ -146,36 +149,56 @@ package components is
       busy           : in  std_logic);
   end component load_store_unit;
 
-  component byte_enabled_simple_dual_port_ram is
+  component true_dual_port_ram_single_clock is
     generic (
-      ADDR_WIDTH : natural := 6;
-      BYTE_WIDTH : natural := 8;
-      BYTES      : natural := 4);
+      DATA_WIDTH : natural := 8;
+      ADDR_WIDTH : natural := 6
+      );
     port (
-      we, clk : in  std_logic;
-      be      : in  std_logic_vector (BYTES - 1 downto 0);
-      wdata   : in  std_logic_vector(BYTE_WIDTH*BYTES - 1 downto 0);
-      waddr   : in  integer range 0 to 2 ** ADDR_WIDTH -1;
-      raddr   : in  integer range 0 to 2 ** ADDR_WIDTH - 1;
-      q       : out std_logic_vector(BYTES*BYTE_WIDTH-1 downto 0));
-  end component byte_enabled_simple_dual_port_ram;
+      clk    : in  std_logic;
+      addr_a : in  natural range 0 to 2**ADDR_WIDTH - 1;
+      addr_b : in  natural range 0 to 2**ADDR_WIDTH - 1;
+      data_a : in  std_logic_vector((DATA_WIDTH-1) downto 0);
+      data_b : in  std_logic_vector((DATA_WIDTH-1) downto 0);
+      we_a   : in  std_logic := '1';
+      we_b   : in  std_logic := '1';
+      q_a    : out std_logic_vector((DATA_WIDTH -1) downto 0);
+      q_b    : out std_logic_vector((DATA_WIDTH -1) downto 0)
+      );
+  end component true_dual_port_ram_single_clock;
+
 
   component byte_enabled_true_dual_port_ram is
     generic (
-      ADDR_WIDTH : natural := 8;
-      BYTE_WIDTH : natural := 8;
-      BYTES      : natural := 4);
+      BYTES      : natural := 4;
+      ADDR_WIDTH : natural);
     port (
-      we1, we2, clk : in  std_logic;
-      be1           : in  std_logic_vector (BYTES - 1 downto 0);
-      be2           : in  std_logic_vector (BYTES - 1 downto 0);
-      data_in1      : in  std_logic_vector(BYTES*BYTE_WIDTH - 1 downto 0);
-      data_in2      : in  std_logic_vector(BYTES*BYTE_WIDTH - 1 downto 0);
-      addr1         : in  integer range 0 to 2 ** ADDR_WIDTH -1;
-      addr2         : in  integer range 0 to 2 ** ADDR_WIDTH - 1;
-      data_out1     : out std_logic_vector(BYTES*BYTE_WIDTH-1 downto 0);
-      data_out2     : out std_logic_vector(BYTES*BYTE_WIDTH-1 downto 0));
+      clk    : in  std_logic;
+      addr1  : in  natural range 0 to ADDR_WIDTH-1;
+      addr2  : in  natural range 0 to ADDR_WIDTH-1;
+      wdata1 : in  std_logic_vector(BYTES*8-1 downto 0);
+      wdata2 : in  std_logic_vector(BYTES*8-1 downto 0);
+      we1    : in  std_logic;
+      be1    : in  std_logic_vector(BYTES-1 downto 0);
+      we2    : in  std_logic;
+      be2    : in  std_logic_vector(BYTES-1 downto 0);
+      rdata1 : out std_logic_vector(BYTES*8-1 downto 0);
+      rdata2 : out std_logic_vector(BYTES*8-1 downto 0));
   end component byte_enabled_true_dual_port_ram;
+
+  component memory_system is
+    generic (
+      REGISTER_SIZE : natural);
+    port (
+      clk        : in  std_logic;
+      instr_addr : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
+      data_addr  : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
+      data_we    : in  std_logic;
+      data_be    : in  std_logic_vector(REGISTER_SIZE/8-1 downto 0);
+      data_wdata : in  std_logic_vector(REGISTER_SIZE - 1 downto 0);
+      data_rdata : out std_logic_vector(REGISTER_SIZE-1 downto 0);
+      instr_data : out std_logic_vector(REGISTER_SIZE-1 downto 0));
+  end component memory_system;
 
   component register_file
     generic(
@@ -192,6 +215,7 @@ package components is
       rs1_data : out std_logic_vector(REGISTER_SIZE -1 downto 0);
       rs2_data : out std_logic_vector(REGISTER_SIZE -1 downto 0));
   end component register_file;
+
   component pc_incr is
     generic (
       REGISTER_SIZE    : positive;

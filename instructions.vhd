@@ -1,7 +1,7 @@
 library IEEE;
 use IEEE.STD_LOGIC_1164.all;
 use IEEE.NUMERIC_STD.all;
-library riscv;
+library work;
 
 package instructions is
   function ARITH_INSTR (immediate, rs1, rd : integer; func : std_logic_vector(2 downto 0))
@@ -35,6 +35,9 @@ package instructions is
   function BNE (src1, src2, offset : integer)
     return std_logic_vector;
   function JAL(dst, offset : integer)
+    return std_logic_vector;
+
+  function LUI (dst, imm : integer)
     return std_logic_vector;
 
   function NOP(nul : integer)
@@ -89,31 +92,31 @@ package body instructions is
     return std_logic_vector is
     variable imm : signed(11 downto 0);
   begin
-    return std_logic_vector(to_signed(offset,12) & to_signed(base, 5)&"000"&to_signed(dest,5)&"0000011");
+    return std_logic_vector(to_signed(offset, 12) & to_signed(base, 5)&"000"&to_signed(dest, 5)&"0000011");
   end;
   function LH (dest, base, offset : integer)
     return std_logic_vector is
     variable imm : signed(11 downto 0);
   begin
-    return std_logic_vector(to_signed(offset,12) & to_signed(base, 5)&"001"&to_signed(dest,5)&"0000011");
+    return std_logic_vector(to_signed(offset, 12) & to_signed(base, 5)&"001"&to_signed(dest, 5)&"0000011");
   end;
   function LW (dest, base, offset : integer)
     return std_logic_vector is
     variable imm : signed(11 downto 0);
   begin
-    return std_logic_vector(to_signed(offset,12) & to_signed(base, 5)&"010"&to_signed(dest,5)&"0000011");
+    return std_logic_vector(to_signed(offset, 12) & to_signed(base, 5)&"010"&to_signed(dest, 5)&"0000011");
   end;
   function LBU (dest, base, offset : integer)
     return std_logic_vector is
     variable imm : signed(11 downto 0);
   begin
-    return std_logic_vector(to_signed(offset,12) & to_signed(base, 5)&"100"&to_signed(dest,5)&"0000011");
+    return std_logic_vector(to_signed(offset, 12) & to_signed(base, 5)&"100"&to_signed(dest, 5)&"0000011");
   end;
   function LHU (dest, base, offset : integer)
     return std_logic_vector is
     variable imm : signed(11 downto 0);
   begin
-    return std_logic_vector(to_signed(offset,12) & to_signed(base, 5)&"101"&to_signed(dest,5)&"0000011");
+    return std_logic_vector(to_signed(offset, 12) & to_signed(base, 5)&"101"&to_signed(dest, 5)&"0000011");
   end;
   --branch instructions
   function BRANCH (src1, src2, offset : integer;
@@ -141,6 +144,14 @@ package body instructions is
     return std_logic_vector is
   begin
     return std_logic_vector(to_signed(offset, 20) & to_signed(dst, 5)&"1101111");
+  end;
+
+  function LUI (dst, imm : integer)
+    return std_logic_vector is
+    variable i : signed(31 downto 0);
+  begin
+    i := to_signed(imm, 32);
+    return std_logic_vector(i(31 downto 12) & to_signed(dst, 5) & "0110111");
   end;
 --alias for addi x0 x0 0
   function NOP(nul : integer)

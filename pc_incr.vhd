@@ -28,14 +28,16 @@ begin  -- architecture pc_insr
     constant BRANCH_OP      : std_logic_vector(6 downto 0)           := "1100011";
     constant JAL_OP         : std_logic_vector(6 downto 0)           := "1101111";
 
+    variable opcode : std_logic_vector(6 downto 0);
+
     variable imm_val    : signed(REGISTER_SIZE-1 downto 0);  --ammount to add
     variable current_pc : signed(REGISTER_SIZE-1 downto 0);
   begin  -- process pc_incr_proc
-
+    opcode     := instr(6 downto 0);
     current_pc := signed(pc);
 
     --if backward direction branch, predict taken, othrewise just increment pc
-    case instr(6 downto 0) is
+    case opcode is
       when BRANCH_OP =>
         if instr(31) = '1' then         -- backward_branch
           imm_val := SIGN_EXTENSION &

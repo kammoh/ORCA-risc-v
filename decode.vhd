@@ -2,8 +2,8 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.all;
 use IEEE.NUMERIC_STD.all;
 
-library riscv;
-use riscv.components.all;
+library work;
+use work.components.all;
 
 entity decode is
   generic(

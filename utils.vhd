@@ -6,7 +6,6 @@ package utils is
   function log2 (
     i : natural)
     return integer;
-
 end utils;
 package body utils is
 function log2( i : natural) return integer is
