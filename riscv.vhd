@@ -61,10 +61,8 @@ architecture rtl of riscV is
   signal data_read_data  : std_logic_vector(REGISTER_SIZE-1 downto 0);
   signal data_busy       : std_logic;
 
-  signal data_address_word  : integer range 0 to 2 ** DATA_ADDR_WIDTH -1;
   signal instr_address      : std_logic_vector(REGISTER_SIZE-1 downto 0);
   signal instr_address_word : integer range 0 to 2 ** DATA_ADDR_WIDTH -1;
-  signal instr_mem_busy     : std_logic;
   signal instr_data         : std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
 
 begin  -- architecture rtl
@@ -87,7 +85,7 @@ begin  -- architecture rtl
 
       instr_address => instr_address,
       instr_in      => instr_data,
-      instr_busy    => instr_mem_busy);
+      instr_busy    => '0');
 
   D : component decode
     generic map(
@@ -158,7 +156,5 @@ begin  -- architecture rtl
 
   --should always be available right away
   data_busy         <= '0';
-  data_address_word <= to_integer(unsigned(data_address(DATA_ADDR_WIDTH+2-1 downto 2)));
-
   program_counter <= d_pc;
 end architecture rtl;

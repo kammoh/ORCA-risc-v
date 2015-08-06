@@ -174,8 +174,8 @@ package components is
       ADDR_WIDTH : natural);
     port (
       clk    : in  std_logic;
-      addr1  : in  natural range 0 to ADDR_WIDTH-1;
-      addr2  : in  natural range 0 to ADDR_WIDTH-1;
+      addr1  : in  natural range 0 to 2**ADDR_WIDTH-1;
+      addr2  : in  natural range 0 to 2**ADDR_WIDTH-1;
       wdata1 : in  std_logic_vector(BYTES*8-1 downto 0);
       wdata2 : in  std_logic_vector(BYTES*8-1 downto 0);
       we1    : in  std_logic;

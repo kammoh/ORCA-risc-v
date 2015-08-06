@@ -48,8 +48,6 @@ architecture rtl of true_dual_port_ram_single_clock is
   shared variable ram : memory_t;
 
 begin
-
-
   -- Port A
   process(clk)
   begin
@@ -80,11 +78,9 @@ use work.components.all;
 
 
 entity byte_enabled_true_dual_port_ram is
-
   generic (
     BYTES      : natural := 4;
     ADDR_WIDTH : natural);
-
   port (
     clk    : in  std_logic;
     addr1  : in  natural range 0 to 2**ADDR_WIDTH-1;
