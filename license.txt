@@ -1,4 +1,6 @@
-/* RISC-V by Vectorblox
+/**
+ *
+ * RISC-V by Vectorblox
  *
  * Copyright (C) 2012-2015 VectorBlox Computing Inc., Vancouver, British Columbia, Canada.
  * All rights reserved.
