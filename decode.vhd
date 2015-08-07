@@ -15,11 +15,11 @@ entity decode is
     clk         : in std_logic;
     reset       : in std_logic;
     instruction : in std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
-
+    valid_input : in std_logic;
     --writeback signals
-    wb_sel    : in std_logic_vector(REGISTER_NAME_SIZE -1 downto 0);
-    wb_data   : in std_logic_vector(REGISTER_SIZE -1 downto 0);
-    wb_enable : in std_logic;
+    wb_sel      : in std_logic_vector(REGISTER_NAME_SIZE -1 downto 0);
+    wb_data     : in std_logic_vector(REGISTER_SIZE -1 downto 0);
+    wb_enable   : in std_logic;
 
     --output signals
     rs1_data       : out std_logic_vector(REGISTER_SIZE -1 downto 0);
@@ -31,7 +31,9 @@ entity decode is
     instr_in       : in  std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
     pc_next_out    : out std_logic_vector(REGISTER_SIZE-1 downto 0);
     pc_curr_out    : out std_logic_vector(REGISTER_SIZE-1 downto 0);
-    instr_out      : out std_logic_vector(INSTRUCTION_SIZE-1 downto 0));
+    instr_out      : out std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
+    valid_output   : out std_logic);
+
 
 end;
 
@@ -69,15 +71,15 @@ begin
         pc_next_out    <= (others => '0');
         pc_curr_out    <= (others => '0');
         instr_out      <= (others => '0');
-
+        valid_output   <= '0';
       else
         sign_extension <= std_logic_vector(
           resize(signed(instruction(INSTRUCTION_SIZE-1 downto INSTRUCTION_SIZE-1)),
                  SIGN_EXTENSION_SIZE));
-        pc_next_out <= PC_next_in;
-        pc_curr_out <= PC_curr_in;
-        instr_out   <= instruction;
-
+        pc_next_out  <= PC_next_in;
+        pc_curr_out  <= PC_curr_in;
+        instr_out    <= instruction;
+        valid_output <= valid_input;
       end if;
     end if;
   end process decode_stage;

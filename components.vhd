@@ -15,58 +15,60 @@ package components is
       clk         : in std_logic;
       reset       : in std_logic;
       instruction : in std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
-
+      valid_input : in std_logic;
       --writeback signals
-      wb_sel    : in std_logic_vector(REGISTER_NAME_SIZE -1 downto 0);
-      wb_data   : in std_logic_vector(REGISTER_SIZE -1 downto 0);
-      wb_enable : in std_logic;
+      wb_sel      : in std_logic_vector(REGISTER_NAME_SIZE -1 downto 0);
+      wb_data     : in std_logic_vector(REGISTER_SIZE -1 downto 0);
+      wb_enable   : in std_logic;
 
       --output signals
       rs1_data       : out std_logic_vector(REGISTER_SIZE -1 downto 0);
       rs2_data       : out std_logic_vector(REGISTER_SIZE -1 downto 0);
-      sign_extension : out std_logic_vector(SIGN_EXTENSION_SIZE-1 downto 0);
+      sign_extension : out std_logic_vector(SIGN_EXTENSION_SIZE -1 downto 0);
       --inputs just for carrying to next pipeline stage
       pc_next_in     : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
       pc_curr_in     : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
       instr_in       : in  std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
       pc_next_out    : out std_logic_vector(REGISTER_SIZE-1 downto 0);
       pc_curr_out    : out std_logic_vector(REGISTER_SIZE-1 downto 0);
-      instr_out      : out std_logic_vector(INSTRUCTION_SIZE-1 downto 0));
+      instr_out      : out std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
+      valid_output   : out std_logic);
   end component decode;
 
   component execute is
-    generic(
-      REGISTER_SIZE       : positive;
-      REGISTER_NAME_SIZE  : positive;
-      INSTRUCTION_SIZE    : positive;
-      SIGN_EXTENSION_SIZE : positive);
-    port(
-      clk   : in std_logic;
-      reset : in std_logic;
+      generic(
+    REGISTER_SIZE       : positive;
+    REGISTER_NAME_SIZE  : positive;
+    INSTRUCTION_SIZE    : positive;
+    SIGN_EXTENSION_SIZE : positive);
+  port(
+    clk         : in std_logic;
+    reset       : in std_logic;
+    valid_input : in std_logic;
 
-      pc_next     : in std_logic_vector(REGISTER_SIZE-1 downto 0);
-      pc_current  : in std_logic_vector(REGISTER_SIZE-1 downto 0);
-      instruction : in std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
+    pc_next     : in std_logic_vector(REGISTER_SIZE-1 downto 0);
+    pc_current  : in std_logic_vector(REGISTER_SIZE-1 downto 0);
+    instruction : in std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
 
-      rs1_data       : in std_logic_vector(REGISTER_SIZE-1 downto 0);
-      rs2_data       : in std_logic_vector(REGISTER_SIZE-1 downto 0);
-      sign_extension : in std_logic_vector(SIGN_EXTENSION_SIZE-1 downto 0);
+    rs1_data       : in std_logic_vector(REGISTER_SIZE-1 downto 0);
+    rs2_data       : in std_logic_vector(REGISTER_SIZE-1 downto 0);
+    sign_extension : in std_logic_vector(SIGN_EXTENSION_SIZE-1 downto 0);
 
-      wb_sel  : inout std_logic_vector(REGISTER_NAME_SIZE-1 downto 0);
-      wb_data : inout std_logic_vector(REGISTER_SIZE-1 downto 0);
-      wb_en   : inout std_logic;
+    wb_sel  : inout std_logic_vector(REGISTER_NAME_SIZE-1 downto 0);
+    wb_data : inout std_logic_vector(REGISTER_SIZE-1 downto 0);
+    wb_en   : inout std_logic;
 
-      predict_corr    : out std_logic_vector(REGISTER_SIZE-1 downto 0);
-      predict_corr_en : out std_logic;
+    predict_corr    : out std_logic_vector(REGISTER_SIZE-1 downto 0);
+    predict_corr_en : out std_logic;
 
 --memory-bus
-      address    : out std_logic_vector(REGISTER_SIZE-1 downto 0);
-      byte_en    : out std_logic_vector(REGISTER_SIZE/8 -1 downto 0);
-      write_en   : out std_logic;
-      read_en    : out std_logic;
-      write_data : out std_logic_vector(REGISTER_SIZE-1 downto 0);
-      read_data  : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
-      busy       : in  std_logic);
+    address    : out std_logic_vector(REGISTER_SIZE-1 downto 0);
+    byte_en    : out std_logic_vector(REGISTER_SIZE/8 -1 downto 0);
+    write_en   : out std_logic;
+    read_en    : out std_logic;
+    write_data : out std_logic_vector(REGISTER_SIZE-1 downto 0);
+    read_data  : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
+    busy       : in  std_logic);
   end component execute;
 
   component instruction_fetch is
@@ -79,9 +81,10 @@ package components is
       pc_corr    : in std_logic_vector(REGISTER_SIZE-1 downto 0);
       pc_corr_en : in std_logic;
 
-      instr_out   : out std_logic_vector(REGISTER_SIZE-1 downto 0);
-      pc_out      : out std_logic_vector(REGISTER_SIZE-1 downto 0);
-      next_pc_out : out std_logic_vector(REGISTER_SIZE-1 downto 0);
+      instr_out       : out std_logic_vector(REGISTER_SIZE-1 downto 0);
+      pc_out          : out std_logic_vector(REGISTER_SIZE-1 downto 0);
+      next_pc_out     : out std_logic_vector(REGISTER_SIZE-1 downto 0);
+      valid_instr_out : out std_logic;
 
       instr_address : out std_logic_vector(REGISTER_SIZE-1 downto 0);
       instr_in      : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
@@ -186,18 +189,50 @@ package components is
       rdata2 : out std_logic_vector(BYTES*8-1 downto 0));
   end component byte_enabled_true_dual_port_ram;
 
+  component single_port_rom is
+    generic (
+      DATA_WIDTH : natural := 8;
+      ADDR_WIDTH : natural := 8
+      );
+    port (
+      clk  : in  std_logic;
+      addr : in  natural range 0 to 2**ADDR_WIDTH - 1;
+      q    : out std_logic_vector((DATA_WIDTH -1) downto 0)
+      );
+  end component single_port_rom;
+
+  component dual_port_rom is
+    generic (
+      DATA_WIDTH : natural := 8;
+      ADDR_WIDTH : natural := 8
+      );
+    port (
+      clk    : in  std_logic;
+      addr_a : in  natural range 0 to 2**ADDR_WIDTH - 1;
+      addr_b : in  natural range 0 to 2**ADDR_WIDTH - 1;
+      q_a    : out std_logic_vector((DATA_WIDTH -1) downto 0);
+      q_b    : out std_logic_vector((DATA_WIDTH -1) downto 0)
+      );
+  end component dual_port_rom;
+
   component memory_system is
     generic (
-      REGISTER_SIZE : natural);
+      REGISTER_SIZE     : natural;
+      DUAL_PORTED_INSTR : boolean := true);
     port (
-      clk        : in  std_logic;
-      instr_addr : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
-      data_addr  : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
-      data_we    : in  std_logic;
-      data_be    : in  std_logic_vector(REGISTER_SIZE/8-1 downto 0);
-      data_wdata : in  std_logic_vector(REGISTER_SIZE - 1 downto 0);
-      data_rdata : out std_logic_vector(REGISTER_SIZE-1 downto 0);
-      instr_data : out std_logic_vector(REGISTER_SIZE-1 downto 0));
+      clk             : in  std_logic;
+      instr_addr      : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
+      data_addr       : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
+      data_we         : in  std_logic;
+      data_be         : in  std_logic_vector(REGISTER_SIZE/8-1 downto 0);
+      data_wdata      : in  std_logic_vector(REGISTER_SIZE - 1 downto 0);
+      data_read_en    : in  std_logic;
+      instr_read_en   : in  std_logic;
+      data_rdata      : out std_logic_vector(REGISTER_SIZE-1 downto 0);
+      instr_data      : out std_logic_vector(REGISTER_SIZE-1 downto 0);
+      instr_read_busy : out std_logic;
+      data_read_busy  : out std_logic);
+
   end component memory_system;
 
   component register_file

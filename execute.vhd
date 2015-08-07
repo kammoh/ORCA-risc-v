@@ -12,8 +12,9 @@ entity execute is
     INSTRUCTION_SIZE    : positive;
     SIGN_EXTENSION_SIZE : positive);
   port(
-    clk   : in std_logic;
-    reset : in std_logic;
+    clk         : in std_logic;
+    reset       : in std_logic;
+    valid_input : in std_logic;
 
     pc_next     : in std_logic_vector(REGISTER_SIZE-1 downto 0);
     pc_current  : in std_logic_vector(REGISTER_SIZE-1 downto 0);
@@ -74,8 +75,9 @@ architecture behavioural of execute is
   signal rs1_data_fwd : std_logic_vector(REGISTER_SIZE-1 downto 0);
   signal rs2_data_fwd : std_logic_vector(REGISTER_SIZE-1 downto 0);
 
-  signal nreset          : std_logic;
-  signal ls_unit_stalled : std_logic;
+  signal ls_valid            : std_logic;
+  signal ls_unit_stalled     : std_logic;
+  signal valid_input_latched : std_logic;
 
   constant ZERO : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0) := (others => '0');
 
@@ -85,7 +87,8 @@ begin
 
   rs1_data_fwd <= wb_data when wb_sel = rs1 and wb_en = '1'and wb_sel /= ZERO else rs1_data;
   rs2_data_fwd <= wb_data when wb_sel = rs2 and wb_en = '1'and wb_sel /= ZERO else rs2_data;
-  nreset       <= not reset;
+
+  ls_valid <= valid_input and not reset;
   alu : component arithmetic_unit
     generic map (
       INSTRUCTION_SIZE    => INSTRUCTION_SIZE,
@@ -127,7 +130,7 @@ begin
       INSTRUCTION_SIZE    => INSTRUCTION_SIZE)
     port map(
       clk            => clk,
-      valid          => nreset,
+      valid          => ls_valid,
       rs1_data       => rs1_data_fwd,
       rs2_data       => rs2_data_fwd,
       instruction    => instruction,
@@ -160,15 +163,16 @@ begin
     ld_data_out     when "0001",
     (others => 'X') when others;
 
-  wb_en           <= alu_data_en or br_data_en or ld_data_en or upp_data_en;
-  predict_corr_en <= bad_predict;
+  wb_en           <= valid_input_latched and (alu_data_en or br_data_en or ld_data_en or upp_data_en);
+  predict_corr_en <= bad_predict and valid_input_latched;
   predict_corr    <= new_pc;
 
   --wb_sel needs to be latched as well
   wb_sel_proc : process(clk)
   begin
     if rising_edge(clk) then
-      wb_sel <= rd;
+      wb_sel              <= rd;
+      valid_input_latched <= valid_input;
     end if;
   end process;
 
