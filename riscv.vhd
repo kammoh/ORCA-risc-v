@@ -48,6 +48,8 @@ architecture rtl of riscV is
   signal e_pc           : std_logic_vector(REGISTER_SIZE-1 downto 0);
   signal e_next_pc      : std_logic_vector(REGISTER_SIZE-1 downto 0);
   signal e_valid        : std_logic;
+  signal e_readvalid    : std_logic;
+
   signal rs1_data       : std_logic_vector(REGISTER_SIZE-1 downto 0);
   signal rs2_data       : std_logic_vector(REGISTER_SIZE-1 downto 0);
   signal sign_extension : std_logic_vector(REGISTER_SIZE-12-1 downto 0);
@@ -68,6 +70,8 @@ architecture rtl of riscV is
   signal instr_data         : std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
 
   signal instr_read_busy : std_logic;
+  signal instr_read_en   : std_logic;
+  signal instr_readvalid : std_logic;
 begin  -- architecture rtl
   pipeline_flush <= reset or pc_corr_en;
 
@@ -79,6 +83,7 @@ begin  -- architecture rtl
     port map (
       clk        => clk,
       reset      => reset,
+      stall      => '0',
       pc_corr    => pc_corr,
       pc_corr_en => pc_corr_en,
 
@@ -86,9 +91,11 @@ begin  -- architecture rtl
       pc_out          => d_pc,
       next_pc_out     => d_next_pc,
       valid_instr_out => d_valid,
-      instr_address   => instr_address,
-      instr_in        => instr_data,
-      instr_busy      => instr_read_busy);
+      read_address    => instr_address,
+      read_en         => instr_read_en,
+      read_data       => instr_data,
+      read_stalled    => instr_read_busy,
+      read_datavalid  => instr_readvalid);
 
   D : component decode
     generic map(
@@ -152,21 +159,23 @@ begin  -- architecture rtl
       REGISTER_SIZE     => REGISTER_SIZE,
       DUAL_PORTED_INSTR => false)
     port map (
-      clk             => clk,
-      instr_addr      => instr_address,
-      data_addr       => data_address,
-      data_we         => data_write_en,
-      data_be         => data_byte_en,
-      data_wdata      => data_write_data,
-      data_rdata      => data_read_data,
-      instr_data      => instr_data,
-      data_read_en    => data_read_en,
-      instr_read_en   => '1',
-      instr_read_busy => instr_read_busy,
-      data_read_busy  => data_busy
+      clk              => clk,
+      instr_addr       => instr_address,
+      data_addr        => data_address,
+      data_we          => data_write_en,
+      data_be          => data_byte_en,
+      data_wdata       => data_write_data,
+      data_rdata       => data_read_data,
+      instr_data       => instr_data,
+      data_read_en     => data_read_en,
+      instr_read_en    => instr_read_en,
+      instr_read_stall => instr_read_busy,
+      data_read_stall  => data_busy,
+      instr_readvalid  => instr_readvalid,
+      data_readvalid   => e_readvalid
       );
 
   --should always be available right away
-	
+
   program_counter <= d_pc;
 end architecture rtl;
