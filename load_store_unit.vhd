@@ -17,7 +17,7 @@ entity load_store_unit is
     rs2_data       : in     std_logic_vector(REGISTER_SIZE-1 downto 0);
     instruction    : in     std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
     sign_extension : in     std_logic_vector(SIGN_EXTENSION_SIZE-1 downto 0);
-    stall          : buffer std_logic;
+    waiting        : buffer std_logic;
     data_out       : out    std_logic_vector(REGISTER_SIZE-1 downto 0);
     data_enable    : out    std_logic;
 --memory-bus
@@ -27,7 +27,7 @@ entity load_store_unit is
     read_en        : out    std_logic;
     write_data     : out    std_logic_vector(REGISTER_SIZE-1 downto 0);
     read_data      : in     std_logic_vector(REGISTER_SIZE-1 downto 0);
-    busy           : in     std_logic);
+    read_wait      : in     std_logic);
 
 end entity load_store_unit;
 
@@ -108,7 +108,7 @@ begin
   address    <= address_unaligned(REGISTER_SIZE-1 downto 2) & "00";
 
   --combinatorial output. busy depends on memory input lines, but it is not clocked
-  stall <= '1' when busy = '1' and valid = '1' else '0';
+  waiting <= '1' when read_wait = '1' and valid = '1' else '0';
 
 
   --outputs, all of these assignments should happen on the rising edge,
@@ -141,11 +141,11 @@ begin
     x"0000"&r1 & r0                                          when UHALF_SIZE,
     read_data                                                when others;
 
-  output_latch :process(clk)
+  output_latch : process(clk)
   begin
     if rising_edge(clk) then
 
-      if stall = '0' then
+      if waiting = '0' then
         latched_data <= fixed_data;
         if opcode = "0000011" then
           data_enable <= '1';
@@ -155,5 +155,6 @@ begin
       end if;
     end if;
   end process;
-  data_out <= fixed_data when stall = '0' else latched_data;
+  --use latched data when waiting else use new data
+  data_out <= latched_data when waiting = '1' else fixed_data;
 end architecture;

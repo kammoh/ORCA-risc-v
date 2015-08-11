@@ -28,17 +28,17 @@ entity execute is
     wb_data : buffer std_logic_vector(REGISTER_SIZE-1 downto 0);
     wb_en   : buffer std_logic;
 
-    predict_corr      : out std_logic_vector(REGISTER_SIZE-1 downto 0);
-    predict_corr_en   : out std_logic;
-    stall_prev_stages : out std_logic;
+    predict_corr    : out    std_logic_vector(REGISTER_SIZE-1 downto 0);
+    predict_corr_en : out    std_logic;
+    stall_pipeline  : buffer std_logic;
 --memory-bus
-    address           : out std_logic_vector(REGISTER_SIZE-1 downto 0);
-    byte_en           : out std_logic_vector(REGISTER_SIZE/8 -1 downto 0);
-    write_en          : out std_logic;
-    read_en           : out std_logic;
-    write_data        : out std_logic_vector(REGISTER_SIZE-1 downto 0);
-    read_data         : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
-    busy              : in  std_logic);
+    address         : out    std_logic_vector(REGISTER_SIZE-1 downto 0);
+    byte_en         : out    std_logic_vector(REGISTER_SIZE/8 -1 downto 0);
+    write_en        : out    std_logic;
+    read_en         : out    std_logic;
+    write_data      : out    std_logic_vector(REGISTER_SIZE-1 downto 0);
+    read_data       : in     std_logic_vector(REGISTER_SIZE-1 downto 0);
+    read_wait       : in     std_logic);
 end;
 
 architecture behavioural of execute is
@@ -76,7 +76,7 @@ architecture behavioural of execute is
   signal rs2_data_fwd : std_logic_vector(REGISTER_SIZE-1 downto 0);
 
   signal ls_valid            : std_logic;
-  signal ls_unit_stalled     : std_logic;
+  signal ls_unit_waiting     : std_logic;
   signal valid_input_latched : std_logic;
 
   constant ZERO : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0) := (others => '0');
@@ -89,6 +89,7 @@ begin
   rs2_data_fwd <= wb_data when wb_sel = rs2 and wb_en = '1'and wb_sel /= ZERO else rs2_data;
 
   ls_valid <= valid_input and not reset;
+
   alu : component arithmetic_unit
     generic map (
       INSTRUCTION_SIZE    => INSTRUCTION_SIZE,
@@ -96,7 +97,7 @@ begin
       SIGN_EXTENSION_SIZE => SIGN_EXTENSION_SIZE)
     port map (
       clk            => clk,
-      stall          => ls_unit_stalled,
+      stall          => stall_pipeline,
       rs1_data       => rs1_data_fwd,
       rs2_data       => rs2_data_fwd,
       instruction    => instruction,
@@ -113,7 +114,7 @@ begin
     port map(
       clk            => clk,
       reset          => reset,
-      stall          => ls_unit_stalled,
+      stall          => stall_pipeline,
       rs1_data       => rs1_data_fwd,
       rs2_data       => rs2_data_fwd,
       current_pc     => pc_current,
@@ -137,7 +138,7 @@ begin
       rs2_data       => rs2_data_fwd,
       instruction    => instruction,
       sign_extension => sign_extension,
-      stall          => ls_unit_stalled,
+      waiting        => ls_unit_waiting,
       data_out       => ld_data_out,
       data_enable    => ld_data_en,
       --memory bus
@@ -147,9 +148,9 @@ begin
       read_en        => read_en,
       write_data     => write_data,
       read_data      => read_data,
-      busy           => busy);
+      read_wait      => read_wait);
 
-  stall_prev_stages <= ls_unit_stalled;
+  stall_pipeline    <= ls_unit_waiting;
   --the above components have output latches,
   --find out which is the actual output
   writeback_1hot(3) <= upp_data_en;
@@ -173,7 +174,7 @@ begin
   wb_sel_proc : process(clk)
   begin
     if rising_edge(clk) then
-      if ls_unit_stalled = '0' then
+      if stall_pipeline = '0' then
         wb_sel              <= rd;
         valid_input_latched <= valid_input;
       end if;
