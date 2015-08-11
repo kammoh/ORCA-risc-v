@@ -205,8 +205,8 @@ package components is
       PORTS         : natural range 1 to 2);
     port (
       clk        : in std_logic;
-      instr_addr : in natural range 0 to log2(ROM_SIZE) -1;
-      data_addr  : in natural range 0 to log2(ROM_SIZE) -1;
+      instr_addr : in natural range 0 to ROM_SIZE -1;
+      data_addr  : in natural range 0 to ROM_SIZE -1;
       instr_re   : in std_logic;
       data_re    : in std_logic;
 
