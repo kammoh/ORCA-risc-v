@@ -14,6 +14,7 @@ entity decode is
   port(
     clk         : in std_logic;
     reset       : in std_logic;
+    stall       : in std_logic;
     instruction : in std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
     valid_input : in std_logic;
     --writeback signals
@@ -54,6 +55,7 @@ begin
       REGISTER_NAME_SIZE => REGISTER_NAME_SIZE)
     port map(
       clk              => clk,
+      stall            => stall,
       rs1_sel          => rs1,
       rs2_sel          => rs2,
       writeback_sel    => wb_sel,
@@ -73,13 +75,15 @@ begin
         instr_out      <= (others => '0');
         valid_output   <= '0';
       else
-        sign_extension <= std_logic_vector(
-          resize(signed(instruction(INSTRUCTION_SIZE-1 downto INSTRUCTION_SIZE-1)),
-                 SIGN_EXTENSION_SIZE));
-        pc_next_out  <= PC_next_in;
-        pc_curr_out  <= PC_curr_in;
-        instr_out    <= instruction;
-        valid_output <= valid_input;
+        if not stall = '1' then
+          sign_extension <= std_logic_vector(
+            resize(signed(instruction(INSTRUCTION_SIZE-1 downto INSTRUCTION_SIZE-1)),
+                   SIGN_EXTENSION_SIZE));
+          pc_next_out  <= PC_next_in;
+          pc_curr_out  <= PC_curr_in;
+          instr_out    <= instruction;
+          valid_output <= valid_input;
+        end if;
       end if;
     end if;
   end process decode_stage;

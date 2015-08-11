@@ -28,17 +28,17 @@ entity execute is
     wb_data : buffer std_logic_vector(REGISTER_SIZE-1 downto 0);
     wb_en   : buffer std_logic;
 
-    predict_corr    : out std_logic_vector(REGISTER_SIZE-1 downto 0);
-    predict_corr_en : out std_logic;
-
+    predict_corr      : out std_logic_vector(REGISTER_SIZE-1 downto 0);
+    predict_corr_en   : out std_logic;
+    stall_prev_stages : out std_logic;
 --memory-bus
-    address    : out std_logic_vector(REGISTER_SIZE-1 downto 0);
-    byte_en    : out std_logic_vector(REGISTER_SIZE/8 -1 downto 0);
-    write_en   : out std_logic;
-    read_en    : out std_logic;
-    write_data : out std_logic_vector(REGISTER_SIZE-1 downto 0);
-    read_data  : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
-    busy       : in  std_logic);
+    address           : out std_logic_vector(REGISTER_SIZE-1 downto 0);
+    byte_en           : out std_logic_vector(REGISTER_SIZE/8 -1 downto 0);
+    write_en          : out std_logic;
+    read_en           : out std_logic;
+    write_data        : out std_logic_vector(REGISTER_SIZE-1 downto 0);
+    read_data         : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
+    busy              : in  std_logic);
 end;
 
 architecture behavioural of execute is
@@ -96,6 +96,7 @@ begin
       SIGN_EXTENSION_SIZE => SIGN_EXTENSION_SIZE)
     port map (
       clk            => clk,
+      stall          => ls_unit_stalled,
       rs1_data       => rs1_data_fwd,
       rs2_data       => rs2_data_fwd,
       instruction    => instruction,
@@ -112,6 +113,7 @@ begin
     port map(
       clk            => clk,
       reset          => reset,
+      stall          => ls_unit_stalled,
       rs1_data       => rs1_data_fwd,
       rs2_data       => rs2_data_fwd,
       current_pc     => pc_current,
@@ -147,7 +149,7 @@ begin
       read_data      => read_data,
       busy           => busy);
 
-
+  stall_prev_stages <= ls_unit_stalled;
   --the above components have output latches,
   --find out which is the actual output
   writeback_1hot(3) <= upp_data_en;
@@ -171,8 +173,10 @@ begin
   wb_sel_proc : process(clk)
   begin
     if rising_edge(clk) then
-      wb_sel              <= rd;
-      valid_input_latched <= valid_input;
+      if ls_unit_stalled = '0' then
+        wb_sel              <= rd;
+        valid_input_latched <= valid_input;
+      end if;
     end if;
   end process;
 

@@ -24,7 +24,7 @@ entity instruction_fetch is
     valid_instr_out : out std_logic;
 
     read_address   : out std_logic_vector(REGISTER_SIZE-1 downto 0);
-    read_en   : out std_logic;
+    read_en        : out std_logic;
     read_data      : in  std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
     read_datavalid : in  std_logic;
     read_stalled   : in  std_logic
@@ -39,11 +39,14 @@ architecture rtl of instruction_fetch is
 
   signal instr        : std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
   signal instr_be     : std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
+  signal valid_instr : std_logic;
+
   signal generated_pc : std_logic_vector(REGISTER_SIZE-1 downto 0);
   signal latched_pc   : std_logic_vector(REGISTER_SIZE-1 downto 0);
 
-  signal stalled       : std_logic;
-  signal instr_latched : std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
+  signal stalled             : std_logic;
+  signal instr_latched       : std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
+  signal latched_instr_valid : std_logic;
 
 begin  -- architecture rtl
 
@@ -55,7 +58,7 @@ begin  -- architecture rtl
 
 
   read_address <= program_counter;
-  read_en <= read_stalled or not stall;
+  read_en      <= not reset and (read_stalled or not stall);
 
   latch_pc : process(clk)
   begin
@@ -63,13 +66,18 @@ begin  -- architecture rtl
       if reset = '1' then
         --if we subtract 4 from the target, we will get the target on the next
         --cycle
-        latched_pc      <= std_logic_vector(to_signed(RESET_TARGET -4, REGISTER_SIZE));
-        valid_instr_out <= '0';
+        latched_pc          <= std_logic_vector(to_signed(RESET_TARGET, REGISTER_SIZE));
+        latched_instr_valid <= '0';
       else
-        latched_pc      <= program_counter;
-        valid_instr_out <= not read_stalled;
+        latched_pc <= program_counter;
         if read_datavalid = '1' then
           instr_latched <= read_data;
+          if stalled = '1' then
+            latched_instr_valid <= '1';
+          else
+            latched_instr_valid <= '0';
+          end if;
+
         end if;
       end if;
     end if;
@@ -81,7 +89,7 @@ begin  -- architecture rtl
   --unpack instruction
   instr <= (instr_be(7 downto 0) & instr_be(15 downto 8) &
             instr_be(23 downto 16) & instr_be(31 downto 24));
-
+  valid_instr <= latched_instr_valid or read_datavalid ;
   pc_logic : component pc_incr
     generic map (
       REGISTER_SIZE    => REGISTER_SIZE,
@@ -89,13 +97,15 @@ begin  -- architecture rtl
     port map (
       pc      => latched_pc,
       instr   => instr,
+      valid_instr => valid_instr,
       next_pc => generated_pc);
 
 
-  instr_out   <= instr when stalled = '0' else instr_latched;
-  pc_out      <= latched_pc;
-  next_pc_out <= generated_pc;
+  instr_out       <= instr;
+  pc_out          <= latched_pc;
+  next_pc_out     <= generated_pc;
 
+  valid_instr_out <= valid_instr;
 
 
 

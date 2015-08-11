@@ -9,15 +9,16 @@ entity pc_incr is
     REGISTER_SIZE    : positive;
     INSTRUCTION_SIZE : positive);
   port (
-    pc      : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
-    instr   : in  std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
-    next_pc : out std_logic_vector(REGISTER_SIZE-1 downto 0));
+    pc          : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
+    instr       : in  std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
+    valid_instr : in  std_logic;
+    next_pc     : out std_logic_vector(REGISTER_SIZE-1 downto 0));
 end entity pc_incr;
 
 architecture rtl of pc_incr is
 
 begin  -- architecture pc_insr
-  pc_incr_proc : process (pc, instr) is
+  pc_incr_proc : process (pc, instr, valid_instr) is
 
     constant B_IMM_SIZE          : integer := 13;
     constant SIGN_EXTENSION_SIZE : integer := REGISTER_SIZE -B_IMM_SIZE;
@@ -33,6 +34,7 @@ begin  -- architecture pc_insr
     variable imm_val    : signed(REGISTER_SIZE-1 downto 0);  --ammount to add
     variable current_pc : signed(REGISTER_SIZE-1 downto 0);
   begin  -- process pc_incr_proc
+
     opcode     := instr(6 downto 0);
     current_pc := signed(pc);
 
@@ -53,7 +55,11 @@ begin  -- architecture pc_insr
       when others =>
         imm_val := to_signed(4, 32);
     end case;
-    next_pc <= std_logic_vector(current_pc+imm_val);
+    if valid_instr = '1' then
+      next_pc <= std_logic_vector(current_pc+imm_val);
+    else
+      next_pc <= std_logic_vector(current_pc);
+    end if;
 
   end process pc_incr_proc;
 

@@ -44,15 +44,15 @@ architecture rtl of riscV is
   signal wb_en   : std_logic;
 
   --signals going into execute
-  signal e_instr        : std_logic_vector(INSTRUCTION_SIZE -1 downto 0);
-  signal e_pc           : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal e_next_pc      : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal e_valid        : std_logic;
-  signal e_readvalid    : std_logic;
-
-  signal rs1_data       : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal rs2_data       : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal sign_extension : std_logic_vector(REGISTER_SIZE-12-1 downto 0);
+  signal e_instr         : std_logic_vector(INSTRUCTION_SIZE -1 downto 0);
+  signal e_pc            : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal e_next_pc       : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal e_valid         : std_logic;
+  signal e_readvalid     : std_logic;
+  signal execute_stalled : std_logic;
+  signal rs1_data        : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal rs2_data        : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal sign_extension  : std_logic_vector(REGISTER_SIZE-12-1 downto 0);
 
   signal pipeline_flush : std_logic;
 
@@ -83,7 +83,7 @@ begin  -- architecture rtl
     port map (
       clk        => clk,
       reset      => reset,
-      stall      => '0',
+      stall      => execute_stalled,
       pc_corr    => pc_corr,
       pc_corr_en => pc_corr_en,
 
@@ -106,6 +106,7 @@ begin  -- architecture rtl
     port map(
       clk            => clk,
       reset          => pipeline_flush,
+      stall          => execute_stalled,
       instruction    => d_instr,
       valid_input    => d_valid,
       --writeback ,signals
@@ -131,27 +132,28 @@ begin  -- architecture rtl
       INSTRUCTION_SIZE    => INSTRUCTION_SIZE,
       SIGN_EXTENSION_SIZE => SIGN_EXTENSION_SIZE)
     port map (
-      clk             => clk,
-      reset           => pipeline_flush,
-      valid_input     => e_valid,
-      pc_next         => e_next_pc,
-      pc_current      => e_pc,
-      instruction     => e_instr,
-      rs1_data        => rs1_data,
-      rs2_data        => rs2_data,
-      sign_extension  => sign_extension,
-      wb_sel          => wb_sel,
-      wb_data         => wb_data,
-      wb_en           => wb_en,
-      predict_corr    => pc_corr,
-      predict_corr_en => pc_corr_en,
-      address         => data_address,
-      byte_en         => data_byte_en,
-      write_en        => data_write_en,
-      read_en         => data_read_en,
-      write_data      => data_write_data,
-      read_data       => data_read_data,
-      busy            => data_busy);
+      clk               => clk,
+      reset             => pipeline_flush,
+      valid_input       => e_valid,
+      pc_next           => e_next_pc,
+      pc_current        => e_pc,
+      instruction       => e_instr,
+      rs1_data          => rs1_data,
+      rs2_data          => rs2_data,
+      sign_extension    => sign_extension,
+      wb_sel            => wb_sel,
+      wb_data           => wb_data,
+      wb_en             => wb_en,
+      predict_corr      => pc_corr,
+      predict_corr_en   => pc_corr_en,
+      stall_prev_stages => execute_stalled,
+      address           => data_address,
+      byte_en           => data_byte_en,
+      write_en          => data_write_en,
+      read_en           => data_read_en,
+      write_data        => data_write_data,
+      read_data         => data_read_data,
+      busy              => data_busy);
 
 
   MEM : component memory_system

@@ -52,7 +52,7 @@ architecture rtl of instruction_rom is
     end loop;  -- b
     return to_ret;
   end function;
-  constant BRAM_START : integer := 0;
+  constant BRAM_START : integer := 16#10000#;
 
   -- declare the RAM
   signal reset_rom : rom_t := (
@@ -69,7 +69,7 @@ architecture rtl of instruction_rom is
     little_endian(SB(0, 6, 14)),        --    0x28   BRAM_START[14]='\0'
     little_endian(ADDI(1, 6, 10)),      --    0x2C   ptr=BRAMSTART+10
                                         --  do{
-    little_endian(LB(2, 1, 0)),         --    0x302C   c=*ptr
+    little_endian(LB(2, 1, 0)),         --    0x30   c=*ptr
     little_endian(ADDI(3, 2, -32)),     --    0x34   C=c-32 //capitalize
     little_endian(SB(3, 1, 10)),        --    0x38   ptr[10]=C
     little_endian(ADDI(1, 1, 1)),       --    0x3C   ptr++
