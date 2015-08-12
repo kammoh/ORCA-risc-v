@@ -16,7 +16,8 @@ entity avalon_master is
     address      : in  std_logic_vector(ADDR_WIDTH-1 downto 0);
     write_data   : in  std_logic_vector(DATA_WIDTH-1 downto 0);
     read_data    : out std_logic_vector(DATA_WIDTH-1 downto 0);
-    xfer_in_prog : out std_logic;
+    wait_request    : out std_logic;
+    read_valid   : out std_logic;
 
 
     --avalon bus signals
@@ -33,64 +34,16 @@ entity avalon_master is
 end entity avalon_master;
 
 architecture rtl of avalon_master is
-  signal wait_request_mask : std_logic;
-  signal readvalid_mask    : std_logic;
 begin  -- architecture rtl
-  av_read  <= read_enable;
-  av_write <= write_enable;
-
-  process(clk)
-    type state_t is (ADDR_ASSERT, WAIT_REQUEST, WAIT_STATE, READVALID);
-    variable state : state_t := ADDR_ASSERT;
-  begin
-    if rising_edge(clk) then
-      case state is
-        when ADDR_ASSERT =>
-          av_address <= address;
-          av_write   <= write_enable;
-          av_read    <= read_enable;
-          if write_enable = '1' or read_enable = '1' then
-            state             := WAIT_REQUEST;
-            wait_request_mask <= '1';
-          else
-            wait_request_mask <= '0';
-          end if;
-        when WAIT_REQUEST =>
-          --stay in this state unit
-          --waitrequest is deasserted
-          if av_waitrequest = '0' then
-            wait_request_mask <= '0';
-            if read_enable = '1' then
-              --transfer is a read
-              --check if we are done or
-              --if we have to wait
-              if av_readdatavalid = '1' then
-                read_data <= av_readdata;
-                state     := ADDR_ASSERT;
-              else
-                readvalid_mask <= '1';
-                state          := WAIT_STATE;
-              end if;
-            else
-              --transfer is a write,
-              --we are done
-              state := ADDR_ASSERT;
-            end if;
-          end if;
-        when WAIT_STATE =>
-          if av_readdatavalid = '1' then
-            read_data <= av_readdata;
-            state     := ADDR_ASSERT;
-            readvalid_mask <= '0';
-          end if;
-
-        when others =>
-          state := ADDR_ASSERT;
-      end case;
-    end if;
-  end process;
-
-  xfer_in_prog <= (wait_request_mask and av_waitrequest) or
-                  (readvalid_mask and not av_readdatavalid);
+  av_address    <= address;
+  av_byteenable <= byte_enable;
+  av_read       <= read_enable;
+  read_data     <= av_readdata;
+  --av_response
+  av_write      <= write_enable;
+  av_writedata  <= write_data;
+  av_lock       <= '0';
+  wait_request  <= av_waitrequest;
+  read_valid    <= av_readdatavalid;
 
 end architecture rtl;

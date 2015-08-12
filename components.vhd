@@ -318,7 +318,8 @@ package components is
       address      : in  std_logic_vector(ADDR_WIDTH-1 downto 0);
       write_data   : in  std_logic_vector(DATA_WIDTH-1 downto 0);
       read_data    : out std_logic_vector(DATA_WIDTH-1 downto 0);
-      xfer_in_prog : out std_logic;
+      wait_request : out std_logic;
+      read_valid   : out std_logic;
 
 
       --avalon bus signals
@@ -333,7 +334,6 @@ package components is
       av_waitrequest   : in  std_logic;
       av_readdatavalid : in  std_logic);
   end component avalon_master;
-
   component wait_cycle_bram is
     generic (
       BYTES       : natural;

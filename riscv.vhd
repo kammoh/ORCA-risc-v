@@ -8,12 +8,23 @@ use work.utils.all;
 entity riscV is
 
   generic (
-    REGISTER_SIZE        : integer;
-    INSTRUCTION_MEM_SIZE : integer;
-    DATA_MEMORY_SIZE     : integer);
+    REGISTER_SIZE : integer := 32);
+
   port(clk             : in  std_logic;
        reset           : in  std_logic;
-       program_counter : out std_logic_vector(REGISTER_SIZE-1 downto 0));
+       program_counter : out std_logic_vector(REGISTER_SIZE-1 downto 0);
+
+       --avalon master bus
+       avm_data_address       : out std_logic_vector(REGISTER_SIZE-1 downto 0);
+       avm_data_byteenable    : out std_logic_vector(REGISTER_SIZE/8 -1 downto 0);
+       avm_data_read          : out std_logic;
+       avm_data_readdata      : in  std_logic_vector(REGISTER_SIZE-1 downto 0) := (others => 'X');
+       avm_data_response      : in  std_logic_vector(1 downto 0)               := (others => 'X');
+       avm_data_write         : out std_logic;
+       avm_data_writedata     : out std_logic_vector(REGISTER_SIZE-1 downto 0);
+       avm_data_lock          : out std_logic;
+       avm_data_waitrequest   : in  std_logic                                  := '0';
+       avm_data_readdatavalid : in  std_logic                                  := '0');
 
 end entity riscV;
 
@@ -22,11 +33,6 @@ architecture rtl of riscV is
   constant INSTRUCTION_SIZE    : integer := 32;
   constant SIGN_EXTENSION_SIZE : integer := 20;
 
-  --address is in words, so subtract 2
-  constant DATA_ADDR_WIDTH : integer := log2(DATA_MEMORY_SIZE)-2;
-
-  --address is in words, so subtract 2
-  constant INSTR_ADDR_WIDTH : integer := log2(INSTRUCTION_MEM_SIZE)-2;
 
   --signals going int fetch
 
@@ -65,13 +71,13 @@ architecture rtl of riscV is
   signal data_read_data  : std_logic_vector(REGISTER_SIZE-1 downto 0);
   signal data_busy       : std_logic;
 
-  signal instr_address      : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal instr_address_word : integer range 0 to 2 ** DATA_ADDR_WIDTH -1;
-  signal instr_data         : std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
+  signal instr_address : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal instr_data    : std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
 
   signal instr_read_busy : std_logic;
   signal instr_read_en   : std_logic;
   signal instr_readvalid : std_logic;
+
 begin  -- architecture rtl
   pipeline_flush <= reset or pc_corr_en;
 
@@ -175,8 +181,19 @@ begin  -- architecture rtl
       instr_read_stall => instr_read_busy,
       data_read_stall  => data_busy,
       instr_readvalid  => instr_readvalid,
-      data_readvalid   => e_readvalid
-      );
+      data_readvalid   => e_readvalid,
+
+      --avalon mm bus
+      data_av_address       => avm_data_address,
+      data_av_byteenable    => avm_data_byteenable,
+      data_av_read          => avm_data_read,
+      data_av_readdata      => avm_data_readdata,
+      data_av_response      => avm_data_response,
+      data_av_write         => avm_data_write,
+      data_av_writedata     => avm_data_writedata,
+      data_av_lock          => avm_data_lock,
+      data_av_waitrequest   => avm_data_waitrequest,
+      data_av_readdatavalid => avm_data_readdatavalid      );
 
   --should always be available right away
 

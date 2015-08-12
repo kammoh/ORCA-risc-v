@@ -91,15 +91,29 @@ architecture rtl of memory_system is
   signal bram_data_readvalid   : std_logic;
 
 
-  signal latched_instr_choice : std_logic_vector(1 downto 0);
-  signal latched_data_choice  : std_logic_vector(1 downto 0);
+  signal external_data_re : std_logic;
+  signal external_data_we : std_logic;
 
-  constant ROM_CHOICE      : std_logic_vector(1 downto 0) := "01";
-  constant BRAM_CHOICE     : std_logic_vector(1 downto 0) := "10";
-  constant EXTERNAL_CHOICE : std_logic_vector(1 downto 0) := (others => '0');
+  signal external_data_out       : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal external_data_read_wait : std_logic;
+  signal external_data_readvalid : std_logic;
 
-  signal instr_choice : std_logic_vector(1 downto 0);
-  signal data_choice  : std_logic_vector(1 downto 0);
+  type memory_choice_t is (ROM_CHOICE, BRAM_CHOICE, EXTERNAL_CHOICE);
+  signal latched_instr_choice : memory_choice_t;
+  signal latched_data_choice  : memory_choice_t;
+  signal instr_choice         : memory_choice_t;
+  signal data_choice          : memory_choice_t;
+
+  --constant MEM_CHOICES        : natural := 3;
+  --signal latched_instr_choice : std_logic_vector(MEM_CHOICES-1 downto 0);
+  --signal latched_data_choice  : std_logic_vector(MEM_CHOICES-1 downto 0);
+
+  --constant ROM_CHOICE      : std_logic_vector(MEM_CHOICES-1 downto 0) := "001";
+  --constant BRAM_CHOICE     : std_logic_vector(MEM_CHOICES-1 downto 0) := "010";
+  --constant EXTERNAL_CHOICE : std_logic_vector(MEM_CHOICES-1 downto 0) := "100";
+
+  --signal instr_choice : std_logic_vector(MEM_CHOICES-1 downto 0);
+  --signal data_choice  : std_logic_vector(MEM_CHOICES-1 downto 0);
 
 
 begin  -- rtl
@@ -144,9 +158,11 @@ begin  -- rtl
       data_readvalid   => reset_rom_data_readvalid);
 
   --get output from dualport block_ram
-  bram_data_we    <= '1' when data_choice = BRAM_CHOICE and data_we = '1' else '0';
+  bram_data_we    <= '1' when data_choice = BRAM_CHOICE and data_we = '1'        else '0';
   bram_instr_addr <= word_address(instr_addr, log2(BRAM_SIZE));
   bram_data_addr  <= word_address(data_addr, log2(BRAM_SIZE));
+  bram_instr_re   <= '1' when instr_read_en = '1' and instr_choice = BRAM_CHOICE else '0';
+  bram_data_re    <= '1' when data_read_en = '1' and data_choice = BRAM_CHOICE   else '0';
 
   --bram : component byte_enabled_true_dual_port_ram
   --  generic map (
@@ -169,8 +185,6 @@ begin  -- rtl
   --bram_data_readvalid   <= '1';
   --bram_instr_readvalid  <= '1';
 
-  bram_instr_re <= '1' when instr_read_en = '1' and instr_choice = BRAM_CHOICE else '0';
-  bram_data_re  <= '1' when data_read_en = '1' and data_choice = BRAM_CHOICE   else '0';
 
   bram : component wait_cycle_bram
     generic map (
@@ -200,32 +214,33 @@ begin  -- rtl
 
 
   --get output from external avalon bus
-  --data_exdata_re <= '1' when data_choice = EXTERNAL_CHOICE and data_re = '1' else '0';
-  --data_exdata_we <= '1' when data_choice = EXTERNAL_CHOICE and data_we = '1' else '0';
+  external_data_re <= '1' when data_choice = EXTERNAL_CHOICE and data_read_en = '1' else '0';
+  external_data_we <= '1' when data_choice = EXTERNAL_CHOICE and data_we = '1'      else '0';
 
-  --extern_data_mm : component avalon_master
-  --  generic map (
-  --    DATA_WIDTH => REGISTER_SIZE,
-  --    ADDR_WIDTH => REGISTER_SIZE)
-  --  port map (
-  --    read_enable  => data_exdata_re,
-  --    write_enable => data_exdata_we,
-  --    byte_enable  => data_be,
-  --    address      => data_addr,
-  --    write_data   => data_wdata,
-  --    read_data    => exdata_read_data,
-  --    xfer_in_prog => exdata_stall,
+  extern_data_mm : component avalon_master
+    generic map (
+      DATA_WIDTH => REGISTER_SIZE,
+      ADDR_WIDTH => REGISTER_SIZE)
+    port map (
+      clk          => clk,
+      read_enable  => external_data_re,
+      write_enable => external_data_we,
+      byte_enable  => data_be,
+      address      => data_addr,
+      write_data   => data_wdata,
+      read_data    => external_data_out,
+      wait_request => external_data_read_wait,
 
-  --    av_address       => data_av_address,
-  --    av_byteenable    => data_av_byteenable,
-  --    av_read          => data_av_read,
-  --    av_readdata      => data_av_readdata,
-  --    av_response      => data_av_response,
-  --    av_write         => data_av_write,
-  --    av_writedata     => data_av_writedata,
-  --    av_lock          => data_av_lock,
-  --    av_waitrequest   => data_av_waitrequest,
-  --    av_readdatavalid => data_av_readdatavalid);
+      av_address       => data_av_address,
+      av_byteenable    => data_av_byteenable,
+      av_read          => data_av_read,
+      av_readdata      => data_av_readdata,
+      av_response      => data_av_response,
+      av_write         => data_av_write,
+      av_writedata     => data_av_writedata,
+      av_lock          => data_av_lock,
+      av_waitrequest   => data_av_waitrequest,
+      av_readdatavalid => data_av_readdatavalid);
 
 
 
@@ -253,12 +268,14 @@ begin  -- rtl
     data_rdata <=
     bram_data_out      when BRAM_CHOICE,
     reset_rom_data_out when ROM_CHOICE,
+    external_data_out  when EXTERNAL_CHOICE,
     (others => 'X')    when others;
 
   with latched_data_choice select
     data_readvalid <=
     bram_data_readvalid      when BRAM_CHOICE,
     reset_rom_data_readvalid when ROM_CHOICE,
+    external_data_readvalid  when EXTERNAL_CHOICE,
     '0'                      when others;
 
   with latched_instr_choice select
@@ -271,6 +288,7 @@ begin  -- rtl
     data_read_stall <=
     bram_data_read_stall      when BRAM_CHOICE,
     reset_rom_data_read_stall when ROM_CHOICE,
+    external_data_read_wait   when EXTERNAL_CHOICE,
     '0'                       when others;
 
   with instr_choice select
