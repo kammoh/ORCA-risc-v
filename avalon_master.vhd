@@ -1,6 +1,8 @@
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
+library work;
+use work.utils.all;
 
 entity avalon_master is
   generic (
@@ -16,7 +18,7 @@ entity avalon_master is
     address      : in  std_logic_vector(ADDR_WIDTH-1 downto 0);
     write_data   : in  std_logic_vector(DATA_WIDTH-1 downto 0);
     read_data    : out std_logic_vector(DATA_WIDTH-1 downto 0);
-    wait_request    : out std_logic;
+    wait_request : out std_logic;
     read_valid   : out std_logic;
 
 
@@ -34,16 +36,19 @@ entity avalon_master is
 end entity avalon_master;
 
 architecture rtl of avalon_master is
+  constant WORD_SIZE : natural := log2(DATA_WIDTH/8);
+
 begin  -- architecture rtl
-  av_address    <= address;
+
+  av_address <= std_logic_vector(shift_right(unsigned(address),WORD_SIZE));
   av_byteenable <= byte_enable;
-  av_read       <= read_enable;
-  read_data     <= av_readdata;
+  av_read      <= read_enable;
+  read_data    <= av_readdata;
   --av_response
-  av_write      <= write_enable;
-  av_writedata  <= write_data;
-  av_lock       <= '0';
-  wait_request  <= av_waitrequest;
-  read_valid    <= av_readdatavalid;
+  av_write     <= write_enable;
+  av_writedata <= write_data;
+  av_lock      <= '0';
+  wait_request <= av_waitrequest;
+  read_valid   <= av_readdatavalid;
 
 end architecture rtl;

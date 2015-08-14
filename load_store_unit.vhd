@@ -62,8 +62,8 @@ architecture rtl of load_store_unit is
   --individual register byte
   signal r0           : std_logic_vector(7 downto 0);
   signal r1           : std_logic_vector(7 downto 0);
-  --signal r2                : std_logic_vector(7 downto 0);
-  --signal r3                : std_logic_vector(7 downto 0);
+  signal r2                : std_logic_vector(7 downto 0);
+  signal r3                : std_logic_vector(7 downto 0);
   signal fixed_data   : std_logic_vector(REGISTER_SIZE-1 downto 0);
   signal latched_data : std_logic_vector(REGISTER_SIZE-1 downto 0);
 begin
@@ -130,7 +130,8 @@ begin
         read_data(7 downto 0);
   r1 <= read_data(23 downto 16) when alignment = "00" else
         read_data(7 downto 0);
-
+  r2 <= read_data(15 downto 8);
+  r3 <= read_data(7 downto 0);
 
   --zero/sign extend the read data
   with latched_fun3 select
@@ -139,7 +140,7 @@ begin
     std_logic_vector(resize(signed(r1 & r0), REGISTER_SIZE)) when HALF_SIZE,
     x"000000"&r0                                             when UBYTE_SIZE,
     x"0000"&r1 & r0                                          when UHALF_SIZE,
-    read_data                                                when others;
+    r3 &r2 & r1 & r0                                         when others;
 
   output_latch : process(clk)
   begin
