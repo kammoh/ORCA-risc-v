@@ -142,8 +142,11 @@ package body instructions is
 
   function JAL(dst, offset : integer)
     return std_logic_vector is
+    variable i : signed(20 downto 0);
   begin
-    return std_logic_vector(to_signed(offset, 20) & to_signed(dst, 5)&"1101111");
+    i := to_signed(offset, 21);
+    return std_logic_vector(i(20) &i(10 downto 1) & i(11) & i(19 downto 12) &
+                            to_signed(dst, 5)&"1101111");
   end;
 
   function LUI (dst, imm : integer)
