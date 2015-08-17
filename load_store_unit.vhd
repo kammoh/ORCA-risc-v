@@ -62,10 +62,11 @@ architecture rtl of load_store_unit is
   --individual register byte
   signal r0           : std_logic_vector(7 downto 0);
   signal r1           : std_logic_vector(7 downto 0);
-  signal r2                : std_logic_vector(7 downto 0);
-  signal r3                : std_logic_vector(7 downto 0);
+  signal r2           : std_logic_vector(7 downto 0);
+  signal r3           : std_logic_vector(7 downto 0);
   signal fixed_data   : std_logic_vector(REGISTER_SIZE-1 downto 0);
   signal latched_data : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal re           : std_logic;
 begin
 
   --prepare memory signals
@@ -73,7 +74,8 @@ begin
   fun3   <= instruction(14 downto 12);
 
   write_en <= '1' when opcode = STORE_INSTR and valid = '1' else '0';
-  read_en  <= '1' when opcode = LOAD_INSTR and valid = '1'  else '0';
+  re       <= '1' when opcode = LOAD_INSTR and valid = '1'  else '0';
+  read_en  <= re;
 
   imm <= instruction(31 downto 25) & instruction(11 downto 7) when instruction(5) = '1'
          else instruction(31 downto 20);
@@ -108,7 +110,7 @@ begin
   address    <= address_unaligned(REGISTER_SIZE-1 downto 2) & "00";
 
   --combinatorial output. busy depends on memory input lines, but it is not clocked
-  waiting <= '1' when read_wait = '1' and valid = '1' else '0';
+  waiting <= read_wait and re and valid;
 
 
   --outputs, all of these assignments should happen on the rising edge,

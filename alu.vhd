@@ -61,7 +61,7 @@ begin  -- architecture rtl
         func         := instruction(14 downto 12);
 
         arithmetic_shift := instruction(30);
-        subtract         := not instruction(30);
+        subtract         := instruction(30) and instruction(5) ;
 
         if is_immediate = '1' then
           data2    := unsigned(pretrunc_imm(31 downto 0));

@@ -56,6 +56,7 @@ begin
     port map(
       clk              => clk,
       stall            => stall,
+      valid_input      => valid_input,
       rs1_sel          => rs1,
       rs2_sel          => rs2,
       writeback_sel    => wb_sel,

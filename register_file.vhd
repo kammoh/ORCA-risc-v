@@ -11,6 +11,7 @@ entity register_file is
   port(
     clk              : in std_logic;
     stall            : in std_logic;
+    valid_input      : in std_logic;
     rs1_sel          : in std_logic_vector(REGISTER_NAME_SIZE -1 downto 0);
     rs2_sel          : in std_logic_vector(REGISTER_NAME_SIZE -1 downto 0);
     writeback_sel    : in std_logic_vector(REGISTER_NAME_SIZE -1 downto 0);
@@ -32,7 +33,7 @@ begin
   register_proc : process (clk) is
   begin
     if rising_edge(clk) then
-      if stall = '0' then
+      if stall = '0' and valid_input = '1' then
                                         --read before bypass
         rs1_data <= registers(to_integer(unsigned(rs1_sel)));
         rs2_data <= registers(to_integer(unsigned(rs2_sel)));

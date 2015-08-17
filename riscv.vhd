@@ -12,7 +12,6 @@ entity riscV is
 
   port(clk             : in  std_logic;
        reset           : in  std_logic;
-       program_counter : out std_logic_vector(REGISTER_SIZE-1 downto 0);
 
        --avalon master bus
        avm_data_address       : out std_logic_vector(REGISTER_SIZE-1 downto 0);
@@ -24,7 +23,20 @@ entity riscV is
        avm_data_writedata     : out std_logic_vector(REGISTER_SIZE-1 downto 0);
        avm_data_lock          : out std_logic;
        avm_data_waitrequest   : in  std_logic                                  := '0';
-       avm_data_readdatavalid : in  std_logic                                  := '0');
+       avm_data_readdatavalid : in  std_logic                                  := '0';
+
+       --avalon master bus
+       avm_instruction_address       : out std_logic_vector(REGISTER_SIZE-1 downto 0);
+       avm_instruction_byteenable    : out std_logic_vector(REGISTER_SIZE/8 -1 downto 0);
+       avm_instruction_read          : out std_logic;
+       avm_instruction_readdata      : in  std_logic_vector(REGISTER_SIZE-1 downto 0) := (others => 'X');
+       avm_instruction_response      : in  std_logic_vector(1 downto 0)               := (others => 'X');
+       avm_instruction_write         : out std_logic;
+       avm_instruction_writedata     : out std_logic_vector(REGISTER_SIZE-1 downto 0);
+       avm_instruction_lock          : out std_logic;
+       avm_instruction_waitrequest   : in  std_logic                                  := '0';
+       avm_instruction_readdatavalid : in  std_logic                                  := '0'
+       );
 
 end entity riscV;
 
@@ -69,12 +81,12 @@ architecture rtl of riscV is
   signal data_read_en    : std_logic;
   signal data_write_data : std_logic_vector(REGISTER_SIZE-1 downto 0);
   signal data_read_data  : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal data_busy       : std_logic;
+  signal data_wait       : std_logic;
 
   signal instr_address : std_logic_vector(REGISTER_SIZE-1 downto 0);
   signal instr_data    : std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
 
-  signal instr_read_busy : std_logic;
+  signal instr_read_wait : std_logic;
   signal instr_read_en   : std_logic;
   signal instr_readvalid : std_logic;
 
@@ -100,7 +112,7 @@ begin  -- architecture rtl
       read_address    => instr_address,
       read_en         => instr_read_en,
       read_data       => instr_data,
-      read_stalled    => instr_read_busy,
+      read_wait       => instr_read_wait,
       read_datavalid  => instr_readvalid);
 
   D : component decode
@@ -160,7 +172,7 @@ begin  -- architecture rtl
       read_en         => data_read_en,
       write_data      => data_write_data,
       read_data       => data_read_data,
-      read_wait       => data_busy);
+      read_wait       => data_wait);
 
 
   MEM : component memory_system
@@ -168,20 +180,20 @@ begin  -- architecture rtl
       REGISTER_SIZE     => REGISTER_SIZE,
       DUAL_PORTED_INSTR => false)
     port map (
-      clk              => clk,
-      instr_addr       => instr_address,
-      data_addr        => data_address,
-      data_we          => data_write_en,
-      data_be          => data_byte_en,
-      data_wdata       => data_write_data,
-      data_rdata       => data_read_data,
-      instr_data       => instr_data,
-      data_read_en     => data_read_en,
-      instr_read_en    => instr_read_en,
-      instr_read_stall => instr_read_busy,
-      data_read_stall  => data_busy,
-      instr_readvalid  => instr_readvalid,
-      data_readvalid   => e_readvalid,
+      clk             => clk,
+      instr_addr      => instr_address,
+      data_addr       => data_address,
+      data_we         => data_write_en,
+      data_be         => data_byte_en,
+      data_wdata      => data_write_data,
+      data_rdata      => data_read_data,
+      instr_rdata     => instr_data,
+      data_read_en    => data_read_en,
+      instr_read_en   => instr_read_en,
+      instr_wait      => instr_read_wait,
+      data_wait       => data_wait,
+      instr_readvalid => instr_readvalid,
+      data_readvalid  => e_readvalid,
 
       --avalon mm bus
       data_av_address       => avm_data_address,
@@ -193,9 +205,19 @@ begin  -- architecture rtl
       data_av_writedata     => avm_data_writedata,
       data_av_lock          => avm_data_lock,
       data_av_waitrequest   => avm_data_waitrequest,
-      data_av_readdatavalid => avm_data_readdatavalid      );
+      data_av_readdatavalid => avm_data_readdatavalid,
 
-  --should always be available right away
+      --avalon mm bus
+      instr_av_address       => avm_instruction_address,
+      instr_av_byteenable    => avm_instruction_byteenable,
+      instr_av_read          => avm_instruction_read,
+      instr_av_readdata      => avm_instruction_readdata,
+      instr_av_response      => avm_instruction_response,
+      instr_av_write         => avm_instruction_write,
+      instr_av_writedata     => avm_instruction_writedata,
+      instr_av_lock          => avm_instruction_lock,
+      instr_av_waitrequest   => avm_instruction_waitrequest,
+      instr_av_readdatavalid => avm_instruction_readdatavalid);
 
-  program_counter <= d_pc;
+
 end architecture rtl;

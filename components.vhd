@@ -95,7 +95,7 @@ package components is
       read_en        : out std_logic;
       read_data      : in  std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
       read_datavalid : in  std_logic;
-      read_stalled   : in  std_logic
+      read_wait      : in  std_logic
       );
   end component instruction_fetch;
 
@@ -210,12 +210,12 @@ package components is
       instr_re   : in std_logic;
       data_re    : in std_logic;
 
-      data_out         : out std_logic_vector(REGISTER_SIZE-1 downto 0);
-      instr_out        : out std_logic_vector(REGISTER_SIZE-1 downto 0);
-      instr_read_stall : out std_logic;
-      data_read_stall  : out std_logic;
-      instr_readvalid  : out std_logic;
-      data_readvalid   : out std_logic);
+      data_out        : out std_logic_vector(REGISTER_SIZE-1 downto 0);
+      instr_out       : out std_logic_vector(REGISTER_SIZE-1 downto 0);
+      instr_wait      : out std_logic;
+      data_wait       : out std_logic;
+      instr_readvalid : out std_logic;
+      data_readvalid  : out std_logic);
   end component instruction_rom;
 
   component single_port_rom is
@@ -249,20 +249,20 @@ package components is
       REGISTER_SIZE     : natural;
       DUAL_PORTED_INSTR : boolean := true);
     port (
-      clk              : in  std_logic;
-      instr_addr       : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
-      data_addr        : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
-      data_we          : in  std_logic;
-      data_be          : in  std_logic_vector(REGISTER_SIZE/8-1 downto 0);
-      data_wdata       : in  std_logic_vector(REGISTER_SIZE - 1 downto 0);
-      data_read_en     : in  std_logic;
-      instr_read_en    : in  std_logic;
-      data_rdata       : out std_logic_vector(REGISTER_SIZE-1 downto 0);
-      instr_data       : out std_logic_vector(REGISTER_SIZE-1 downto 0);
-      instr_read_stall : out std_logic;
-      data_read_stall  : out std_logic;
-      instr_readvalid  : out std_logic;
-      data_readvalid   : out std_logic;
+      clk             : in  std_logic;
+      instr_addr      : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
+      data_addr       : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
+      data_we         : in  std_logic;
+      data_be         : in  std_logic_vector(REGISTER_SIZE/8-1 downto 0);
+      data_wdata      : in  std_logic_vector(REGISTER_SIZE - 1 downto 0);
+      data_read_en    : in  std_logic;
+      instr_read_en   : in  std_logic;
+      data_rdata      : out std_logic_vector(REGISTER_SIZE-1 downto 0);
+      instr_rdata     : out std_logic_vector(REGISTER_SIZE-1 downto 0);
+      instr_wait      : out std_logic;
+      data_wait       : out std_logic;
+      instr_readvalid : out std_logic;
+      data_readvalid  : out std_logic;
 
       data_av_address       : out std_logic_vector(REGISTER_SIZE-1 downto 0);
       data_av_byteenable    : out std_logic_vector(REGISTER_SIZE/8 -1 downto 0);
@@ -273,7 +273,18 @@ package components is
       data_av_writedata     : out std_logic_vector(REGISTER_SIZE-1 downto 0);
       data_av_lock          : out std_logic;
       data_av_waitrequest   : in  std_logic                                  := '0';
-      data_av_readdatavalid : in  std_logic                                  := '0');
+      data_av_readdatavalid : in  std_logic                                  := '0';
+
+      instr_av_address       : out std_logic_vector(REGISTER_SIZE-1 downto 0);
+      instr_av_byteenable    : out std_logic_vector(REGISTER_SIZE/8 -1 downto 0);
+      instr_av_read          : out std_logic;
+      instr_av_readdata      : in  std_logic_vector(REGISTER_SIZE-1 downto 0) := (others => 'X');
+      instr_av_response      : in  std_logic_vector(1 downto 0)               := (others => 'X');
+      instr_av_write         : out std_logic;
+      instr_av_writedata     : out std_logic_vector(REGISTER_SIZE-1 downto 0);
+      instr_av_lock          : out std_logic;
+      instr_av_waitrequest   : in  std_logic                                  := '0';
+      instr_av_readdatavalid : in  std_logic                                  := '0');
   end component memory_system;
 
   component register_file
@@ -283,6 +294,7 @@ package components is
     port(
       clk              : in std_logic;
       stall            : in std_logic;
+      valid_input      : in std_logic;
       rs1_sel          : in std_logic_vector(REGISTER_NAME_SIZE -1 downto 0);
       rs2_sel          : in std_logic_vector(REGISTER_NAME_SIZE -1 downto 0);
       writeback_sel    : in std_logic_vector(REGISTER_NAME_SIZE -1 downto 0);
@@ -354,8 +366,8 @@ package components is
 
       rdata1     : out std_logic_vector(BYTES*8-1 downto 0);
       rdata2     : out std_logic_vector(BYTES*8-1 downto 0);
-      stalled1   : out std_logic;
-      stalled2   : out std_logic;
+      wait1      : out std_logic;
+      wait2      : out std_logic;
       readvalid1 : out std_logic;
       readvalid2 : out std_logic);
   end component wait_cycle_bram;

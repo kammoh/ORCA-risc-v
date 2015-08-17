@@ -36,19 +36,21 @@ entity avalon_master is
 end entity avalon_master;
 
 architecture rtl of avalon_master is
-  constant WORD_SIZE : natural := log2(DATA_WIDTH/8);
+  -- constant SHIFT_AMT : natural := log2(DATA_WIDTH/8);
+  constant SHIFT_AMT : natural := 0;
 
 begin  -- architecture rtl
 
-  av_address <= std_logic_vector(shift_right(unsigned(address),WORD_SIZE));
+  av_address    <= std_logic_vector(shift_right(unsigned(address), SHIFT_AMT));
+--  av_address <= std_logic_vector(shift_right(unsigned(address),0));
   av_byteenable <= byte_enable;
-  av_read      <= read_enable;
-  read_data    <= av_readdata;
+  av_read       <= read_enable;
+  read_data     <= av_readdata;
   --av_response
-  av_write     <= write_enable;
-  av_writedata <= write_data;
-  av_lock      <= '0';
-  wait_request <= av_waitrequest;
-  read_valid   <= av_readdatavalid;
+  av_write      <= write_enable;
+  av_writedata  <= write_data;
+  av_lock       <= '0';
+  wait_request  <= av_waitrequest;
+  read_valid    <= av_readdatavalid;
 
 end architecture rtl;
