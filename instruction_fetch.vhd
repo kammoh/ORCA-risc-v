@@ -9,7 +9,7 @@ use work.components.all;
 entity instruction_fetch is
   generic (
     REGISTER_SIZE    : positive;
-    INSTRUCTION_SIZE : positive);
+    INSTRUCTION_SIZE : positive;);
   port (
     clk   : in std_logic;
     reset : in std_logic;
@@ -42,8 +42,10 @@ architecture rtl of instruction_fetch is
   signal instr_be    : std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
   signal valid_instr : std_logic;
 
-  signal generated_pc : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal latched_pc   : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal generated_pc       : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal latched_pc         : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal latched_correction : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal latched_corr_en    : std_logic;
 
   signal stalled : std_logic;
 
@@ -51,8 +53,14 @@ begin  -- architecture rtl
 
   stalled <= stall or read_wait;
 
-  program_counter <= latched_pc when stalled = '1' else  --stalled
-                     pc_corr when pc_corr_en = '1' else  --branch prediction fail
+  --if we are stalled, don't change the program counter, else
+  --if not stalled, and there is a prediction fail, load in the correction, else
+  --if while we were stalled a correction happened, load in the saved correction
+  --else use the normally generated program counter.
+
+  program_counter <= latched_pc when stalled = '1' else             --stalled
+                     pc_corr            when pc_corr_en = '1' else  --branch prediction fail
+                     latched_correction when latched_corr_en = '1' else
                      generated_pc;      --regular operation
 
 
@@ -63,40 +71,49 @@ begin  -- architecture rtl
   begin
     if rising_edge(clk) then
       if reset = '1' then
-        --if we subtract 4 from the target, we will get the target on the next
-        --cycle
         latched_pc <= std_logic_vector(to_signed(RESET_TARGET, REGISTER_SIZE));
       else
         latched_pc <= program_counter;
+
+        --latch in pc correction to be used after current read is complete
+        latched_correction <= pc_corr;
+        if pc_corr_en = '1' and stall = '1' then
+          latched_corr_en <= '1';
+        elsif read_datavalid = '1' then
+          latched_corr_en <= '0';
+        end if;
+
+
       end if;
     end if;
-  end process;
+  end if;
+end process;
 
 
 
-  instr_be <= read_data ;
-  --unpack instruction
-  instr <= (instr_be(7 downto 0) & instr_be(15 downto 8) &
-            instr_be(23 downto 16) & instr_be(31 downto 24));
+instr_be <= read_data;
+--unpack instruction
+instr <= (instr_be(7 downto 0) & instr_be(15 downto 8) &
+          instr_be(23 downto 16) & instr_be(31 downto 24));
 
-  valid_instr <= read_datavalid;
+valid_instr <= read_datavalid and not latched_corr_en;
 
-  pc_logic : component pc_incr
-    generic map (
-      REGISTER_SIZE    => REGISTER_SIZE,
-      INSTRUCTION_SIZE => INSTRUCTION_SIZE)
-    port map (
-      pc          => latched_pc,
-      instr       => instr,
-      valid_instr => valid_instr,
-      next_pc     => generated_pc);
+pc_logic : component pc_incr
+  generic map (
+    REGISTER_SIZE    => REGISTER_SIZE,
+    INSTRUCTION_SIZE => INSTRUCTION_SIZE)
+  port map (
+    pc          => latched_pc,
+    instr       => instr,
+    valid_instr => valid_instr,
+    next_pc     => generated_pc);
 
 
-  instr_out   <= instr;
-  pc_out      <= latched_pc;
-  next_pc_out <= generated_pc;
+instr_out   <= instr;
+pc_out      <= latched_pc;
+next_pc_out <= generated_pc;
 
-  valid_instr_out <= valid_instr;
+valid_instr_out <= valid_instr;
 
 
 
