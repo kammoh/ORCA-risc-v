@@ -43,7 +43,8 @@ package components is
       REGISTER_SIZE       : positive;
       REGISTER_NAME_SIZE  : positive;
       INSTRUCTION_SIZE    : positive;
-      SIGN_EXTENSION_SIZE : positive);
+      SIGN_EXTENSION_SIZE : positive;
+      RESET_VECTOR        : natural);
     port(
       clk         : in std_logic;
       reset       : in std_logic;
@@ -61,6 +62,9 @@ package components is
       wb_data : buffer std_logic_vector(REGISTER_SIZE-1 downto 0);
       wb_en   : buffer std_logic;
 
+      to_host   : out std_logic_vector(REGISTER_SIZE-1 downto 0);
+      from_host : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
+
       predict_corr    : out    std_logic_vector(REGISTER_SIZE-1 downto 0);
       predict_corr_en : out    std_logic;
       stall_pipeline  : buffer std_logic;
@@ -77,7 +81,8 @@ package components is
   component instruction_fetch is
     generic (
       REGISTER_SIZE    : positive;
-      INSTRUCTION_SIZE : positive);
+      INSTRUCTION_SIZE : positive;
+      RESET_VECTOR     : natural);
     port (
       clk   : in std_logic;
       reset : in std_logic;
@@ -371,5 +376,34 @@ package components is
       readvalid1 : out std_logic;
       readvalid2 : out std_logic);
   end component wait_cycle_bram;
+
+  component system_calls is
+
+    generic (
+      REGISTER_SIZE    : natural;
+      INSTRUCTION_SIZE : natural;
+      RESET_VECTOR     : natural);
+
+
+    port (
+      clk         : in std_logic;
+      reset       : in std_logic;
+      valid       : in std_logic;
+      rs1_data    : in std_logic_vector(REGISTER_SIZE-1 downto 0);
+      instruction : in std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
+
+      finished_instr : in std_logic;
+
+      wb_data : out std_logic_vector(REGISTER_SIZE-1 downto 0);
+      wb_en   : out std_logic;
+
+      to_host       : out std_logic_vector(REGISTER_SIZE-1 downto 0);
+      from_host     : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
+
+      current_pc    : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
+      pc_correction : out std_logic_vector(REGISTER_SIZE -1 downto 0);
+      pc_corr_en    : out std_logic);
+
+  end component system_calls;
 
 end package components;

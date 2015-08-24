@@ -9,7 +9,8 @@ use work.components.all;
 entity instruction_fetch is
   generic (
     REGISTER_SIZE    : positive;
-    INSTRUCTION_SIZE : positive;);
+    INSTRUCTION_SIZE : positive;
+    RESET_VECTOR : natural );
   port (
     clk   : in std_logic;
     reset : in std_logic;
@@ -34,8 +35,6 @@ end entity instruction_fetch;
 
 architecture rtl of instruction_fetch is
 
-  constant RESET_TARGET  : integer := 16#00002000#;
---constant RESET_TARGET  : integer := 16#ffff2000#;
   signal program_counter : std_logic_vector(REGISTER_SIZE -1 downto 0);
 
   signal instr       : std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
@@ -63,6 +62,7 @@ begin  -- architecture rtl
                      latched_correction when latched_corr_en = '1' else
                      generated_pc;      --regular operation
 
+  assert program_counter(1 downto 0) = "00" report "BAD INSTRUCTION ADDRESS" severity error;
 
   read_address <= program_counter;
   read_en      <= not reset;
@@ -71,7 +71,8 @@ begin  -- architecture rtl
   begin
     if rising_edge(clk) then
       if reset = '1' then
-        latched_pc <= std_logic_vector(to_signed(RESET_TARGET, REGISTER_SIZE));
+        latched_pc      <= std_logic_vector(to_signed(RESET_VECTOR, REGISTER_SIZE));
+        latched_corr_en <= '0';
       else
         latched_pc <= program_counter;
 
@@ -82,38 +83,36 @@ begin  -- architecture rtl
         elsif read_datavalid = '1' then
           latched_corr_en <= '0';
         end if;
-
-
-      end if;
-    end if;
-  end if;
-end process;
+      end if;  --reset
+    end if;  -- clock
+  end process;
 
 
 
-instr_be <= read_data;
+
+  instr_be <= read_data;
 --unpack instruction
-instr <= (instr_be(7 downto 0) & instr_be(15 downto 8) &
-          instr_be(23 downto 16) & instr_be(31 downto 24));
+  instr <= (instr_be(7 downto 0) & instr_be(15 downto 8) &
+            instr_be(23 downto 16) & instr_be(31 downto 24));
 
-valid_instr <= read_datavalid and not latched_corr_en;
+  valid_instr <= read_datavalid and not latched_corr_en;
 
-pc_logic : component pc_incr
-  generic map (
-    REGISTER_SIZE    => REGISTER_SIZE,
-    INSTRUCTION_SIZE => INSTRUCTION_SIZE)
-  port map (
-    pc          => latched_pc,
-    instr       => instr,
-    valid_instr => valid_instr,
-    next_pc     => generated_pc);
+  pc_logic : component pc_incr
+    generic map (
+      REGISTER_SIZE    => REGISTER_SIZE,
+      INSTRUCTION_SIZE => INSTRUCTION_SIZE)
+    port map (
+      pc          => latched_pc,
+      instr       => instr,
+      valid_instr => valid_instr,
+      next_pc     => generated_pc);
 
 
-instr_out   <= instr;
-pc_out      <= latched_pc;
-next_pc_out <= generated_pc;
+  instr_out   <= instr;
+  pc_out      <= latched_pc;
+  next_pc_out <= generated_pc;
 
-valid_instr_out <= valid_instr;
+  valid_instr_out <= valid_instr;
 
 
 

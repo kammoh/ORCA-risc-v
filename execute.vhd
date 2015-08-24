@@ -10,7 +10,8 @@ entity execute is
     REGISTER_SIZE       : positive;
     REGISTER_NAME_SIZE  : positive;
     INSTRUCTION_SIZE    : positive;
-    SIGN_EXTENSION_SIZE : positive);
+    SIGN_EXTENSION_SIZE : positive;
+    RESET_VECTOR        : natural);
   port(
     clk         : in std_logic;
     reset       : in std_logic;
@@ -27,6 +28,9 @@ entity execute is
     wb_sel  : buffer std_logic_vector(REGISTER_NAME_SIZE-1 downto 0);
     wb_data : buffer std_logic_vector(REGISTER_SIZE-1 downto 0);
     wb_en   : buffer std_logic;
+
+    to_host   : out std_logic_vector(REGISTER_SIZE-1 downto 0);
+    from_host : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
 
     predict_corr    : out    std_logic_vector(REGISTER_SIZE-1 downto 0);
     predict_corr_en : out    std_logic;
@@ -51,24 +55,26 @@ architecture behavioural of execute is
     instruction(24 downto 20);
 
 
-
-
-
   -- various writeback sources
   signal br_data_out  : std_logic_vector(REGISTER_SIZE-1 downto 0);
   signal alu_data_out : std_logic_vector(REGISTER_SIZE-1 downto 0);
   signal ld_data_out  : std_logic_vector(REGISTER_SIZE-1 downto 0);
   signal upp_data_out : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal br_data_en   : std_logic;
-  signal alu_data_en  : std_logic;
-  signal ld_data_en   : std_logic;
+  signal sys_data_out : std_logic_vector(REGISTER_SIZE-1 downto 0);
 
+  signal br_data_en  : std_logic;
+  signal alu_data_en : std_logic;
+  signal ld_data_en  : std_logic;
   signal upp_data_en : std_logic;
+  signal sys_data_en : std_logic;
 
-  signal writeback_1hot : std_logic_vector(3 downto 0);
+  signal writeback_1hot : std_logic_vector(4 downto 0);
 
-  signal bad_predict : std_logic;
-  signal new_pc      : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal br_bad_predict : std_logic;
+  signal br_new_pc      : std_logic_vector(REGISTER_SIZE-1 downto 0);
+
+  signal syscall_en     : std_logic;
+  signal syscall_target : std_logic_vector(REGISTER_SIZE-1 downto 0);
 
 
 
@@ -123,8 +129,8 @@ begin
       sign_extension => sign_extension,
       data_out       => br_data_out,
       data_out_en    => br_data_en,
-      new_pc         => new_pc,
-      bad_predict    => bad_predict);
+      new_pc         => br_new_pc,
+      bad_predict    => br_bad_predict);
 
   ls_unit : component load_store_unit
     generic map(
@@ -150,9 +156,34 @@ begin
       read_data      => read_data,
       read_wait      => read_wait);
 
-  stall_pipeline    <= ls_unit_waiting;
+  syscall : component system_calls
+    generic map (
+      REGISTER_SIZE    => REGISTER_SIZE,
+      INSTRUCTION_SIZE => INSTRUCTION_SIZE,
+      RESET_VECTOR     => RESET_VECTOR)
+    port map (
+      clk            => clk,
+      reset          => reset,
+      valid          => valid_input,
+      rs1_data       => rs1_data_fwd,
+      instruction    => instruction,
+      finished_instr => '0',
+      wb_data        => sys_data_out,
+      wb_en          => sys_data_en,
+      to_host        => to_host,
+      from_host      => from_host,
+
+      current_pc    => pc_current,
+      pc_correction => syscall_target,
+      pc_corr_en    => syscall_en);
+
+
+
+  stall_pipeline <= ls_unit_waiting;
+
   --the above components have output latches,
   --find out which is the actual output
+  writeback_1hot(4) <= sys_data_en;
   writeback_1hot(3) <= upp_data_en;
   writeback_1hot(2) <= alu_data_en;
   writeback_1hot(1) <= br_data_en;
@@ -160,15 +191,18 @@ begin
 
   with writeback_1hot select
     wb_data <=
-    upp_data_out    when "1000",
-    alu_data_out    when "0100",
-    br_data_out     when "0010",
-    ld_data_out     when "0001",
+    sys_data_out    when "10000",
+    upp_data_out    when "01000",
+    alu_data_out    when "00100",
+    br_data_out     when "00010",
+    ld_data_out     when "00001",
     (others => 'X') when others;
 
-  wb_en           <= valid_input_latched and (alu_data_en or br_data_en or ld_data_en or upp_data_en);
-  predict_corr_en <= bad_predict and valid_input_latched;
-  predict_corr    <= new_pc;
+  wb_en           <= valid_input_latched and
+                   (alu_data_en or br_data_en or ld_data_en or upp_data_en or sys_data_en);
+  predict_corr_en <= (syscall_en or br_bad_predict) and valid_input_latched;
+
+  predict_corr <= br_new_pc when br_bad_predict = '1' else syscall_target;
 
   --wb_sel needs to be latched as well
   wb_sel_proc : process(clk)

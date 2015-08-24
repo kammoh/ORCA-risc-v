@@ -8,12 +8,17 @@ use work.utils.all;
 entity riscV is
 
   generic (
-    REGISTER_SIZE : integer := 32);
+    REGISTER_SIZE : integer := 32;
+    RESET_VECTOR  : natural := 16#00000200#);
 
-  port(clk             : in  std_logic;
-       reset           : in  std_logic;
+  port(clk   : in std_logic;
+       reset : in std_logic;
 
-       --avalon master bus
+       --conduit end point
+       coe_to_host   : out std_logic_vector(REGISTER_SIZE -1 downto 0);
+       coe_from_host : in  std_logic_vector(REGISTER_SIZE -1 downto 0);
+
+--avalon master bus
        avm_data_address       : out std_logic_vector(REGISTER_SIZE-1 downto 0);
        avm_data_byteenable    : out std_logic_vector(REGISTER_SIZE/8 -1 downto 0);
        avm_data_read          : out std_logic;
@@ -36,6 +41,7 @@ entity riscV is
        avm_instruction_lock          : out std_logic;
        avm_instruction_waitrequest   : in  std_logic                                  := '0';
        avm_instruction_readdatavalid : in  std_logic                                  := '0'
+
        );
 
 end entity riscV;
@@ -48,25 +54,28 @@ architecture rtl of riscV is
 
   --signals going int fetch
 
-  signal pc_corr_en : std_logic;
-  signal pc_corr    : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal pc_corr_en   : std_logic;
+  signal pc_corr      : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal if_valid_out : std_logic;
 
   --signals going into decode
-  signal d_instr   : std_logic_vector(INSTRUCTION_SIZE -1 downto 0);
-  signal d_pc      : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal d_next_pc : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal d_valid   : std_logic;
+  signal d_instr     : std_logic_vector(INSTRUCTION_SIZE -1 downto 0);
+  signal d_pc        : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal d_next_pc   : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal d_valid     : std_logic;
+  signal d_valid_out : std_logic;
 
   signal wb_data : std_logic_vector(REGISTER_SIZE-1 downto 0);
   signal wb_sel  : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0);
   signal wb_en   : std_logic;
 
   --signals going into execute
-  signal e_instr         : std_logic_vector(INSTRUCTION_SIZE -1 downto 0);
-  signal e_pc            : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal e_next_pc       : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal e_valid         : std_logic;
-  signal e_readvalid     : std_logic;
+  signal e_instr     : std_logic_vector(INSTRUCTION_SIZE -1 downto 0);
+  signal e_pc        : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal e_next_pc   : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal e_valid     : std_logic;
+  signal e_readvalid : std_logic;
+
   signal execute_stalled : std_logic;
   signal rs1_data        : std_logic_vector(REGISTER_SIZE-1 downto 0);
   signal rs2_data        : std_logic_vector(REGISTER_SIZE-1 downto 0);
@@ -90,14 +99,18 @@ architecture rtl of riscV is
   signal instr_read_en   : std_logic;
   signal instr_readvalid : std_logic;
 
+  --calculate this for interupts
+  signal next_valid_ex_pc : std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
+
 begin  -- architecture rtl
-  pipeline_flush <= reset or pc_corr_en;
+  pipeline_flush <= pc_corr_en;
 
 
   instr_fetch : component instruction_fetch
     generic map (
       REGISTER_SIZE    => REGISTER_SIZE,
-      INSTRUCTION_SIZE => INSTRUCTION_SIZE)
+      INSTRUCTION_SIZE => INSTRUCTION_SIZE,
+      RESET_VECTOR => RESET_VECTOR)
     port map (
       clk        => clk,
       reset      => reset,
@@ -108,13 +121,14 @@ begin  -- architecture rtl
       instr_out       => d_instr,
       pc_out          => d_pc,
       next_pc_out     => d_next_pc,
-      valid_instr_out => d_valid,
+      valid_instr_out => if_valid_out,
       read_address    => instr_address,
       read_en         => instr_read_en,
       read_data       => instr_data,
       read_wait       => instr_read_wait,
       read_datavalid  => instr_readvalid);
 
+  d_valid <= if_valid_out and not pipeline_flush;
   D : component decode
     generic map(
       REGISTER_SIZE       => REGISTER_SIZE,
@@ -123,7 +137,7 @@ begin  -- architecture rtl
       SIGN_EXTENSION_SIZE => SIGN_EXTENSION_SIZE)
     port map(
       clk            => clk,
-      reset          => pipeline_flush,
+      reset          => reset,
       stall          => execute_stalled,
       instruction    => d_instr,
       valid_input    => d_valid,
@@ -142,16 +156,19 @@ begin  -- architecture rtl
       pc_next_out    => e_next_pc,
       pc_curr_out    => e_pc,
       instr_out      => e_instr,
-      valid_output   => e_valid);
+      valid_output   => d_valid_out);
+
+  e_valid <= d_valid_out and not pipeline_flush;
   X : component execute
     generic map (
       REGISTER_SIZE       => REGISTER_SIZE,
       REGISTER_NAME_SIZE  => REGISTER_NAME_SIZE,
       INSTRUCTION_SIZE    => INSTRUCTION_SIZE,
-      SIGN_EXTENSION_SIZE => SIGN_EXTENSION_SIZE)
+      SIGN_EXTENSION_SIZE => SIGN_EXTENSION_SIZE,
+      RESET_VECTOR        => RESET_VECTOR)
     port map (
       clk             => clk,
-      reset           => pipeline_flush,
+      reset           => reset,
       valid_input     => e_valid,
       pc_next         => e_next_pc,
       pc_current      => e_pc,
@@ -165,6 +182,8 @@ begin  -- architecture rtl
       predict_corr    => pc_corr,
       predict_corr_en => pc_corr_en,
       stall_pipeline  => execute_stalled,
+      from_host       => coe_from_host,
+      to_host         => coe_to_host,
       --memory lines
       address         => data_address,
       byte_en         => data_byte_en,
@@ -219,5 +238,18 @@ begin  -- architecture rtl
       instr_av_waitrequest   => avm_instruction_waitrequest,
       instr_av_readdatavalid => avm_instruction_readdatavalid);
 
+
+  -- during reset, the next executed instruction will be at reset target
+  -- if not in reset: if pc_corr_en, all pipeline stages will be flushed and
+  -- pc_corr will be the next executed instruction. if neither of these conditions
+  -- are true the next instruction will be the the one that is currently being
+  -- decoded.
+  -- It is possible that the instruction in the deode stage is not valid, but
+  -- the pc in d_pc always points to the correct instruction, see instruction_fetch.vhd
+  -- if you need to see.
+
+  next_valid_ex_pc <= (others => 'X') when reset = '1' else
+                      pc_corr when pc_corr_en = '1' else
+                      d_pc;
 
 end architecture rtl;

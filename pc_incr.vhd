@@ -38,7 +38,7 @@ begin  -- architecture pc_insr
                      instr(30 downto 25) & instr(11 downto 8)&"0") when instr(31) = '1'
               else to_signed(4, REGISTER_SIZE);
   jal_imm <= resize(signed(instr(31) & instr(19 downto 12) &
-                           instr(20) & instr(30 downto 21)),
+                           instr(20) & instr(30 downto 21)&"0"),
                     REGISTER_SIZE);
   with opcode select
     immediate <=
