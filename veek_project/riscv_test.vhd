@@ -23,15 +23,16 @@ entity riscv_test is
 end entity riscv_test;
 
 architecture rtl of riscv_test is
-  component riscV is
-    generic (
-      REGISTER_SIZE        : integer;
-      INSTRUCTION_MEM_SIZE : integer;
-      DATA_MEMORY_SIZE     : integer);
-    port(clk             : in  std_logic;
-         reset           : in  std_logic;
-         program_counter : out std_logic_vector(REGISTER_SIZE-1 downto 0));
-  end component riscV;
+  component vblox1 is
+    port (
+      clk_clk                : in  std_logic                     := '0';  --             clk.clk
+      reset_reset_n          : in  std_logic                     := '0';  --           reset.reset_n
+      program_counter_export : out std_logic_vector(31 downto 0);  -- program_counter.export
+      to_host_export         : out std_logic_vector(31 downto 0);  --         to_host.export
+      from_host_export       : in  std_logic_vector(31 downto 0) := (others => '0')  --       from_host.export
+      );
+  end component vblox1;
+
   component sevseg_conv is
 
     port (
@@ -39,24 +40,31 @@ architecture rtl of riscv_test is
       output : out std_logic_vector(6 downto 0));
 
   end component sevseg_conv;
-  signal count     : unsigned(31 downto 0);
+
   signal hex_input : std_logic_vector(31 downto 0);
+  signal pc        : std_logic_vector(31 downto 0);
+  signal th        : std_logic_vector(31 downto 0);
+  signal fh        : std_logic_vector(31 downto 0);
   signal clk       : std_logic;
   signal reset     : std_logic;
 
 begin
   clk   <= clock_50;
-  reset <= not key(1);
+  reset <= key(1);
 
-  rv : component riscv
-    generic map (
-      REGISTER_SIZE        => 32,
-      INSTRUCTION_MEM_SIZE => 1024,
-      DATA_MEMORY_SIZE     => 2048)
+  fh <= std_logic_vector(resize(signed(sw), fh'length));
+
+  LEDR <= fh(17 downto 0);
+  rv : component vblox1
     port map (
-      clk             => clk,
-      reset           => reset,
-      program_counter => hex_input);
+      clk_clk                => clk,
+      reset_reset_n          => reset,
+      to_host_export         => th,
+      from_host_export       => fh,
+      program_counter_export => pc);
+
+  hex_input(15 downto 0)  <= pc(15 downto 0);
+  hex_input(31 downto 16) <= th(15 downto 0);
 
   ss0 : component sevseg_conv
     port map (
@@ -91,7 +99,7 @@ begin
       input  => hex_input(31 downto 28),
       output => HEX7);
 
-  LEDR <= SW;
+  LEDR             <= SW;
   LEDG(6 downto 0) <= (others => '1');
-  LEDG(7) <= reset;
+  LEDG(7)          <= reset;
 end;

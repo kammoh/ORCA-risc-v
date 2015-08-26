@@ -78,13 +78,13 @@ begin  -- architecture rtl
           when SLL_OP =>
             data_result := SHIFT_LEFT(data1, to_integer(data2(5 downto 0)));
           when SLT_OP =>
-            if data1 < data1 then
+            if data1 < data2 then
               data_result := to_unsigned(1, REGISTER_SIZE);
             else
               data_result := to_unsigned(0, REGISTER_SIZE);
             end if;
           when SLTU_OP =>
-            if data1 < data1 then
+            if data1 < data2 then
               data_result := to_unsigned(1, REGISTER_SIZE);
             else
               data_result := to_unsigned(0, REGISTER_SIZE);

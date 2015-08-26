@@ -190,8 +190,9 @@ begin  -- architecture rtl
 
     (others => 'X') when others;
 
-  bit_sel  <= rs1_data;
-  ibit_sel <= std_logic_vector(shift_left(to_unsigned(1, REGISTER_SIZE), to_integer(unsigned(zimm))));
+  bit_sel                                      <= rs1_data;
+  ibit_sel(REGISTER_SIZE-1 downto zimm'left+1) <= (others => '0');
+  ibit_sel(zimm'left downto 0)                 <= zimm;
 
   resized_zimm(4 downto 0)                <= zimm;
   resized_zimm(REGISTER_SIZE -1 downto 5) <= (others => '0');
@@ -219,8 +220,8 @@ begin  -- architecture rtl
         mtdeleg   <= (others => '0');
         mie       <= (others => '0');
         mtimecmp  <= (others => '0');
-        mtime     <= (others => '0');
-        mtimeh    <= (others => '0');
+        --mtime     <= (others => '0');
+        --mtimeh    <= (others => '0');
         mscratch  <= (others => '0');
         mepc      <= (others => '0');
         mcause    <= (others => '0');
@@ -234,8 +235,9 @@ begin  -- architecture rtl
         mdbound   <= (others => '0');
         htimew    <= (others => '0');
         htimehw   <= (others => '0');
-        mfromhost <= (others => '0');
+        --mfromhost <= (others => '0');
         mtohost   <= (others => '0');
+
       else
         --writeback to register file
         wb_data    <= csr_read_val;

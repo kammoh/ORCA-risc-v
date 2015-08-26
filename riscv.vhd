@@ -17,6 +17,7 @@ entity riscV is
        --conduit end point
        coe_to_host   : out std_logic_vector(REGISTER_SIZE -1 downto 0);
        coe_from_host : in  std_logic_vector(REGISTER_SIZE -1 downto 0);
+       coe_program_counter : out std_logic_vector(REGISTER_SIZE -1 downto 0);
 
 --avalon master bus
        avm_data_address       : out std_logic_vector(REGISTER_SIZE-1 downto 0);
@@ -104,7 +105,7 @@ architecture rtl of riscV is
 
 begin  -- architecture rtl
   pipeline_flush <= pc_corr_en;
-
+  coe_program_counter <= d_pc;
 
   instr_fetch : component instruction_fetch
     generic map (
