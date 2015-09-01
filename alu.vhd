@@ -1,6 +1,8 @@
 library ieee;
 use ieee.std_logic_1164.all;
 use IEEE.NUMERIC_STD.all;
+library work;
+use work.utils.all;
 --use IEEE.std_logic_arith.all;
 
 entity arithmetic_unit is
@@ -35,15 +37,27 @@ architecture rtl of arithmetic_unit is
 
   constant OP_IMM_IMMEDIATE_SIZE : integer := 12;
 
+  signal is_immediate    : std_logic;
+  signal data1           : unsigned(REGISTER_SIZE-1 downto 0);
+  signal data2           : unsigned(REGISTER_SIZE-1 downto 0);
+  signal data_result     : unsigned(REGISTER_SIZE-1 downto 0);
+  signal immediate_value : unsigned(REGISTER_SIZE-1 downto 0);
+  signal shift_amt       : natural range 0 to REGISTER_SIZE-1;
+
+
 begin  -- architecture rtl
 
+  is_immediate <= not instruction(5);
+  immediate_value <= unsigned(sign_extension(REGISTER_SIZE-OP_IMM_IMMEDIATE_SIZE-1 downto 0)&
+                              instruction(31 downto 20));
+  data1 <= unsigned(rs1_data);
+  data2 <= unsigned(rs2_data) when not is_immediate = '1' else immediate_value;
 
+  shift_amt <= to_integer(data2(log2(REGISTER_SIZE)-1 downto 0));
 
   alu_proc : process(clk) is
-    variable func             : std_logic_vector(2 downto 0);
-    variable is_immediate     : std_logic;
-    variable data1            : unsigned(REGISTER_SIZE-1 downto 0);
-    variable data2            : unsigned(REGISTER_SIZE-1 downto 0);
+    variable func : std_logic_vector(2 downto 0);
+
     variable data_result      : unsigned(REGISTER_SIZE-1 downto 0);
     variable arithmetic_shift : std_logic;
     variable subtract         : std_logic;
@@ -54,17 +68,11 @@ begin  -- architecture rtl
   begin
     if rising_edge(clk) then
       if stall = '0' then
-        is_immediate := not instruction(5);
-        data1        := unsigned(rs1_data);
-        data2        := unsigned(rs2_data);
-        pretrunc_imm := sign_extension & instruction(31 downto 20);
-        func         := instruction(14 downto 12);
-
+        func             := instruction(14 downto 12);
         arithmetic_shift := instruction(30);
-        subtract         := instruction(30) and instruction(5) ;
+        subtract         := instruction(30) and instruction(5);
 
         if is_immediate = '1' then
-          data2    := unsigned(pretrunc_imm(31 downto 0));
           subtract := '0';              --never do subtract on immediate
         end if;
 
@@ -76,9 +84,9 @@ begin  -- architecture rtl
               data_result := data1 + data2;
             end if;
           when SLL_OP =>
-            data_result := SHIFT_LEFT(data1, to_integer(data2(5 downto 0)));
+            data_result := SHIFT_LEFT(data1, shift_amt);
           when SLT_OP =>
-            if data1 < data2 then
+            if signed(data1) < signed(data2) then
               data_result := to_unsigned(1, REGISTER_SIZE);
             else
               data_result := to_unsigned(0, REGISTER_SIZE);
@@ -94,12 +102,10 @@ begin  -- architecture rtl
           when SR_OP =>
             if arithmetic_shift = '1' then
               data_result := unsigned(SHIFT_RIGHT(signed(data1),
-                                                  to_integer(unsigned(data2(5 downto 0)))
-                                                  ));
+                                                  shift_amt));
             else
               data_result := SHIFT_RIGHT(data1,
-                                         to_integer(unsigned(data2(5 downto 0))
-                                                    ));
+                                         shift_amt);
             end if;
           when OR_OP =>
             data_result := data1 or data2;
