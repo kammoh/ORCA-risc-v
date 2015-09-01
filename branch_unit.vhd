@@ -100,7 +100,7 @@ begin  -- architecture rtl
                     calc_pc := branch_target;
                   end if;
                 when BGEU =>
-                  if unsigned(rs1_data) /= unsigned(rs2_data) then
+                  if unsigned(rs1_data) >= unsigned(rs2_data) then
                     calc_pc := branch_target;
                   end if;
                 when others => null;

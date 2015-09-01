@@ -24,13 +24,12 @@ end entity riscv_test;
 
 architecture rtl of riscv_test is
   component vblox1 is
-    port (
-      clk_clk                : in  std_logic                     := '0';  --             clk.clk
-      reset_reset_n          : in  std_logic                     := '0';  --           reset.reset_n
-      program_counter_export : out std_logic_vector(31 downto 0);  -- program_counter.export
-      to_host_export         : out std_logic_vector(31 downto 0);  --         to_host.export
-      from_host_export       : in  std_logic_vector(31 downto 0) := (others => '0')  --       from_host.export
-      );
+    	port (
+		clk_clk                : in  std_logic                     := '0';             --             clk.clk
+		program_counter_export : out std_logic_vector(31 downto 0);                    -- program_counter.export
+		reset_reset_n          : in  std_logic                     := '0';             --           reset.reset_n
+		from_host_export       : in  std_logic_vector(31 downto 0) := (others => '0')  --       from_host.export
+	);
   end component vblox1;
 
   component sevseg_conv is
@@ -59,13 +58,12 @@ begin
     port map (
       clk_clk                => clk,
       reset_reset_n          => reset,
-      to_host_export         => th,
       from_host_export       => fh,
       program_counter_export => pc);
 
-  hex_input(15 downto 0)  <= pc(15 downto 0);
-  hex_input(31 downto 16) <= th(15 downto 0);
-
+--  hex_input(15 downto 0)  <= pc(15 downto 0);
+--  hex_input(31 downto 16) <= th(15 downto 0);
+	hex_input <=pc;
   ss0 : component sevseg_conv
     port map (
       input  => hex_input(3 downto 0),

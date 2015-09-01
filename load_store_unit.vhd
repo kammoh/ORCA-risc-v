@@ -93,13 +93,12 @@ begin
 
   --move bytes around to be placed at correct address
   w0 <= source_data(7 downto 0);
-  w1 <= source_data(7 downto 0) when fun3 = BYTE_SIZE and address_unaligned(1 downto 0) = "01" else
+  w1 <= source_data(7 downto 0) when address_unaligned(1 downto 0) = "01" else
         source_data(15 downto 8);
-  w2 <= source_data(7 downto 0) when ((fun3 = BYTE_SIZE and address_unaligned(1 downto 0) = "10") or
-                                      (fun3 = HALF_SIZE and address_unaligned(1 downto 0) = "00")) else
+  w2 <= source_data(7 downto 0) when  address_unaligned(1 downto 0) = "10" else
         source_data(23 downto 16);
-  w3 <= source_data(7 downto 0) when fun3 = BYTE_SIZE and address_unaligned(1 downto 0) = "11" else
-        source_data(15 downto 8) when fun3 = WORD_SIZE and address_unaligned(1 downto 0) = "10" else
+  w3 <= source_data(7 downto 0) when address_unaligned(1 downto 0) = "11" else
+        source_data(15 downto 8) when address_unaligned(1 downto 0) = "10" else
         source_data(31 downto 24);
 
 
