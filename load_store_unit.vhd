@@ -67,14 +67,16 @@ architecture rtl of load_store_unit is
   signal fixed_data   : std_logic_vector(REGISTER_SIZE-1 downto 0);
   signal latched_data : std_logic_vector(REGISTER_SIZE-1 downto 0);
   signal re           : std_logic;
+  signal we           : std_logic;
 begin
 
   --prepare memory signals
   opcode <= instruction(6 downto 0);
   fun3   <= instruction(14 downto 12);
 
-  write_en <= '1' when opcode = STORE_INSTR and valid = '1' else '0';
+  we       <= '1' when opcode = STORE_INSTR and valid = '1' else '0';
   re       <= '1' when opcode = LOAD_INSTR and valid = '1'  else '0';
+  write_en <= we;
   read_en  <= re;
 
   imm <= instruction(31 downto 25) & instruction(11 downto 7) when instruction(5) = '1'
@@ -95,7 +97,7 @@ begin
   w0 <= source_data(7 downto 0);
   w1 <= source_data(7 downto 0) when address_unaligned(1 downto 0) = "01" else
         source_data(15 downto 8);
-  w2 <= source_data(7 downto 0) when  address_unaligned(1 downto 0) = "10" else
+  w2 <= source_data(7 downto 0) when address_unaligned(1 downto 0) = "10" else
         source_data(23 downto 16);
   w3 <= source_data(7 downto 0) when address_unaligned(1 downto 0) = "11" else
         source_data(15 downto 8) when address_unaligned(1 downto 0) = "10" else
@@ -109,7 +111,7 @@ begin
   address    <= address_unaligned(REGISTER_SIZE-1 downto 2) & "00";
 
   --combinatorial output. busy depends on memory input lines, but it is not clocked
-  waiting <= read_wait and re and valid;
+  waiting <= read_wait and (re or we) and valid;
 
 
   --outputs, all of these assignments should happen on the rising edge,
