@@ -35,9 +35,9 @@ architecture rtl of branch_unit is
   constant OP_IMM_IMMEDIATE_SIZE : integer := 12;
 
   --op codes
-  constant JAL    : unsigned(6 downto 0) := "1101111";
-  constant JALR   : unsigned(6 downto 0) := "1100111";
-  constant BRANCH : unsigned(6 downto 0) := "1100011";
+  constant JAL    : std_logic_vector(6 downto 0) := "1101111";
+  constant JALR   : std_logic_vector(6 downto 0) := "1100111";
+  constant BRANCH : std_logic_vector(6 downto 0) := "1100011";
 
   --func3
   constant BEQ  : std_logic_vector(2 downto 0) := "000";
@@ -47,17 +47,66 @@ architecture rtl of branch_unit is
   constant BLTU : std_logic_vector(2 downto 0) := "110";
   constant BGEU : std_logic_vector(2 downto 0) := "111";
 
+  alias func3  : std_logic_vector(2 downto 0) is instr(14 downto 12);
+  alias opcode : std_logic_vector(6 downto 0) is instr(6 downto 0);
+
+  --these are one bit larget than a register
+  signal op1      : signed(REGISTER_SIZE downto 0);
+  signal op2      : signed(REGISTER_SIZE downto 0);
+  signal sub      : signed(REGISTER_SIZE downto 0);
+  signal msb_mask : std_logic;
+
+  signal j_imm       : unsigned(REGISTER_SIZE-1 downto 0);
+  signal b_imm       : unsigned(REGISTER_SIZE-1 downto 0);
+  signal target_add1 : unsigned(REGISTER_SIZE-1 downto 0);
+  signal target_add2 : unsigned(REGISTER_SIZE-1 downto 0);
+  signal target_pc   : unsigned(REGISTER_SIZE-1 downto 0);
+
+  signal leq_flg : std_logic;
+  signal eq_flg  : std_logic;
+
+  signal branch_taken : std_logic;
+
 
 begin  -- architecture rtl
 
+  with func3 select
+    msb_mask <=
+    '0' when BLTU,
+    '0' when BGEU,
+    '1' when others;
+
+
+
+  op1 <= signed((msb_mask and rs1_data(rs1_data'left)) & rs1_data);
+  op2 <= signed((msb_mask and rs2_data(rs2_data'left)) & rs2_data);
+  sub <= op1 - op2;
+
+  eq_flg  <= '1' when sub = to_signed(0, REGISTER_SIZE+1) else '0';
+  leq_flg <= sub(sub'left);
+
+  branch_taken <= '1' when ((func3 = beq and (eq_flg) = '1') or
+                            (func3 = bne and (not eq_flg) = '1') or
+                            (func3 = blt and (leq_flg and not eq_flg) = '1') or
+                            (func3 = bge and (not leq_flg or eq_flg) = '1') or
+                            (func3 = bltu and (leq_flg and not eq_flg) = '1') or
+                            (func3 = bgeu and (not leq_flg or eq_flg) = '1')
+                            ) else '0';
+  b_imm <= unsigned(sign_extension(REGISTER_SIZE-13 downto 0) &
+                    instr(7) & instr(30 downto 25) &instr(11 downto 8) & "0");
+
+  j_imm <= unsigned(sign_extension(REGISTER_SIZE-12-1 downto 0) &
+                    instr(31 downto 21) & "0") ;
+
+
+  target_add1 <= b_imm when branch_taken = '1' and opcode = BRANCH else
+                 j_imm when opcode = JALR else
+                 to_unsigned(4, REGISTER_SIZE);
+  target_add2 <= unsigned(rs1_data) when opcode = JALR else unsigned(current_pc);
+
+  target_pc <= target_add1 + target_add2;
+
   br_proc : process (clk, reset) is
-    variable opcode        : unsigned(6 downto 0);
-    variable imm_val       : unsigned(REGISTER_SIZE-1 downto 0);  --ammount to add
-    variable next_pc       : unsigned(REGISTER_SIZE-1 downto 0);  --instruction after
-                                                                  --the current
-    variable calc_pc       : unsigned(REGISTER_SIZE-1 downto 0);
-    variable branch_target : unsigned(REGISTER_SIZE-1 downto 0);
-    variable is_branch     : std_logic;
   begin  -- process br_proc
     if rising_edge(clk) then
       if reset = '1' then
@@ -65,68 +114,20 @@ begin  -- architecture rtl
         data_out_en <= '0';
       else
         if stall = '0' then
-          data_out_en <= '0';
-          bad_predict <= '0';
-          next_pc     := unsigned(current_pc)+4;
-          opcode      := unsigned(instr(6 downto 0));
+          data_out <= std_logic_vector(unsigned(current_pc) +
+                                       to_unsigned(4, REGISTER_SIZE));
 
-          calc_pc   := next_pc;
-          is_branch := '1';
-          case opcode is
-            when BRANCH =>
-              imm_val := unsigned(sign_extension(REGISTER_SIZE-13 downto 0) &
-                                  instr(7) & instr(30 downto 25) &instr(11 downto 8) & "0");
-
-              branch_target := unsigned(current_pc) + imm_val;
-              case instr(14 downto 12) is
-                when BEQ =>
-                  if signed(rs1_data) = signed(rs2_data) then
-                    calc_pc := branch_target;
-                  end if;
-                when BNE =>
-                  if signed(rs1_data) /= signed(rs2_data) then
-                    calc_pc := branch_target;
-                  end if;
-                when BLT =>
-                  if signed(rs1_data) < signed(rs2_data) then
-                    calc_pc := branch_target;
-                  end if;
-                when BGE =>
-                  if signed(rs1_data) >= signed(rs2_data) then
-                    calc_pc := branch_target;
-                  end if;
-                when BLTU =>
-                  if unsigned(rs1_data) < unsigned(rs2_data) then
-                    calc_pc := branch_target;
-                  end if;
-                when BGEU =>
-                  if unsigned(rs1_data) >= unsigned(rs2_data) then
-                    calc_pc := branch_target;
-                  end if;
-                when others => null;
-              end case;
-
-            when JALR =>
-              imm_val := unsigned(sign_extension(REGISTER_SIZE-12-1 downto 0) &
-                                  instr(31 downto 21) & "0");
-              calc_pc     := imm_val + unsigned(rs1_data);
-              data_out_en <= '1';
-            when JAL =>
-              imm_val := unsigned(sign_extension(REGISTER_SIZE-21 downto 0) &
-                                  instr(19 downto 12) & instr(20) & instr(30 downto 21) & "0");
-              calc_pc     := imm_val + unsigned(current_pc);
-              data_out_en <= '1';
-
-            when others =>
-              is_branch := '0';
-          end case;
-
-          if calc_pc /= unsigned(predicted_pc) and is_branch = '1' then
-            bad_predict <= is_branch;
+          if opcode = JAL or opcode = JALR then
+            data_out_en <= '1';
+          else
+            data_out_en <= '0';
           end if;
-          new_pc   <= std_logic_vector(calc_pc);
-          data_out <= std_logic_vector(next_pc);
-
+          new_pc <= std_logic_vector(target_pc);
+          if (opcode = BRANCH and target_pc /= unsigned(predicted_pc)) or opcode = JALR then
+            bad_predict <= '1';
+          else
+            bad_predict <= '0';
+          end if;
         end if;  --stall
       end if;  --reset
     end if;  --clk
