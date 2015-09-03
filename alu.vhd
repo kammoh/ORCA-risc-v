@@ -42,8 +42,14 @@ architecture rtl of arithmetic_unit is
   signal data2           : unsigned(REGISTER_SIZE-1 downto 0);
   signal data_result     : unsigned(REGISTER_SIZE-1 downto 0);
   signal immediate_value : unsigned(REGISTER_SIZE-1 downto 0);
-  signal shift_amt       : natural range 0 to REGISTER_SIZE-1;
 
+  signal shift_amt      : natural range 0 to REGISTER_SIZE-1;
+  signal shifted_value  : signed(REGISTER_SIZE downto 0);
+  signal shifted_result : signed(REGISTER_SIZE downto 0);
+  signal op1            : signed(REGISTER_SIZE downto 0);
+  signal op2            : signed(REGISTER_SIZE downto 0);
+  signal sub            : signed(REGISTER_SIZE downto 0);
+  signal slt_val        : unsigned(REGISTER_SIZE-1 downto 0);
 
 begin  -- architecture rtl
 
@@ -51,31 +57,27 @@ begin  -- architecture rtl
   immediate_value <= unsigned(sign_extension(REGISTER_SIZE-OP_IMM_IMMEDIATE_SIZE-1 downto 0)&
                               instruction(31 downto 20));
   data1 <= unsigned(rs1_data);
-  data2 <= unsigned(rs2_data) when not is_immediate = '1' else immediate_value;
+  data2 <= unsigned(rs2_data) when is_immediate = '0' else immediate_value;
 
-  shift_amt <= to_integer(data2(log2(REGISTER_SIZE)-1 downto 0));
+  shift_amt     <= to_integer(data2(log2(REGISTER_SIZE)-1 downto 0));
+  shifted_value <= signed((instruction(30) and rs1_data(rs1_data'left)) & rs1_data);
+  shifted_result <= signed(SHIFT_RIGHT(signed(shifted_value),
+                                                shift_amt));
+  --combine slt
+  op1     <= signed((not instruction(12) and data1(data1'left)) & data1);
+  op2     <= signed((not instruction(12) and data2(data2'left)) & data2);
+  sub     <= op1 - op2;
+  slt_val <= to_unsigned(1, REGISTER_SIZE) when sub(sub'left) = '1' else to_unsigned(0, REGISTER_SIZE);
 
   alu_proc : process(clk) is
-    variable func : std_logic_vector(2 downto 0);
-
-    variable data_result      : unsigned(REGISTER_SIZE-1 downto 0);
-    variable arithmetic_shift : std_logic;
-    variable subtract         : std_logic;
-
-
-    variable pretrunc_imm :
-      std_logic_vector(sign_extension_size + OP_IMM_IMMEDIATE_SIZE-1 downto 0);
+    variable func        : std_logic_vector(2 downto 0);
+    variable data_result : unsigned(REGISTER_SIZE-1 downto 0);
+    variable subtract    : std_logic;
   begin
     if rising_edge(clk) then
       if stall = '0' then
-        func             := instruction(14 downto 12);
-        arithmetic_shift := instruction(30);
-        subtract         := instruction(30) and instruction(5);
-
-        if is_immediate = '1' then
-          subtract := '0';              --never do subtract on immediate
-        end if;
-
+        func     := instruction(14 downto 12);
+        subtract := instruction(30) and not is_immediate;
         case func is
           when ADD_OP =>
             if subtract = '1' then
@@ -86,27 +88,13 @@ begin  -- architecture rtl
           when SLL_OP =>
             data_result := SHIFT_LEFT(data1, shift_amt);
           when SLT_OP =>
-            if signed(data1) < signed(data2) then
-              data_result := to_unsigned(1, REGISTER_SIZE);
-            else
-              data_result := to_unsigned(0, REGISTER_SIZE);
-            end if;
+            data_result := slt_val;
           when SLTU_OP =>
-            if data1 < data2 then
-              data_result := to_unsigned(1, REGISTER_SIZE);
-            else
-              data_result := to_unsigned(0, REGISTER_SIZE);
-            end if;
+            data_result := slt_val;
           when XOR_OP =>
             data_result := data1 xor data2;
           when SR_OP =>
-            if arithmetic_shift = '1' then
-              data_result := unsigned(SHIFT_RIGHT(signed(data1),
-                                                  shift_amt));
-            else
-              data_result := SHIFT_RIGHT(data1,
-                                         shift_amt);
-            end if;
+            data_result := unsigned(shifted_result(REGISTER_SIZE-1 downto 0));
           when OR_OP =>
             data_result := data1 or data2;
           when AND_OP =>
