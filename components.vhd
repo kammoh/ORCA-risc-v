@@ -6,6 +6,45 @@ library work;
 use work.utils.all;
 
 package components is
+  component riscV is
+    generic (
+      REGISTER_SIZE : integer := 32;
+      RESET_VECTOR  : natural := 16#00000200#);
+    port(
+      clk   : in std_logic;
+      reset : in std_logic;
+
+      --conduit end point
+      coe_to_host         : out std_logic_vector(REGISTER_SIZE -1 downto 0);
+      coe_from_host       : in  std_logic_vector(REGISTER_SIZE -1 downto 0);
+      coe_program_counter : out std_logic_vector(REGISTER_SIZE -1 downto 0);
+
+--avalon master bus
+      avm_data_address       : out std_logic_vector(REGISTER_SIZE-1 downto 0);
+      avm_data_byteenable    : out std_logic_vector(REGISTER_SIZE/8 -1 downto 0);
+      avm_data_read          : out std_logic;
+      avm_data_readdata      : in  std_logic_vector(REGISTER_SIZE-1 downto 0) := (others => 'X');
+      avm_data_response      : in  std_logic_vector(1 downto 0)               := (others => 'X');
+      avm_data_write         : out std_logic;
+      avm_data_writedata     : out std_logic_vector(REGISTER_SIZE-1 downto 0);
+      avm_data_lock          : out std_logic;
+      avm_data_waitrequest   : in  std_logic                                  := '0';
+      avm_data_readdatavalid : in  std_logic                                  := '0';
+
+      --avalon master bus
+      avm_instruction_address       : out std_logic_vector(REGISTER_SIZE-1 downto 0);
+      avm_instruction_byteenable    : out std_logic_vector(REGISTER_SIZE/8 -1 downto 0);
+      avm_instruction_read          : out std_logic;
+      avm_instruction_readdata      : in  std_logic_vector(REGISTER_SIZE-1 downto 0) := (others => 'X');
+      avm_instruction_response      : in  std_logic_vector(1 downto 0)               := (others => 'X');
+      avm_instruction_write         : out std_logic;
+      avm_instruction_writedata     : out std_logic_vector(REGISTER_SIZE-1 downto 0);
+      avm_instruction_lock          : out std_logic;
+      avm_instruction_waitrequest   : in  std_logic                                  := '0';
+      avm_instruction_readdatavalid : in  std_logic                                  := '0'
+
+      );
+  end component riscV;
 
   component decode is
     generic(
@@ -75,7 +114,8 @@ package components is
       read_en         : out    std_logic;
       write_data      : out    std_logic_vector(REGISTER_SIZE-1 downto 0);
       read_data       : in     std_logic_vector(REGISTER_SIZE-1 downto 0);
-      read_wait       : in     std_logic);
+      waitrequest     : in     std_logic;
+      datavalid       : in     std_logic);
   end component execute;
 
   component instruction_fetch is
@@ -149,6 +189,7 @@ package components is
       INSTRUCTION_SIZE    : integer);
     port (
       clk            : in     std_logic;
+      reset          : in     std_logic;
       valid          : in     std_logic;
       rs1_data       : in     std_logic_vector(REGISTER_SIZE-1 downto 0);
       rs2_data       : in     std_logic_vector(REGISTER_SIZE-1 downto 0);
@@ -164,7 +205,8 @@ package components is
       read_en        : out    std_logic;
       write_data     : out    std_logic_vector(REGISTER_SIZE-1 downto 0);
       read_data      : in     std_logic_vector(REGISTER_SIZE-1 downto 0);
-      read_wait      : in     std_logic);
+      waitrequest    : in     std_logic;
+      readvalid      : in     std_logic);
   end component load_store_unit;
 
   component true_dual_port_ram_single_clock is
@@ -377,14 +419,24 @@ package components is
       readvalid2 : out std_logic);
   end component wait_cycle_bram;
 
-  component system_calls is
+  component upper_immediate is
+    generic (
+      REGISTER_SIZE    : positive;
+      INSTRUCTION_SIZE : positive);
+    port (
+      clk        : in  std_logic;
+      valid      : in  std_logic;
+      instr      : in  std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
+      pc_current : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
+      data_out   : out std_logic_vector(REGISTER_SIZE-1 downto 0);
+      data_en    : out std_logic);
+  end component upper_immediate;
 
+  component system_calls is
     generic (
       REGISTER_SIZE    : natural;
       INSTRUCTION_SIZE : natural;
       RESET_VECTOR     : natural);
-
-
     port (
       clk         : in std_logic;
       reset       : in std_logic;
@@ -397,13 +449,12 @@ package components is
       wb_data : out std_logic_vector(REGISTER_SIZE-1 downto 0);
       wb_en   : out std_logic;
 
-      to_host       : out std_logic_vector(REGISTER_SIZE-1 downto 0);
-      from_host     : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
+      to_host   : out std_logic_vector(REGISTER_SIZE-1 downto 0);
+      from_host : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
 
       current_pc    : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
       pc_correction : out std_logic_vector(REGISTER_SIZE -1 downto 0);
       pc_corr_en    : out std_logic);
-
   end component system_calls;
 
 end package components;

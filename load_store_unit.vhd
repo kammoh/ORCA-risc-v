@@ -12,6 +12,7 @@ entity load_store_unit is
 
   port (
     clk            : in     std_logic;
+    reset          : in     std_logic;
     valid          : in     std_logic;
     rs1_data       : in     std_logic_vector(REGISTER_SIZE-1 downto 0);
     rs2_data       : in     std_logic_vector(REGISTER_SIZE-1 downto 0);
@@ -27,7 +28,8 @@ entity load_store_unit is
     read_en        : out    std_logic;
     write_data     : out    std_logic_vector(REGISTER_SIZE-1 downto 0);
     read_data      : in     std_logic_vector(REGISTER_SIZE-1 downto 0);
-    read_wait      : in     std_logic);
+    waitrequest    : in     std_logic;
+    readvalid      : in     std_logic);
 
 end entity load_store_unit;
 
@@ -68,14 +70,16 @@ architecture rtl of load_store_unit is
   signal latched_data : std_logic_vector(REGISTER_SIZE-1 downto 0);
   signal re           : std_logic;
   signal we           : std_logic;
+
+  signal read_in_progress : std_logic;
 begin
 
   --prepare memory signals
   opcode <= instruction(6 downto 0);
   fun3   <= instruction(14 downto 12);
 
-  we       <= '1' when opcode = STORE_INSTR and valid = '1' else '0';
-  re       <= '1' when opcode = LOAD_INSTR and valid = '1'  else '0';
+  we       <= '1' when opcode = STORE_INSTR and valid = '1'else '0';
+  re       <= '1' when opcode = LOAD_INSTR and valid = '1' else '0';
   write_en <= we;
   read_en  <= re;
 
@@ -111,18 +115,25 @@ begin
   address    <= address_unaligned(REGISTER_SIZE-1 downto 2) & "00";
 
   --combinatorial output. busy depends on memory input lines, but it is not clocked
-  waiting <= read_wait and (re or we) and valid;
+  waiting <= (waitrequest and (re or we) ) and not (read_in_progress and not readvalid);
 
 
   --outputs, all of these assignments should happen on the rising edge,
   -- they should only depend on latched signals
-  latched_inputs : process(clk)
+  latched_inputs : process(clk, reset)
   begin
     if rising_edge(clk) then
-      alignment    <= address_unaligned(1 downto 0);
-      latched_fun3 <= fun3;
-
-
+      if reset = '1' then
+        read_in_progress <= '0';
+      else
+        alignment    <= address_unaligned(1 downto 0);
+        latched_fun3 <= fun3;
+        if re = '1' and valid = '1' then
+          read_in_progress <= '1';
+        elsif readvalid = '1' then
+          read_in_progress <= '0';
+        end if;
+      end if;
     end if;
   end process;
 
@@ -145,10 +156,9 @@ begin
     x"0000"&r1 & r0                                          when UHALF_SIZE,
     r3 &r2 & r1 & r0                                         when others;
 
-  output_latch : process(clk)
+  output_latch : process(clk, reset)
   begin
     if rising_edge(clk) then
-
       if waiting = '0' then
         latched_data <= fixed_data;
         if opcode = "0000011" then

@@ -6,7 +6,7 @@
    version="1.0"
    description=""
    tags=""
-   categories="" />
+   categories="System" />
  <parameter name="bonusData"><![CDATA[bonusData 
 {
    element $${FILENAME}
@@ -64,6 +64,21 @@
  <parameter name="timeStamp" value="0" />
  <parameter name="useTestBenchNamingPattern" value="false" />
  <instanceScript></instanceScript>
+ <interface
+   name="riscv_0_from_host"
+   internal="riscv_0.from_host"
+   type="conduit"
+   dir="end" />
+ <interface
+   name="riscv_0_to_host"
+   internal="riscv_0.to_host"
+   type="conduit"
+   dir="end" />
+ <interface
+   name="riscv_0_program_counter"
+   internal="riscv_0.program_counter"
+   type="conduit"
+   dir="end" />
  <module kind="riscv" version="1.0" enabled="1" name="riscv_0">
   <parameter name="REGISTER_SIZE" value="32" />
   <parameter name="RESET_VECTOR" value="512" />
@@ -93,7 +108,7 @@
   <parameter name="allowInSystemMemoryContentEditor" value="false" />
   <parameter name="blockType" value="AUTO" />
   <parameter name="dataWidth" value="32" />
-  <parameter name="dualPort" value="true" />
+  <parameter name="dualPort" value="false" />
   <parameter name="initMemContent" value="true" />
   <parameter name="initializationFileName" value="test.hex" />
   <parameter name="instanceID" value="NONE" />
@@ -101,7 +116,7 @@
   <parameter name="readDuringWriteMode" value="DONT_CARE" />
   <parameter name="simAllowMRAMContentsFile" value="false" />
   <parameter name="simMemInitOnlyFilename" value="0" />
-  <parameter name="singleClockOperation" value="false" />
+  <parameter name="singleClockOperation" value="true" />
   <parameter name="slave1Latency" value="1" />
   <parameter name="slave2Latency" value="1" />
   <parameter name="useNonDefaultInitFile" value="true" />
@@ -129,20 +144,6 @@
    start="clock_source_0.clk"
    end="onchip_memory2_0.clk1" />
  <connection
-   kind="clock"
-   version="14.0"
-   start="clock_source_0.clk"
-   end="onchip_memory2_0.clk2" />
- <connection
-   kind="avalon"
-   version="14.0"
-   start="riscv_0.instruction"
-   end="onchip_memory2_0.s2">
-  <parameter name="arbitrationPriority" value="1" />
-  <parameter name="baseAddress" value="0x0000" />
-  <parameter name="defaultConnection" value="false" />
- </connection>
- <connection
    kind="avalon"
    version="14.0"
    start="riscv_0.data"
@@ -157,15 +158,19 @@
    start="reset_source_0.reset"
    end="onchip_memory2_0.reset1" />
  <connection
-   kind="reset"
-   version="14.0"
-   start="reset_source_0.reset"
-   end="onchip_memory2_0.reset2" />
- <connection
    kind="clock"
    version="14.0"
    start="clock_source_0.clk"
    end="reset_source_0.clk" />
+ <connection
+   kind="avalon"
+   version="14.0"
+   start="riscv_0.instruction"
+   end="onchip_memory2_0.s1">
+  <parameter name="arbitrationPriority" value="1" />
+  <parameter name="baseAddress" value="0x0000" />
+  <parameter name="defaultConnection" value="false" />
+ </connection>
  <interconnectRequirement for="$system" name="qsys_mm.clockCrossingAdapter" value="HANDSHAKE" />
  <interconnectRequirement for="$system" name="qsys_mm.maxAdditionalLatency" value="1" />
  <interconnectRequirement for="$system" name="qsys_mm.insertDefaultSlave" value="FALSE" />

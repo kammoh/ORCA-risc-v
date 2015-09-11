@@ -15,8 +15,8 @@ entity riscV is
        reset : in std_logic;
 
        --conduit end point
-       coe_to_host   : out std_logic_vector(REGISTER_SIZE -1 downto 0);
-       coe_from_host : in  std_logic_vector(REGISTER_SIZE -1 downto 0);
+       coe_to_host         : out std_logic_vector(REGISTER_SIZE -1 downto 0);
+       coe_from_host       : in  std_logic_vector(REGISTER_SIZE -1 downto 0);
        coe_program_counter : out std_logic_vector(REGISTER_SIZE -1 downto 0);
 
 --avalon master bus
@@ -104,14 +104,14 @@ architecture rtl of riscV is
   signal next_valid_ex_pc : std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
 
 begin  -- architecture rtl
-  pipeline_flush <= pc_corr_en;
+  pipeline_flush      <= pc_corr_en;
   coe_program_counter <= d_pc;
 
   instr_fetch : component instruction_fetch
     generic map (
       REGISTER_SIZE    => REGISTER_SIZE,
       INSTRUCTION_SIZE => INSTRUCTION_SIZE,
-      RESET_VECTOR => RESET_VECTOR)
+      RESET_VECTOR     => RESET_VECTOR)
     port map (
       clk        => clk,
       reset      => reset,
@@ -192,7 +192,8 @@ begin  -- architecture rtl
       read_en         => data_read_en,
       write_data      => data_write_data,
       read_data       => data_read_data,
-      read_wait       => data_wait);
+      waitrequest     => data_wait,
+      datavalid       => e_readvalid);
 
 
   MEM : component memory_system

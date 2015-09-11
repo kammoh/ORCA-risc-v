@@ -42,7 +42,8 @@ entity execute is
     read_en         : out    std_logic;
     write_data      : out    std_logic_vector(REGISTER_SIZE-1 downto 0);
     read_data       : in     std_logic_vector(REGISTER_SIZE-1 downto 0);
-    read_wait       : in     std_logic);
+    waitrequest     : in     std_logic;
+    datavalid       : in     std_logic);
 end;
 
 architecture behavioural of execute is
@@ -139,6 +140,7 @@ begin
       INSTRUCTION_SIZE    => INSTRUCTION_SIZE)
     port map(
       clk            => clk,
+      reset          => reset,
       valid          => ls_valid,
       rs1_data       => rs1_data_fwd,
       rs2_data       => rs2_data_fwd,
@@ -154,7 +156,8 @@ begin
       read_en        => read_en,
       write_data     => write_data,
       read_data      => read_data,
-      read_wait      => read_wait);
+      waitrequest    => waitrequest,
+      readvalid      => datavalid);
 
   syscall : component system_calls
     generic map (
@@ -177,7 +180,17 @@ begin
       pc_correction => syscall_target,
       pc_corr_en    => syscall_en);
 
-
+  uppimm : component upper_immediate
+    generic map (
+      REGISTER_SIZE    => REGISTER_SIZE,
+      INSTRUCTION_SIZE => INSTRUCTION_SIZE)
+    port map (
+      clk        => clk,
+      valid      => valid_input,
+      instr      => instruction,
+      pc_current => pc_current,
+      data_out   => upp_data_out,
+      data_en    => upp_data_en);
 
   stall_pipeline <= ls_unit_waiting;
 
@@ -197,14 +210,14 @@ begin
     br_data_out     when "00010",
     ld_data_out     when "00001",
     (others => 'X') when others;
-
-  wb_en           <= valid_input_latched and
-                   (alu_data_en or br_data_en or ld_data_en or upp_data_en or sys_data_en);
+--  wb_data <= alu_data_out;
+  wb_en <= valid_input_latched and
+           (alu_data_en or br_data_en or ld_data_en or upp_data_en or sys_data_en);
   predict_corr_en <= (syscall_en or br_bad_predict) and valid_input_latched;
 
   predict_corr <= br_new_pc when br_bad_predict = '1' else syscall_target;
 
-  --wb_sel needs to be latched as well
+--wb_sel needs to be latched as well
   wb_sel_proc : process(clk)
   begin
     if rising_edge(clk) then
@@ -214,36 +227,5 @@ begin
       end if;
     end if;
   end process;
-
-  upper_imm : process (clk, reset) is
-    variable opcode : std_logic_vector(6 downto 0);
-    variable imm    : unsigned(REGISTER_SIZE-1 downto 0);
-
-    constant LUI   : std_logic_vector(6 downto 0) := "0110111";
-    constant AUIPC : std_logic_vector(6 downto 0) := "0010111";
-  begin  -- process upper_imm
-
-
-    if clk'event and clk = '1' then     -- rising clock edge
-      if reset = '1' then               -- synchronous reset (active high)
-
-      else
-        opcode            := instruction(6 downto 0);
-        imm(31 downto 12) := unsigned(instruction(31 downto 12));
-        imm(11 downto 0)  := (others => '0');
-        case opcode is
-          when LUI =>
-            upp_data_en  <= '1';
-            upp_data_out <= std_logic_vector(imm);
-          when AUIPC =>
-            upp_data_en  <= '1';
-            upp_data_out <= std_logic_vector(unsigned(pc_current) + imm);
-          when others =>
-            upp_data_en  <= '0';
-            upp_data_out <= (others => 'X');
-        end case;
-      end if;  -- reset
-    end if;  -- clk
-  end process upper_imm;
 
 end architecture;
