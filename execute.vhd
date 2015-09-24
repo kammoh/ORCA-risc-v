@@ -3,7 +3,7 @@ use IEEE.STD_LOGIC_1164.all;
 use IEEE.NUMERIC_STD.all;
 
 library work;
-use work.components.all;
+use work.rv_components.all;
 
 entity execute is
   generic(
@@ -194,7 +194,7 @@ begin
 
   stall_pipeline <= ls_unit_waiting;
 
-  --the above components have output latches,
+  --the above rv_components have output latches,
   --find out which is the actual output
   writeback_1hot(4) <= sys_data_en;
   writeback_1hot(3) <= upp_data_en;
@@ -202,14 +202,20 @@ begin
   writeback_1hot(1) <= br_data_en;
   writeback_1hot(0) <= ld_data_en;
 
-  with writeback_1hot select
-    wb_data <=
-    sys_data_out    when "10000",
-    upp_data_out    when "01000",
-    alu_data_out    when "00100",
-    br_data_out     when "00010",
-    ld_data_out     when "00001",
-    (others => 'X') when others;
+  --with writeback_1hot select
+  --  wb_data <=
+  --  sys_data_out    when "10000",
+  --  upp_data_out    when "01000",
+  --  alu_data_out    when "00100",
+  --  br_data_out     when "00010",
+  --  ld_data_out     when "00001",
+  --  (others => 'X') when others;
+
+  wb_data <= sys_data_out when sys_data_en = '1' else
+             upp_data_out when upp_data_en = '1' else
+             alu_data_out when alu_data_en = '1' else
+             br_data_out  when br_data_en = '1' else
+             ld_data_out;
 --  wb_data <= alu_data_out;
   wb_en <= valid_input_latched and
            (alu_data_en or br_data_en or ld_data_en or upp_data_en or sys_data_en);

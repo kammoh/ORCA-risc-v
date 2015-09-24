@@ -3,7 +3,7 @@ use IEEE.STD_LOGIC_1164.all;
 use IEEE.NUMERIC_STD.all;
 
 library work;
-use work.components.all;
+use work.rv_components.all;
 
 entity decode is
   generic(

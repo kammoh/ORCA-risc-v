@@ -5,7 +5,7 @@ use IEEE.NUMERIC_STD.all;
 library work;
 use work.utils.all;
 
-package components is
+package rv_components is
   component riscV is
     generic (
       REGISTER_SIZE : integer := 32;
@@ -457,4 +457,4 @@ package components is
       pc_corr_en    : out std_logic);
   end component system_calls;
 
-end package components;
+end package rv_components;

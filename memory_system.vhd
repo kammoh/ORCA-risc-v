@@ -2,7 +2,7 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.all;
 use IEEE.NUMERIC_STD.all;
 library work;
-use work.components.all;
+use work.rv_components.all;
 use work.utils.all;
 
 entity memory_system is
@@ -85,7 +85,7 @@ begin
       clk          => clk,
       read_enable  => instr_read_en,
       write_enable => '0',
-      byte_enable  => (others => '0'),
+      byte_enable  => (others => '1'),
       address      => instr_addr,
       write_data   => (others => '0'),
       read_data    => instr_rdata,
