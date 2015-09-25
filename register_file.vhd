@@ -48,12 +48,12 @@ begin
       end if;
       out1 <= registers(to_integer(unsigned(rs1_sel)));
       out2 <= registers(to_integer(unsigned(rs2_sel)));
-      if we = '1' and writeback_sel = rs1_sel then
+      if we = '1' and std_match(writeback_sel, rs1_sel) then
         fwd1 <= '1';
       else
         fwd1 <= '0';
       end if;
-      if we = '1' and writeback_sel = rs2_sel then
+      if we = '1' and std_match(writeback_sel , rs2_sel) then
         fwd2 <= '1';
       else
         fwd2 <= '0';

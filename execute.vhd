@@ -1,9 +1,12 @@
 library IEEE;
 use IEEE.STD_LOGIC_1164.all;
 use IEEE.NUMERIC_STD.all;
+use IEEE.std_logic_textio.all;          -- I/O for logic types
 
 library work;
 use work.rv_components.all;
+library STD;
+use STD.textio.all;                     -- basic I/O
 
 entity execute is
   generic(
@@ -86,14 +89,22 @@ architecture behavioural of execute is
   signal ls_unit_waiting     : std_logic;
   signal valid_input_latched : std_logic;
 
+  signal wb_sel_latched  : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0);
+  signal wb_data_latched : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal wb_en_latched   : std_logic;
+
+
   constant ZERO : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0) := (others => '0');
 
 begin
 
   --use the previous clock's writeback data when appropriate
 
-  rs1_data_fwd <= wb_data when wb_sel = rs1 and wb_en = '1'and wb_sel /= ZERO else rs1_data;
-  rs2_data_fwd <= wb_data when wb_sel = rs2 and wb_en = '1'and wb_sel /= ZERO else rs2_data;
+  rs1_data_fwd <= wb_data_latched when wb_sel_latched = rs1 and wb_en_latched = '1'and wb_sel_latched /= ZERO else
+                  wb_data when wb_sel = rs1 and wb_en = '1'and wb_sel /= ZERO else rs1_data;
+  rs2_data_fwd <= wb_data_latched when wb_sel_latched = rs2 and wb_en_latched = '1'and wb_sel_latched /= ZERO else
+                  wb_data when wb_sel = rs2 and wb_en = '1'and wb_sel /= ZERO else rs2_data;
+
 
   ls_valid <= valid_input and not reset;
 
@@ -105,6 +116,7 @@ begin
     port map (
       clk            => clk,
       stall          => stall_pipeline,
+      valid          => valid_input,
       rs1_data       => rs1_data_fwd,
       rs2_data       => rs2_data_fwd,
       instruction    => instruction,
@@ -217,8 +229,8 @@ begin
              br_data_out  when br_data_en = '1' else
              ld_data_out;
 --  wb_data <= alu_data_out;
-  wb_en <= valid_input_latched and
-           (alu_data_en or br_data_en or ld_data_en or upp_data_en or sys_data_en);
+  wb_en <= alu_data_en or br_data_en or ld_data_en or upp_data_en or sys_data_en;
+
   predict_corr_en <= (syscall_en or br_bad_predict) and valid_input_latched;
 
   predict_corr <= br_new_pc when br_bad_predict = '1' else syscall_target;
@@ -227,11 +239,45 @@ begin
   wb_sel_proc : process(clk)
   begin
     if rising_edge(clk) then
-      if stall_pipeline = '0' then
-        wb_sel              <= rd;
+      if reset = '1' then
+        wb_en_latched       <= '0';
+        valid_input_latched <= '0';
+      else
         valid_input_latched <= valid_input;
-      end if;
-    end if;
+        wb_sel              <= rd;
+        if stall_pipeline = '1' and wb_en_latched = '0' then
+          --first stall cycle
+          wb_en_latched   <= wb_en;
+          wb_data_latched <= wb_data;
+          wb_sel_latched  <= wb_sel;
+        elsif stall_pipeline = '0' then
+          --pipeline not stalling
+          wb_en_latched <= '0';
+        end if;
+
+      end if;  --reset
+    end if;  --clk
   end process;
+
+  my_print : process(clk)
+    variable my_line : line;            -- type 'line' comes from textio
+  begin
+    if rising_edge(clk) then
+      if valid_input = '1' then
+        write(my_line, string'("executing pc = "));  -- formatting
+        hwrite(my_line, (pc_current));  -- format type std_logic_vector as hex
+        write(my_line, string'(" instr =  "));       -- formatting
+        hwrite(my_line, (instruction));  -- format type std_logic_vector as hex
+        if ls_unit_waiting = '1' then
+          write(my_line, string'(" stalling"));      -- formatting
+        end if;
+        writeline(output, my_line);     -- write to "output"
+      else
+        write(my_line, string'("bubble"));  -- formatting
+        writeline(output, my_line);     -- write to "output"
+      end if;
+
+    end if;
+  end process my_print;
 
 end architecture;

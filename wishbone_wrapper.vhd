@@ -26,6 +26,7 @@ entity riscV_wishbone is
        data_STB_O : out std_logic;
        data_ACK_I : in  std_logic;
        data_CYC_O : out std_logic;
+       data_CTI_O : out std_logic_vector(2 downto 0);
 
        instr_ADR_O : out std_logic_vector(REGISTER_SIZE-1 downto 0);
        instr_DAT_I : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
@@ -34,7 +35,8 @@ entity riscV_wishbone is
        instr_SEL_O : out std_logic_vector(REGISTER_SIZE/8 -1 downto 0);
        instr_STB_O : out std_logic;
        instr_ACK_I : in  std_logic;
-       instr_CYC_O : out std_logic
+       instr_CYC_O : out std_logic;
+       instr_CTI_O : out std_logic_vector(2 downto 0)
        );
 
 end entity riscV_wishbone;
@@ -66,10 +68,13 @@ architecture rtl of riscV_wishbone is
   signal avm_instruction_readdatavalid : std_logic;
 
 
-  signal idle       : std_logic := '0';
-  signal last_addr  : std_logic_vector(REGISTER_SIZE -1 downto 0);
-  signal last_write : std_logic;
-  signal last_read  : std_logic;
+  constant INCR_BURST_CYC : std_logic_vector(2 downto 0) := "010";
+  constant END_BURST_CYC  : std_logic_vector(2 downto 0) := "111";
+  constant CLASSIC_CYC    : std_logic_vector(2 downto 0) := "000";
+
+  signal burst_break   : std_logic;
+  signal expected_addr : std_logic_vector(REGISTER_SIZE -1 downto 0);
+  signal last_bb       : std_logic;
 
 begin  -- architecture rtl
 
@@ -115,7 +120,7 @@ begin  -- architecture rtl
   data_ADR_O             <= avm_data_address;
   data_DAT_O             <= avm_data_writedata;
   data_WE_O              <= avm_data_write;
-  data_SEL_O             <= avm_data_byteenable;
+  data_SEL_O             <= avm_data_byteenable ;
   data_STB_O             <= avm_data_write or avm_data_read;
   data_CYC_O             <= avm_data_write or avm_data_read;
   --input
@@ -124,39 +129,35 @@ begin  -- architecture rtl
   avm_data_readdatavalid <= data_ACK_I and avm_data_read;
 
 
+
   --output
   instr_ADR_O                   <= avm_instruction_address;
   instr_DAT_O                   <= avm_instruction_writedata;
   instr_WE_O                    <= avm_instruction_write;
   instr_SEL_O                   <= avm_instruction_byteenable;
-  instr_STB_O                   <= (avm_instruction_write or avm_instruction_read)and not idle;
-  instr_CYC_O                   <= (avm_instruction_write or avm_instruction_read)and not idle;
+  instr_STB_O                   <= (avm_instruction_write or avm_instruction_read);
+  instr_CYC_O                   <= (avm_instruction_write or avm_instruction_read);
+--  instr_CTI_O <= INCR_BURST_CYC when burst_break = '0' else END_BURST_CYC;
+  instr_CTI_O                   <= CLASSIC_CYC;
   --input
   avm_instruction_readdata      <= instr_DAT_I;
   avm_instruction_waitrequest   <= not instr_ACK_I;
-  avm_instruction_readdatavalid <= instr_ACK_I and avm_instruction_read;
+  avm_instruction_readdatavalid <= instr_ACK_I and avm_instruction_read ;
 
-  --it seems that if the address is not one word after the word before it,
-  --there needs to be an idle cycle in between. weird.
   --process(clk) is
   --begin
   --  if rising_edge(clk) then
-  --    last_addr  <= avm_instruction_address;
-  --    last_write <= avm_instruction_write;
-  --    last_read  <= avm_instruction_read;
-  --    if avm_instruction_read = '1' then
-  --      if last_read = '1' then
-  --        if unsigned(last_addr)+to_unsigned(4, REGISTER_SIZE) /= unsigned(avm_instruction_address) then
-  --          idle <= '1';
-  --        else
-  --          idle <= '0';
-  --        end if;  --mismatch
-  --      else                            --lastread
-  --        idle <= '0';
-  --      end if;
+  --    if reset = '1' then
+  --      expected_addr <= std_logic_vector(avm_instruction_address);
+  --      last_bb       <= burst_break;
   --    else
-  --      idle <= '0';
-  --    end if;  --read
-  --  end if;  --clk
+  --      if instr_ACK_I = '1' then
+
+  --        last_bb <= burst_break;
+
+  --      end if;
+  --    end if;
+  --  end if;
   --end process;
+
 end architecture rtl;

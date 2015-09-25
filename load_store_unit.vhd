@@ -21,6 +21,7 @@ entity load_store_unit is
     waiting        : buffer std_logic;
     data_out       : out    std_logic_vector(REGISTER_SIZE-1 downto 0);
     data_enable    : out    std_logic;
+    wb_sel         : out    std_logic_vector(4 downto 0);
 --memory-bus
     address        : out    std_logic_vector(REGISTER_SIZE-1 downto 0);
     byte_en        : out    std_logic_vector(REGISTER_SIZE/8 -1 downto 0);
@@ -114,8 +115,7 @@ begin
   --align to word boundary
   address    <= address_unaligned(REGISTER_SIZE-1 downto 2) & "00";
 
-  --combinatorial output. busy depends on memory input lines, but it is not clocked
-  waiting <= (waitrequest and (re or we) ) and not (read_in_progress and not readvalid);
+  waiting <= (waitrequest and (re or we));  -- and not (read_in_progress and not readvalid);
 
 
   --outputs, all of these assignments should happen on the rising edge,
@@ -156,19 +156,21 @@ begin
     x"0000"&r1 & r0                                          when UHALF_SIZE,
     r3 &r2 & r1 & r0                                         when others;
 
-  output_latch : process(clk, reset)
-  begin
-    if rising_edge(clk) then
-      if waiting = '0' then
-        latched_data <= fixed_data;
-        if opcode = "0000011" then
-          data_enable <= '1';
-        else
-          data_enable <= '0';
-        end if;
-      end if;
-    end if;
-  end process;
+  --output_latch : process(clk, reset)
+  --begin
+  --  if rising_edge(clk) then
+  --    if waiting = '0' then
+  --      latched_data <= fixed_data;
+  --      if opcode = "0000011" then
+  --        data_enable <= readvalid;
+  --      else
+  --        data_enable <= '0';
+  --      end if;
+  --    end if;
+  --  end if;
+  --end process;
+  data_enable <=  readvalid;
+  data_out <= fixed_data;
   --use latched data when waiting else use new data
-  data_out <= latched_data when waiting = '1' else fixed_data;
+
 end architecture;

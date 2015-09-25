@@ -15,6 +15,7 @@ entity arithmetic_unit is
   port (
     clk            : in  std_logic;
     stall          : in  std_logic;
+    valid          : in  std_logic;
     rs1_data       : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
     rs2_data       : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
     instruction    : in  std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
@@ -62,7 +63,7 @@ begin  -- architecture rtl
   shift_amt     <= to_integer(data2(log2(REGISTER_SIZE)-1 downto 0));
   shifted_value <= signed((instruction(30) and rs1_data(rs1_data'left)) & rs1_data);
   shifted_result <= signed(SHIFT_RIGHT(signed(shifted_value),
-                                                shift_amt));
+                                       shift_amt));
   --combine slt
   op1     <= signed((not instruction(12) and data1(data1'left)) & data1);
   op2     <= signed((not instruction(12) and data2(data2'left)) & data2);
@@ -103,8 +104,8 @@ begin  -- architecture rtl
         end case;
 
         case instruction(6 downto 0) is
-          when "0010011" => data_enable <= '1';
-          when "0110011" => data_enable <= '1';
+          when "0010011" => data_enable <= valid;
+          when "0110011" => data_enable <= valid;
           when others    => data_enable <= '0';
         end case;
         data_out <= std_logic_vector(data_result);

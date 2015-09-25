@@ -245,7 +245,7 @@ begin  -- architecture rtl
         wb_en      <= '0';
         if opcode = "1110011" then
           if func3 /= "000" and func3 /= "100" then
-            wb_en <= '1';
+            wb_en <= valid;
           end if;
 
           if zimm & func3 = "00000"&"000" then

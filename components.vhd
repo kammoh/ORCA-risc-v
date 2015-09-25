@@ -152,6 +152,7 @@ package rv_components is
     port (
       clk            : in  std_logic;
       stall          : in  std_logic;
+      valid          : in  std_logic;
       rs1_data       : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
       rs2_data       : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
       instruction    : in  std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
