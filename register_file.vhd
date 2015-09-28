@@ -38,7 +38,7 @@ architecture rtl of register_file is
   signal data_latched : std_logic_vector(REGISTER_SIZE-1 downto 0);
 begin
 
-  we <= '1' when writeback_enable = '1' and writeback_sel /= ZERO and stall = '0' else '0';
+  we <= '1' when writeback_enable = '1' and writeback_sel /= ZERO else '0';
 
   register_proc : process (clk) is
   begin

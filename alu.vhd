@@ -76,41 +76,38 @@ begin  -- architecture rtl
     variable subtract    : std_logic;
   begin
     if rising_edge(clk) then
-      if stall = '0' then
-        func     := instruction(14 downto 12);
-        subtract := instruction(30) and not is_immediate;
-        case func is
-          when ADD_OP =>
-            if subtract = '1' then
-              data_result := unsigned(sub(REGISTER_SIZE-1 downto 0));
-            else
-              data_result := data1 + data2;
-            end if;
-          when SLL_OP =>
-            data_result := SHIFT_LEFT(data1, shift_amt);
-          when SLT_OP =>
-            data_result := slt_val;
-          when SLTU_OP =>
-            data_result := slt_val;
-          when XOR_OP =>
-            data_result := data1 xor data2;
-          when SR_OP =>
-            data_result := unsigned(shifted_result(REGISTER_SIZE-1 downto 0));
-          when OR_OP =>
-            data_result := data1 or data2;
-          when AND_OP =>
-            data_result := data1 and data2;
-          when others => null;
-        end case;
+      func     := instruction(14 downto 12);
+      subtract := instruction(30) and not is_immediate;
+      case func is
+        when ADD_OP =>
+          if subtract = '1' then
+            data_result := unsigned(sub(REGISTER_SIZE-1 downto 0));
+          else
+            data_result := data1 + data2;
+          end if;
+        when SLL_OP =>
+          data_result := SHIFT_LEFT(data1, shift_amt);
+        when SLT_OP =>
+          data_result := slt_val;
+        when SLTU_OP =>
+          data_result := slt_val;
+        when XOR_OP =>
+          data_result := data1 xor data2;
+        when SR_OP =>
+          data_result := unsigned(shifted_result(REGISTER_SIZE-1 downto 0));
+        when OR_OP =>
+          data_result := data1 or data2;
+        when AND_OP =>
+          data_result := data1 and data2;
+        when others => null;
+      end case;
+      case instruction(6 downto 0) is
+        when "0010011" => data_enable <= valid;
+        when "0110011" => data_enable <= valid;
+        when others    => data_enable <= '0';
+      end case;
+      data_out <= std_logic_vector(data_result);
 
-        case instruction(6 downto 0) is
-          when "0010011" => data_enable <= valid;
-          when "0110011" => data_enable <= valid;
-          when others    => data_enable <= '0';
-        end case;
-        data_out <= std_logic_vector(data_result);
-
-      end if;  --stall
     end if;  --clock
   end process;
 end architecture;
