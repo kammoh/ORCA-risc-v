@@ -2,6 +2,14 @@ TEST_DIR=/nfs/scratch/riscv-tools/riscv-tests/isa
 FILES=$(ls $TEST_DIR/rv32ui-p-* | grep -v hex | grep -v dump)
 
 mkdir -p test
+if which mif2hex >/dev/null
+then
+:
+else
+	 echo "cant find command mif2hex, exiting." >&2
+	 exit -1;
+fi
+
 for i in $FILES
 do
 	 echo "$i > test/$(basename $i).gex"

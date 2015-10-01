@@ -18,25 +18,27 @@ entity riscV_wishbone is
        coe_from_host       : in  std_logic_vector(REGISTER_SIZE -1 downto 0);
        coe_program_counter : out std_logic_vector(REGISTER_SIZE -1 downto 0);
 
-       data_ADR_O : out std_logic_vector(REGISTER_SIZE-1 downto 0);
-       data_DAT_I : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
-       data_DAT_O : out std_logic_vector(REGISTER_SIZE-1 downto 0);
-       data_WE_O  : out std_logic;
-       data_SEL_O : out std_logic_vector(REGISTER_SIZE/8 -1 downto 0);
-       data_STB_O : out std_logic;
-       data_ACK_I : in  std_logic;
-       data_CYC_O : out std_logic;
-       data_CTI_O : out std_logic_vector(2 downto 0);
+       data_ADR_O   : out std_logic_vector(REGISTER_SIZE-1 downto 0);
+       data_DAT_I   : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
+       data_DAT_O   : out std_logic_vector(REGISTER_SIZE-1 downto 0);
+       data_WE_O    : out std_logic;
+       data_SEL_O   : out std_logic_vector(REGISTER_SIZE/8 -1 downto 0);
+       data_STB_O   : out std_logic;
+       data_ACK_I   : in  std_logic;
+       data_CYC_O   : out std_logic;
+       data_CTI_O   : out std_logic_vector(2 downto 0);
+       data_STALL_I : in  std_logic;
 
-       instr_ADR_O : out std_logic_vector(REGISTER_SIZE-1 downto 0);
-       instr_DAT_I : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
-       instr_DAT_O : out std_logic_vector(REGISTER_SIZE-1 downto 0);
-       instr_WE_O  : out std_logic;
-       instr_SEL_O : out std_logic_vector(REGISTER_SIZE/8 -1 downto 0);
-       instr_STB_O : out std_logic;
-       instr_ACK_I : in  std_logic;
-       instr_CYC_O : out std_logic;
-       instr_CTI_O : out std_logic_vector(2 downto 0)
+       instr_ADR_O   : out std_logic_vector(REGISTER_SIZE-1 downto 0);
+       instr_DAT_I   : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
+       instr_DAT_O   : out std_logic_vector(REGISTER_SIZE-1 downto 0);
+       instr_WE_O    : out std_logic;
+       instr_SEL_O   : out std_logic_vector(REGISTER_SIZE/8 -1 downto 0);
+       instr_STB_O   : out std_logic;
+       instr_ACK_I   : in  std_logic;
+       instr_CYC_O   : out std_logic;
+       instr_CTI_O   : out std_logic_vector(2 downto 0);
+       instr_STALL_I : in  std_logic
        );
 
 end entity riscV_wishbone;
@@ -66,6 +68,9 @@ architecture rtl of riscV_wishbone is
   signal avm_instruction_lock          : std_logic;
   signal avm_instruction_waitrequest   : std_logic;
   signal avm_instruction_readdatavalid : std_logic;
+
+  signal instr_readvalid_mask : std_logic;
+  signal data_readvalid_mask  : std_logic;
 
 
   constant INCR_BURST_CYC : std_logic_vector(2 downto 0) := "010";
@@ -120,13 +125,13 @@ begin  -- architecture rtl
   data_ADR_O             <= avm_data_address;
   data_DAT_O             <= avm_data_writedata;
   data_WE_O              <= avm_data_write;
-  data_SEL_O             <= avm_data_byteenable ;
+  data_SEL_O             <= avm_data_byteenable;
   data_STB_O             <= avm_data_write or avm_data_read;
   data_CYC_O             <= avm_data_write or avm_data_read;
   --input
   avm_data_readdata      <= data_DAT_I;
-  avm_data_waitrequest   <= not data_ACK_I;
-  avm_data_readdatavalid <= data_ACK_I and avm_data_read;
+  avm_data_waitrequest   <= data_STALL_I;
+  avm_data_readdatavalid <= data_ACK_I and data_readvalid_mask;
 
 
 
@@ -141,9 +146,30 @@ begin  -- architecture rtl
   instr_CTI_O                   <= CLASSIC_CYC;
   --input
   avm_instruction_readdata      <= instr_DAT_I;
-  avm_instruction_waitrequest   <= not instr_ACK_I;
-  avm_instruction_readdatavalid <= instr_ACK_I and avm_instruction_read ;
+  avm_instruction_waitrequest   <= instr_STALL_I;
+  avm_instruction_readdatavalid <= instr_ACK_I and instr_readvalid_mask;
 
+  process(clk)
+  begin
+    if rising_edge(clk) then
+
+      if avm_data_read = '1' then
+        data_readvalid_mask <= '1';
+      elsif avm_data_readdatavalid = '1' then
+        data_readvalid_mask <= '0';
+      end if;
+
+      if avm_instruction_read = '1' then
+        instr_readvalid_mask <= '1';
+      elsif avm_instruction_readdatavalid = '1' then
+        instr_readvalid_mask <= '0';
+      end if;
+      if reset= '1' then
+        instr_readvalid_mask <= '0';
+        data_readvalid_mask <= '0';
+      end if;
+    end if;
+  end process;
   --process(clk) is
   --begin
   --  if rising_edge(clk) then

@@ -3,7 +3,6 @@ proc com {} {
 	 set fileset [list \
 							../utils.vhd  \
 							../components.vhd 	  \
-							wb_ebr_ctrl/wb_ebr_ctrl.v 		  \
 							../alu.vhd 				  \
 							../avalon_master.vhd	  \
 							../branch_unit.vhd	  \
@@ -18,9 +17,11 @@ proc com {} {
 							../register_file.vhd   \
 							../riscv.vhd 			  \
 							../sys_call.vhd 		  \
-							top.vhd				  \
 							../wishbone_wrapper.vhd \
-							cae_library/simulation/verilog/pmi/pmi_ram_dp.v \
+							wb_ram.vhd 		  \
+							top.vhd				  \
+							wb_arbiter.vhd \
+							cae_library/simulation/verilog/pmi/pmi_ram_dp_be.v \
 							top_tb.vhd]
 
 
