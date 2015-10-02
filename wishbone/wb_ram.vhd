@@ -37,38 +37,23 @@ entity wb_ram is
 end entity wb_ram;
 
 architecture rtl of wb_ram is
-  component pmi_ram_dp_be is
+  component bram_lattice is
     generic (
-      pmi_wr_addr_depth    : integer := 512;
-      pmi_wr_addr_width    : integer := 9;
-      pmi_wr_data_width    : integer := 18;
-      pmi_rd_addr_depth    : integer := 512;
-      pmi_rd_addr_width    : integer := 9;
-      pmi_rd_data_width    : integer := 18;
-      pmi_regmode          : string  := "reg";
-      pmi_gsr              : string  := "disable";
-      pmi_resetmode        : string  := "sync";
-      pmi_optimization     : string  := "speed";
-      pmi_init_file        : string  := "none";
-      pmi_init_file_format : string  := "binary";
-      pmi_byte_size        : integer := 9;
-      pmi_family           : string  := "ECP2";
-      module_type          : string  := "pmi_ram_dp_be"
+      RAM_DEPTH      : integer := 1024;
+      RAM_WIDTH      : integer := 32;
+      BYTE_SIZE      : integer := 8;
+      INIT_FILE_NAME : string
       );
-    port (
-      Data      : in  std_logic_vector(pmi_wr_data_width-1 downto 0);
-      WrAddress : in  std_logic_vector(pmi_wr_addr_width-1 downto 0);
-      RdAddress : in  std_logic_vector(pmi_rd_addr_width-1 downto 0);
-      WrClock   : in  std_logic;
-      RdClock   : in  std_logic;
-      WrClockEn : in  std_logic;
-      RdClockEn : in  std_logic;
-      WE        : in  std_logic;
-      Reset     : in  std_logic;
-      ByteEn    : in  std_logic_vector(((pmi_wr_data_width+pmi_byte_size-1)/pmi_byte_size-1) downto 0);
-      Q         : out std_logic_vector(pmi_rd_data_width-1 downto 0)
-      );
-  end component pmi_ram_dp_be;
+    port
+      (
+        address  : in  std_logic_vector(log2(RAM_DEPTH)-1 downto 0);
+        clock    : in  std_logic;
+        data_in  : in  std_logic_vector(RAM_WIDTH-1 downto 0);
+        we       : in  std_logic;
+        be       : in  std_logic_vector(RAM_WIDTH/BYTE_SIZE-1 downto 0);
+        readdata : out std_logic_vector(RAM_WIDTH-1 downto 0)
+        );
+  end component bram_lattice;
 
   constant BYTES_PER_WORD : integer := DATA_WIDTH/8;
 
@@ -77,32 +62,18 @@ begin  -- architecture rtl
 
   address <= ADR_I(address'left+log2(BYTES_PER_WORD) downto log2(BYTES_PER_WORD));
 
-  ram : component pmi_ram_dp_be
-    generic map(
-      pmi_wr_addr_depth    => SIZE/BYTES_PER_WORD,
-      pmi_wr_addr_width    => log2(SIZE/BYTES_PER_WORD),
-      pmi_wr_data_width    => DATA_WIDTH,
-      pmi_rd_addr_depth    => SIZE/BYTES_PER_WORD,
-      pmi_rd_addr_width    => log2(SIZE/BYTES_PER_WORD),
-      pmi_rd_data_width    => DATA_WIDTH,
-      pmi_regmode          => "noreg",
-      pmi_byte_size        => 8,
-      pmi_gsr              => "disable",
-      pmi_init_file        => INIT_FILE_NAME,
-      pmi_init_file_format => INIT_FILE_FORMAT,
-      pmi_family           => LATTICE_FAMILY)
+  ram : component bram_lattice
+    generic map (
+      RAM_DEPTH      => SIZE/4,
+      INIT_FILE_NAME => INIT_FILE_NAME)
     port map (
-      Data      => DAT_I,
-      WrAddress => address,
-      RdAddress => address,
-      WrClock   => CLK_I,
-      RdClock   => CLK_I,
-      WrClockEN => '1',
-      RdClockEN => '1',
-      WE        => WE_I,
-      ByteEn    => SEL_I,
-      Reset     => RST_I,
-      Q         => DAT_O);
+      address  => address,
+      clock    => CLK_I,
+      data_in  => DAT_I,
+      we       => WE_I,
+      be       => SEL_I,
+      readdata => DAT_O);
+
 
   STALL_O <= '0';
   ERR_O   <= '0';
@@ -114,8 +85,5 @@ begin  -- architecture rtl
       ACK_O <= STB_I and CYC_I;
     end if;
   end process;
-
-
-
 
 end architecture rtl;

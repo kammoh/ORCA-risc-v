@@ -259,25 +259,25 @@ begin
     end if;  --clk
   end process;
 
-  my_print : process(clk)
-    variable my_line : line;            -- type 'line' comes from textio
-  begin
-    if rising_edge(clk) then
-      if valid_input = '1' then
-        write(my_line, string'("executing pc = "));  -- formatting
-        hwrite(my_line, (pc_current));  -- format type std_logic_vector as hex
-        write(my_line, string'(" instr =  "));       -- formatting
-        hwrite(my_line, (instruction));  -- format type std_logic_vector as hex
-        if ls_unit_waiting = '1' then
-          write(my_line, string'(" stalling"));      -- formatting
-        end if;
-        writeline(output, my_line);     -- write to "output"
-      else
-        write(my_line, string'("bubble"));  -- formatting
-        writeline(output, my_line);     -- write to "output"
-      end if;
+  --my_print : process(clk)
+  --  variable my_line : line;            -- type 'line' comes from textio
+  --begin
+  --  if rising_edge(clk) then
+  --    if valid_input = '1' then
+  --      write(my_line, string'("executing pc = "));  -- formatting
+  --      hwrite(my_line, (pc_current));  -- format type std_logic_vector as hex
+  --      write(my_line, string'(" instr =  "));       -- formatting
+  --      hwrite(my_line, (instruction));  -- format type std_logic_vector as hex
+  --      if ls_unit_waiting = '1' then
+  --        write(my_line, string'(" stalling"));      -- formatting
+  --      end if;
+  --      writeline(output, my_line);     -- write to "output"
+  --    else
+  --      write(my_line, string'("bubble"));  -- formatting
+  --      writeline(output, my_line);     -- write to "output"
+  --    end if;
 
-    end if;
-  end process my_print;
+  --  end if;
+  --end process my_print;
 
 end architecture;

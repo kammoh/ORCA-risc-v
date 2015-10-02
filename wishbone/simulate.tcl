@@ -21,7 +21,7 @@ proc com {} {
 							wb_ram.vhd 		  \
 							top.vhd				  \
 							wb_arbiter.vhd \
-							cae_library/simulation/verilog/pmi/pmi_ram_dp_be.v \
+							bram.vhd \
 							top_tb.vhd]
 
 
