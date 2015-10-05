@@ -30,7 +30,7 @@ end bram_lattice;
 
 architecture rtl of bram_lattice is
   type word_t is array (0 to RAM_WIDTH/BYTE_SIZE-1) of std_logic_vector(BYTE_SIZE-1 downto 0);
-  type ram_type is array (0 to RAM_DEPTH-1) of word_t;
+  type ram_type is array (0 to RAM_DEPTH-1) of std_logic_vector(RAM_WIDTH-1 downto 0);
 
   function to_slv (tmp_hexnum : string) return std_logic_vector is
     variable temp  : std_logic_vector(31 downto 0);
@@ -56,7 +56,7 @@ architecture rtl of bram_lattice is
     -- pragma synthesis_off
     file ramfile           : text is in ram_file_name;
     variable line_read     : line;
-    variable my_line     : line;
+    variable my_line       : line;
     variable ss            : string(7 downto 0);
     -- pragma synthesis_on
     variable ram_to_return : ram_type;
@@ -85,15 +85,10 @@ begin
   process (clock)
   begin
     if rising_edge(clock) then
-      for i in 0 to RAM_WIDTH/BYTE_SIZE-1 loop
-      Q((i+1)*BYTE_SIZE-1 downto i*BYTE_SIZE) <= ram(to_integer(unsigned(address)))(i);
-      end loop;
-
-      for i in 0 to RAM_WIDTH/BYTE_SIZE-1 loop
-        if (we and be(i)) = '1' then
-          ram(to_integer(unsigned(address))) (i) <= data_in((i+1)*BYTE_SIZE-1 downto i*BYTE_SIZE);
-        end if;
-      end loop;  -- i
+      Q <= ram(to_integer(unsigned(address)));
+      if WE = '1' then
+        ram(to_integer(unsigned(address))) <= data_in;
+      end if;
     end if;
   end process;
 

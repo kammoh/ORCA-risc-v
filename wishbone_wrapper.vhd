@@ -147,8 +147,11 @@ begin  -- architecture rtl
   --input
   avm_instruction_readdata      <= instr_DAT_I;
   avm_instruction_waitrequest   <= instr_STALL_I;
-  avm_instruction_readdatavalid <= instr_ACK_I and instr_readvalid_mask;
+  avm_instruction_readdatavalid <= instr_ACK_I ;
 
+
+  --if previous cycle was a read, then this cycle can have a
+  --readdatavalid, else not,
   process(clk)
   begin
     if rising_edge(clk) then
@@ -164,6 +167,7 @@ begin  -- architecture rtl
       elsif avm_instruction_readdatavalid = '1' then
         instr_readvalid_mask <= '0';
       end if;
+
       if reset= '1' then
         instr_readvalid_mask <= '0';
         data_readvalid_mask <= '0';
