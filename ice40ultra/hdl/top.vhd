@@ -129,7 +129,7 @@ begin
 
   mem : component wb_ram
     generic map(
-      SIZE             => 2*1024,
+      SIZE             => 4*1024,
       INIT_FILE_FORMAT => "hex",
       INIT_FILE_NAME   => "test.mem",
       LATTICE_FAMILY   => "iCE5LP")

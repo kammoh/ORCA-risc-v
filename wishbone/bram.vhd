@@ -30,7 +30,7 @@ end bram_lattice;
 
 architecture rtl of bram_lattice is
   type word_t is array (0 to RAM_WIDTH/BYTE_SIZE-1) of std_logic_vector(BYTE_SIZE-1 downto 0);
-  type ram_type is array (0 to RAM_DEPTH-1) of std_logic_vector(RAM_WIDTH-1 downto 0);
+  type ram_type is array (0 to RAM_DEPTH-1) of std_logic_vector(BYTE_SIZE-1 downto 0);
 
   function to_slv (tmp_hexnum : string) return std_logic_vector is
     variable temp  : std_logic_vector(31 downto 0);
@@ -52,45 +52,50 @@ architecture rtl of bram_lattice is
     return temp;
   end function;
 
-  impure function init_bram (ram_file_name : in string) return ram_type is
-    -- pragma synthesis_off
+  impure function init_bram (ram_file_name : in string;
+                             bytesel       : in integer)
+    return ram_type is
+    -- pragma translate_off
     file ramfile           : text is in ram_file_name;
     variable line_read     : line;
     variable my_line       : line;
     variable ss            : string(7 downto 0);
-    -- pragma synthesis_on
+    -- pragma translate_on
     variable ram_to_return : ram_type;
 
   begin
     --ram_to_return := (others => (others => '0'));
-    -- pragma synthesis_off
+    -- pragma translate_off
     for i in ram_type'range loop
       if not endfile(ramfile) then
         readline(ramfile, line_read);
         read(line_read, ss);
-        ram_to_return(i) := to_slv(ss);
+        ram_to_return(i) := to_slv(ss)(BYTE_SIZE*(bytesel+1) -1 downto BYTE_SIZE*bytesel);
       end if;
     end loop;
-    -- pragma synthesis_on
+    -- pragma translate_on
     return ram_to_return;
   end function;
 
+begin  --architeture
 
-  signal ram : ram_type := init_bram(INIT_FILE_NAME);
 
-  signal Q : std_logic_vector(RAM_WIDTH-1 downto 0);
-
-begin
-
-  process (clock)
+  bytes : for i in 0 to RAM_WIDTH/BYTE_SIZE-1 generate
+    signal Q       : std_logic_vector(BYTE_SIZE-1 downto 0);
+    signal ram     : ram_type := init_bram(INIT_FILE_NAME, i);
+    signal byte_we : std_logic;
   begin
-    if rising_edge(clock) then
-      Q <= ram(to_integer(unsigned(address)));
-      if WE = '1' then
-        ram(to_integer(unsigned(address))) <= data_in;
+    byte_we <= WE and be(i);
+    process (clock)
+    begin
+      if rising_edge(clock) then
+        Q <= ram(to_integer(unsigned(address)));
+        if byte_we = '1' then
+          ram(to_integer(unsigned(address))) <= data_in(BYTE_SIZE*(i+1)-1 downto BYTE_SIZE*i);
+        end if;
       end if;
-    end if;
-  end process;
+    end process;
+    readdata(BYTE_SIZE*(i+1) -1 downto BYTE_SIZE*i) <= Q;
+  end generate bytes;
 
-  readdata <= Q;
 end rtl;
