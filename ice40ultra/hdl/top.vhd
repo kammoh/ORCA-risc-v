@@ -111,7 +111,9 @@ architecture rtl of top is
   constant UART_ADDR_DAT         : std_logic_vector(7 downto 0) := "00000000";
   constant UART_ADDR_LSR         : std_logic_vector(7 downto 0) := "00000011";
   constant UART_LSR_8BIT_DEFAULT : std_logic_vector(7 downto 0) := "00000011";
-  signal imem_en                 : std_logic;
+  signal uart_stall              : std_logic;
+  signal mem_instr_stall         : std_logic;
+  signal mem_instr_ack           : std_logic;
 
   signal rgb_led     : std_logic_vector(2 downto 0);
   signal coe_to_host : std_logic_vector(31 downto 0);
@@ -182,9 +184,9 @@ begin
       slave2_BTE_I  => instr_BTE_O,
       slave2_LOCK_I => instr_LOCK_O,
 
-      slave2_STALL_O => instr_STALL_I,
+      slave2_STALL_O => mem_instr_stall,
       slave2_DAT_O   => instr_DAT_I,
-      slave2_ACK_O   => instr_ACK_I,
+      slave2_ACK_O   => mem_instr_ACK,
       slave2_ERR_O   => instr_ERR_I,
       slave2_RTY_O   => instr_RTY_I,
 
@@ -236,16 +238,18 @@ begin
       instr_CYC_O   => instr_CYC_O,
       instr_CTI_O   => instr_CTI_O,
       instr_STALL_I => instr_STALL_I);
+
   data_BTE_O  <= "00";
   data_LOCK_O <= '0';
 
   instr_BTE_O  <= "00";
   instr_LOCK_O <= '0';
 
---  instr_stall_i <= uart_stall or mem_instr_stall;
+  instr_stall_i <= uart_stall or mem_instr_stall;
+  instr_ack_i   <= not uart_stall and mem_instr_ack;
 
   rgb_led <=
-    "000" when  heartbeat_counter(6 downto 0) /= "0000001" else
+    "000" when heartbeat_counter(6 downto 0) /= "0000001" else
     "111" when reset = '1' else
     "001" when coe_to_host = std_logic_vector(to_unsigned(0, coe_to_host'length)) else
     "010" when coe_to_host = std_logic_vector(to_unsigned(1, coe_to_host'length)) else
@@ -279,12 +283,28 @@ begin
 -- Debugging logic (PC over UART)
 -----------------------------------------------------------------------------
   debug_gen : if DEBUG_ENABLE generate
-    signal last_valid_address : std_logic_vector(11 downto 0);
+    signal last_valid_address : std_logic_vector(31 downto 0);
     signal last_valid_data    : std_logic_vector(31 downto 0);
-    type debug_state_type is (INIT, IDLE, CR, LF);
+    type debug_state_type is (INIT, IDLE, SPACE, ADR, DAT, CR, LF);
     signal debug_state        : debug_state_type;
     signal debug_count        : unsigned(log2((last_valid_data'length+3)/4)-1 downto 0);
     signal debug_wait         : std_logic;
+
+    --Convert a hex digit to ASCII for outputting on the UART
+    function to_ascii_hex (
+      signal hex_in : std_logic_vector)
+      return std_logic_vector is
+    begin
+      if unsigned(hex_in) > to_unsigned(9, hex_in'length) then
+        --value + 'A' - 10
+        return std_logic_vector(resize(unsigned(hex_in), 8) + to_unsigned(55, 8));
+      end if;
+
+      --value + '0'
+      return std_logic_vector(resize(unsigned(hex_in), 8) + to_unsigned(48, 8));
+    end to_ascii_hex;
+
+
   begin
     process (clk)
     begin  -- process
@@ -293,48 +313,79 @@ begin
           when INIT =>
             debug_address   <= UART_ADDR_LSR;
             debug_writedata <= UART_LSR_8BIT_DEFAULT;
-
             debug_write <= '1';
             if debug_write = '1' and debug_wait = '0' then
-              debug_write   <= '0';
               debug_state   <= IDLE;
               debug_address <= UART_ADDR_DAT;
+              debug_write <= '0';
             end if;
           when IDLE =>
-            debug_en        <= '1';
-            imem_en         <= '0';
-            debug_write     <= '1';
-            debug_writedata <= std_logic_vector(to_unsigned(86, 8));
-            debug_state <= CR;
-          when CR =>
-
+            uart_stall         <= '1';
+            if instr_CYC_O = '1' then
+              debug_write <= '1';
+              last_valid_address <= instr_ADR_O(instr_ADR_O'left-4 downto 0) & "0000";
+              debug_writedata    <= to_ascii_hex(instr_ADR_O(last_valid_address'left downto last_valid_address'left-3));
+              debug_state        <= ADR;
+              debug_count        <= to_unsigned(0, debug_count'length);
+            end if;
+          when ADR =>
             if debug_wait = '0' then
-              debug_writedata <= std_logic_vector(to_unsigned(85, 8));
+              if debug_count = to_unsigned(((last_valid_address'length+3)/4)-1, debug_count'length) then
+                debug_writedata <= std_logic_vector(to_unsigned(32, 8));
+                debug_count     <= to_unsigned(0, debug_count'length);
+                debug_state     <= SPACE;
+                last_valid_data <= instr_DAT_I;
+              else
+                debug_writedata    <= to_ascii_hex(last_valid_address(last_valid_address'left downto last_valid_address'left-3));
+                last_valid_address <= last_valid_address(last_valid_address'left-4 downto 0) & "0000";
+                debug_count        <= debug_count + to_unsigned(1, debug_count'length);
+              end if;
+            end if;
+          when SPACE =>
+            if debug_wait = '0' then
+              debug_writedata <= to_ascii_hex(last_valid_data(last_valid_data'left downto last_valid_data'left-3));
+              last_valid_data <= last_valid_data(last_valid_data'left-4 downto 0) & "0000";
+              debug_state     <= DAT;
+            end if;
+          when DAT =>
+            if debug_wait = '0' then
+              if debug_count = to_unsigned(((last_valid_data'length+3)/4)-1, debug_count'length) then
+                debug_writedata <= std_logic_vector(to_unsigned(13, 8));
+                debug_count     <= to_unsigned(0, debug_count'length);
+                debug_state     <= CR;
+              else
+                debug_writedata <= to_ascii_hex(last_valid_data(last_valid_data'left downto last_valid_data'left-3));
+                last_valid_data <= last_valid_data(last_valid_data'left-4 downto 0) & "0000";
+                debug_count     <= debug_count + to_unsigned(1, debug_count'length);
+              end if;
+            end if;
+
+          when CR =>
+            if debug_wait = '0' then
+              debug_writedata <= std_logic_vector(to_unsigned(10, 8));
               debug_state     <= LF;
             end if;
           when LF =>
             if debug_wait = '0' then
-              debug_writedata <= std_logic_vector(to_unsigned(86, 8));
+              debug_write <= '0';
               debug_state     <= IDLE;
+              uart_stall      <= '0';
             end if;
+
           when others =>
             debug_state <= IDLE;
         end case;
 
         if reset = '1' then
-          debug_en    <= '1';
-          imem_en     <= '0';
           debug_state <= INIT;
           debug_write <= '0';
+          uart_stall  <= '1';
         end if;
       end if;
     end process;
-
     debug_wait <= not uart_ack_o;
   end generate debug_gen;
   no_debug_gen : if not DEBUG_ENABLE generate
-    imem_en         <= '1';
-    debug_en        <= '0';
     debug_write     <= '0';
     debug_writedata <= (others => '0');
     debug_address   <= (others => '0');

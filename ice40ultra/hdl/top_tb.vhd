@@ -29,12 +29,12 @@ architecture rtl of top_tb is
   signal clk            : std_logic := '1';
   constant CLOCK_PERIOD : time      := 83.33 ns;
 begin
-  dut: component top
+  dut : component top
     port map(
-      clk => clk,
+      clk   => clk,
       reset => reset,
-      cts => '0',
-      rxd => '0');
+      cts   => '0',
+      rxd   => '0');
 
   process
   begin
@@ -48,6 +48,5 @@ begin
     reset <= '0';
     wait;
   end process;
-
 
 end architecture;
