@@ -14,7 +14,6 @@
 
 ###IOSet List 4
 set_io clk C2
-set_io reset F6 -pullup yes
+set_io reset_n F6 -pullup yes
 set_io rts C1
 set_io txd B2
-

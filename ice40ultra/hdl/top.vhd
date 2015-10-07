@@ -9,8 +9,8 @@ use work.top_util_pkg.all;
 
 entity top is
   port(
-    clk   : in std_logic;
-    reset : in std_logic;
+    clk     : in std_logic;
+    reset_n : in std_logic;
 
     cts : in  std_logic;
     rts : out std_logic;
@@ -31,15 +31,17 @@ architecture rtl of top is
 
 
   constant REGISTER_SIZE : natural := 32;
-  signal RAM_ADR_I       : std_logic_vector(31 downto 0);
-  signal RAM_DAT_I       : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal RAM_WE_I        : std_logic;
-  signal RAM_CYC_I       : std_logic;
-  signal RAM_STB_I       : std_logic;
-  signal RAM_SEL_I       : std_logic_vector(REGISTER_SIZE/8-1 downto 0);
-  signal RAM_CTI_I       : std_logic_vector(2 downto 0);
-  signal RAM_BTE_I       : std_logic_vector(1 downto 0);
-  signal RAM_LOCK_I      : std_logic;
+  signal reset           : std_logic;
+
+  signal RAM_ADR_I  : std_logic_vector(31 downto 0);
+  signal RAM_DAT_I  : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal RAM_WE_I   : std_logic;
+  signal RAM_CYC_I  : std_logic;
+  signal RAM_STB_I  : std_logic;
+  signal RAM_SEL_I  : std_logic_vector(REGISTER_SIZE/8-1 downto 0);
+  signal RAM_CTI_I  : std_logic_vector(2 downto 0);
+  signal RAM_BTE_I  : std_logic_vector(1 downto 0);
+  signal RAM_LOCK_I : std_logic;
 
   signal RAM_STALL_O : std_logic;
   signal RAM_DAT_O   : std_logic_vector(REGISTER_SIZE-1 downto 0);
@@ -127,9 +129,10 @@ architecture rtl of top is
 
 begin
 
+  reset <= not reset_n;
   mem : component wb_ram
     generic map(
-      SIZE             => 4*1024,
+      SIZE             => 8*1024,
       INIT_FILE_FORMAT => "hex",
       INIT_FILE_NAME   => "test.mem",
       LATTICE_FAMILY   => "iCE5LP")
@@ -313,16 +316,16 @@ begin
           when INIT =>
             debug_address   <= UART_ADDR_LSR;
             debug_writedata <= UART_LSR_8BIT_DEFAULT;
-            debug_write <= '1';
+            debug_write     <= '1';
             if debug_write = '1' and debug_wait = '0' then
               debug_state   <= IDLE;
               debug_address <= UART_ADDR_DAT;
-              debug_write <= '0';
+              debug_write   <= '0';
             end if;
           when IDLE =>
-            uart_stall         <= '1';
+            uart_stall <= '1';
             if instr_CYC_O = '1' then
-              debug_write <= '1';
+              debug_write        <= '1';
               last_valid_address <= instr_ADR_O(instr_ADR_O'left-4 downto 0) & "0000";
               debug_writedata    <= to_ascii_hex(instr_ADR_O(last_valid_address'left downto last_valid_address'left-3));
               debug_state        <= ADR;
@@ -368,8 +371,8 @@ begin
           when LF =>
             if debug_wait = '0' then
               debug_write <= '0';
-              debug_state     <= IDLE;
-              uart_stall      <= '0';
+              debug_state <= IDLE;
+              uart_stall  <= '0';
             end if;
 
           when others =>
@@ -389,6 +392,7 @@ begin
     debug_write     <= '0';
     debug_writedata <= (others => '0');
     debug_address   <= (others => '0');
+    uart_stall      <= '0';
   end generate no_debug_gen;
 
   -----------------------------------------------------------------------------

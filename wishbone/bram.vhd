@@ -77,25 +77,89 @@ architecture rtl of bram_lattice is
     return ram_to_return;
   end function;
 
+  -- instead of using a generate statement,do manually so we can figure out which
+  -- physical rams belong to which byte during ram initialization.
+
+  signal Q3       : std_logic_vector(BYTE_SIZE-1 downto 0);
+  signal ram3     : ram_type := init_bram(INIT_FILE_NAME, 3);
+  signal byte_we3 : std_logic;
+  signal Q2       : std_logic_vector(BYTE_SIZE-1 downto 0);
+  signal ram2     : ram_type := init_bram(INIT_FILE_NAME, 2);
+  signal byte_we2 : std_logic;
+  signal Q1       : std_logic_vector(BYTE_SIZE-1 downto 0);
+  signal ram1     : ram_type := init_bram(INIT_FILE_NAME, 1);
+  signal byte_we1 : std_logic;
+  signal Q0       : std_logic_vector(BYTE_SIZE-1 downto 0);
+  signal ram0     : ram_type := init_bram(INIT_FILE_NAME, 0);
+  signal byte_we0 : std_logic;
+
 begin  --architeture
 
-
-  bytes : for i in 0 to RAM_WIDTH/BYTE_SIZE-1 generate
-    signal Q       : std_logic_vector(BYTE_SIZE-1 downto 0);
-    signal ram     : ram_type := init_bram(INIT_FILE_NAME, i);
-    signal byte_we : std_logic;
+  byte_we3 <= WE and be(3);
+  process (clock)
   begin
-    byte_we <= WE and be(i);
-    process (clock)
-    begin
-      if rising_edge(clock) then
-        Q <= ram(to_integer(unsigned(address)));
-        if byte_we = '1' then
-          ram(to_integer(unsigned(address))) <= data_in(BYTE_SIZE*(i+1)-1 downto BYTE_SIZE*i);
-        end if;
+    if rising_edge(clock) then
+      Q3 <= ram3(to_integer(unsigned(address)));
+      if byte_we3 = '1' then
+        ram3(to_integer(unsigned(address))) <= data_in(BYTE_SIZE*(3+1)-1 downto BYTE_SIZE*3);
       end if;
-    end process;
-    readdata(BYTE_SIZE*(i+1) -1 downto BYTE_SIZE*i) <= Q;
-  end generate bytes;
+    end if;
+  end process;
+
+  byte_we2 <= WE and be(2);
+  process (clock)
+  begin
+    if rising_edge(clock) then
+      Q2 <= ram2(to_integer(unsigned(address)));
+      if byte_we2 = '1' then
+        ram2(to_integer(unsigned(address))) <= data_in(BYTE_SIZE*(2+1)-1 downto BYTE_SIZE*2);
+      end if;
+    end if;
+  end process;
+
+  byte_we1 <= WE and be(1);
+  process (clock)
+  begin
+    if rising_edge(clock) then
+      Q1 <= ram1(to_integer(unsigned(address)));
+      if byte_we1 = '1' then
+        ram1(to_integer(unsigned(address))) <= data_in(BYTE_SIZE*(1+1)-1 downto BYTE_SIZE*1);
+      end if;
+    end if;
+  end process;
+
+  byte_we0 <= WE and be(0);
+  process (clock)
+  begin
+    if rising_edge(clock) then
+      Q0 <= ram0(to_integer(unsigned(address)));
+      if byte_we0 = '1' then
+        ram0(to_integer(unsigned(address))) <= data_in(BYTE_SIZE*(0+1)-1 downto BYTE_SIZE*0);
+      end if;
+    end if;
+  end process;
+
+
+  readdata <= Q3 & Q2 & Q1 & Q0;
+
+  --byte_gen : for i in 0 to 3 generate
+  --  signal byte_we : std_logic;
+  --  signal ram     : ram_type := init_bram(INIT_FILE_NAME, i);
+  --  signal Q       : std_logic_vector(BYTE_SIZE-1 downto 0);
+
+  --begin
+  --  byte_we <= WE and be(i);
+  --  process (clock)
+  --  begin
+  --    if rising_edge(clock) then
+  --      Q <= ram(to_integer(unsigned(address)));
+
+  --      if byte_we = '1' then
+  --        ram(to_integer(unsigned(address))) <= data_in(BYTE_SIZE*(i+1)-1 downto BYTE_SIZE*i);
+  --      end if;
+  --    end if;
+  --  end process;
+  --  readdata(BYTE_SIZE*(i+1)-1 downto BYTE_SIZE*i) <= Q;
+  --end generate byte_gen;
 
 end rtl;
