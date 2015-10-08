@@ -56,11 +56,14 @@ architecture rtl of branch_unit is
   signal sub      : signed(REGISTER_SIZE downto 0);
   signal msb_mask : std_logic;
 
-  signal j_imm       : unsigned(REGISTER_SIZE-1 downto 0);
-  signal b_imm       : unsigned(REGISTER_SIZE-1 downto 0);
-  signal target_add1 : unsigned(REGISTER_SIZE-1 downto 0);
-  signal target_add2 : unsigned(REGISTER_SIZE-1 downto 0);
-  signal target_pc   : unsigned(REGISTER_SIZE-1 downto 0);
+  signal jal_imm        : unsigned(REGISTER_SIZE-1 downto 0);
+  signal jalr_imm       : unsigned(REGISTER_SIZE-1 downto 0);
+  signal b_imm          : unsigned(REGISTER_SIZE-1 downto 0);
+  signal branch_target  : unsigned(REGISTER_SIZE-1 downto 0);
+  signal nbranch_target : unsigned(REGISTER_SIZE-1 downto 0);
+  signal jalr_target    : unsigned(REGISTER_SIZE-1 downto 0);
+  signal jal_target     : unsigned(REGISTER_SIZE-1 downto 0);
+  signal target_pc      : unsigned(REGISTER_SIZE-1 downto 0);
 
   signal leq_flg : std_logic;
   signal eq_flg  : std_logic;
@@ -82,29 +85,52 @@ begin  -- architecture rtl
   op2 <= signed((msb_mask and rs2_data(rs2_data'left)) & rs2_data);
   sub <= op1 - op2;
 
-  eq_flg  <= '1' when sub = to_signed(0, REGISTER_SIZE+1) else '0';
+  eq_flg  <= '1' when op1 = op2 else '0';
   leq_flg <= sub(sub'left);
 
-  branch_taken <= '1' when ((func3 = beq and (eq_flg) = '1') or
-                            (func3 = bne and (not eq_flg) = '1') or
-                            (func3 = blt and (leq_flg and not eq_flg) = '1') or
-                            (func3 = bge and (not leq_flg or eq_flg) = '1') or
-                            (func3 = bltu and (leq_flg and not eq_flg) = '1') or
-                            (func3 = bgeu and (not leq_flg or eq_flg) = '1')
-                            ) else '0';
+  --branch_taken <= '1' when ((func3 = beq and (eq_flg) = '1') or
+  --                          (func3 = bne and (not eq_flg) = '1') or
+  --                          (func3 = blt and (leq_flg and not eq_flg) = '1') or
+  --                          (func3 = bge and (not leq_flg or eq_flg) = '1') or
+  --                          (func3 = bltu and (leq_flg and not eq_flg) = '1') or
+  --                          (func3 = bgeu and (not leq_flg or eq_flg) = '1')
+  --                          ) else '0';
+
+  with func3 select
+    branch_taken <=
+    eq_flg                 when beq,
+    not eq_flg             when bne,
+    leq_flg and not eq_flg when blt,
+    not leq_flg or eq_flg  when bge,
+    leq_flg and not eq_flg when bltu,
+    not leq_flg or eq_flg  when bgeu,
+    '0'                    when others;
+
   b_imm <= unsigned(sign_extension(REGISTER_SIZE-13 downto 0) &
                     instr(7) & instr(30 downto 25) &instr(11 downto 8) & "0");
 
-  j_imm <= unsigned(sign_extension(REGISTER_SIZE-12-1 downto 0) &
-                    instr(31 downto 21) & "0") ;
+  jalr_imm <= unsigned(sign_extension(REGISTER_SIZE-12-1 downto 0) &
+                       instr(31 downto 21) & "0") ;
+  jal_imm <= unsigned(RESIZE(signed(instr(31) & instr(19 downto 12) & instr(20) &
+                                    instr(30 downto 21)&"0"),REGISTER_SIZE));
 
 
-  target_add1 <= b_imm when branch_taken = '1' and opcode = BRANCH else
-                 j_imm when opcode = JALR else
-                 to_unsigned(4, REGISTER_SIZE);
-  target_add2 <= unsigned(rs1_data) when opcode = JALR else unsigned(current_pc);
+  branch_target  <= b_imm + unsigned(current_pc);
+  nbranch_target <= to_unsigned(4, REGISTER_SIZE) + unsigned(current_pc);
+  jalr_target    <= jalr_imm + unsigned(rs1_data);
+  jal_target     <= jal_imm + unsigned(current_pc);
 
-  target_pc <= target_add1 + target_add2;
+  with branch_taken & opcode select
+    target_pc <=
+    branch_target  when "1" & BRANCH,
+    nbranch_target when "0" & BRANCH,
+    jalr_target    when "0" & JALR,
+    jalr_target    when "1" & JALR,
+    jal_target     when others;
+
+  --target_pc <= branch_target when branch_taken = '1' and opcode = BRANCH else
+  --             jump_target when opcode = JALR else
+  --             unsigned(current_pc) +to_unsigned(4, REGISTER_SIZE);
 
   br_proc : process (clk, reset) is
   begin  -- process br_proc
@@ -123,7 +149,7 @@ begin  -- architecture rtl
             data_out_en <= '0';
           end if;
           new_pc <= std_logic_vector(target_pc);
-          if (opcode = BRANCH and target_pc /= unsigned(predicted_pc)) or opcode = JALR then
+          if (opcode = BRANCH and target_pc /= unsigned(predicted_pc)) or opcode = JALR or opcode = JAL then
             bad_predict <= '1';
           else
             bad_predict <= '0';
