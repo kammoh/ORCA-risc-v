@@ -14,6 +14,7 @@ entity branch_unit is
   port (
     clk            : in  std_logic;
     stall          : in  std_logic;
+    valid          : in  std_logic;
     reset          : in  std_logic;
     rs1_data       : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
     rs2_data       : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
@@ -47,8 +48,6 @@ architecture rtl of branch_unit is
   constant BLTU : std_logic_vector(2 downto 0) := "110";
   constant BGEU : std_logic_vector(2 downto 0) := "111";
 
-  alias func3  : std_logic_vector(2 downto 0) is instr(14 downto 12);
-  alias opcode : std_logic_vector(6 downto 0) is instr(6 downto 0);
 
   --these are one bit larget than a register
   signal op1      : signed(REGISTER_SIZE downto 0);
@@ -70,8 +69,43 @@ architecture rtl of branch_unit is
 
   signal branch_taken : std_logic;
 
+  signal valid_latch          : std_logic;
+  signal rs1_data_latch       : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal rs2_data_latch       : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal current_pc_latch     : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal predicted_pc_latch   : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal instr_latch          : std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
+  signal sign_extension_latch : std_logic_vector(SIGN_EXTENSION_SIZE-1 downto 0);
+
+
+  alias func3  : std_logic_vector(2 downto 0) is instr_latch(14 downto 12);
+  alias opcode : std_logic_vector(6 downto 0) is instr_latch(6 downto 0);
 
 begin  -- architecture rtl
+
+  input_latch : process(clk)
+  begin
+    if rising_edge(clk) then
+      if reset = '1' then
+        current_pc_latch     <= std_logic_vector(to_unsigned(0, REGISTER_SIZE));
+        predicted_pc_latch   <= std_logic_vector(to_unsigned(4, REGISTER_SIZE));
+        instr_latch          <= instr;
+        sign_extension_latch <= sign_extension;
+      else
+        if stall = '0' then
+          valid_latch          <= valid;
+          rs1_data_latch       <= rs1_data;
+          rs2_data_latch       <= rs2_data;
+          current_pc_latch     <= current_pc;
+          predicted_pc_latch   <= predicted_pc;
+          instr_latch          <= instr;
+          sign_extension_latch <= sign_extension;
+        end if;
+
+      end if;
+    end if;
+
+  end process;
 
   with func3 select
     msb_mask <=
@@ -81,8 +115,8 @@ begin  -- architecture rtl
 
 
 
-  op1 <= signed((msb_mask and rs1_data(rs1_data'left)) & rs1_data);
-  op2 <= signed((msb_mask and rs2_data(rs2_data'left)) & rs2_data);
+  op1 <= signed((msb_mask and rs1_data_latch(rs1_data'left)) & rs1_data_latch);
+  op2 <= signed((msb_mask and rs2_data_latch(rs2_data'left)) & rs2_data_latch);
   sub <= op1 - op2;
 
   eq_flg  <= '1' when op1 = op2 else '0';
@@ -106,58 +140,66 @@ begin  -- architecture rtl
     not leq_flg or eq_flg  when bgeu,
     '0'                    when others;
 
-  b_imm <= unsigned(sign_extension(REGISTER_SIZE-13 downto 0) &
-                    instr(7) & instr(30 downto 25) &instr(11 downto 8) & "0");
+  b_imm <= unsigned(sign_extension_latch(REGISTER_SIZE-13 downto 0) &
+                    instr_latch(7) & instr_latch(30 downto 25) &instr_latch(11 downto 8) & "0");
 
-  jalr_imm <= unsigned(sign_extension(REGISTER_SIZE-12-1 downto 0) &
-                       instr(31 downto 21) & "0") ;
-  jal_imm <= unsigned(RESIZE(signed(instr(31) & instr(19 downto 12) & instr(20) &
-                                    instr(30 downto 21)&"0"),REGISTER_SIZE));
+  jalr_imm <= unsigned(sign_extension_latch(REGISTER_SIZE-12-1 downto 0) &
+                       instr_latch(31 downto 21) & "0") ;
+  jal_imm <= unsigned(RESIZE(signed(instr_latch(31) & instr_latch(19 downto 12) & instr_latch(19 downto 12) & instr_latch(20) &
+                                    instr_latch(30 downto 21)&"0"),REGISTER_SIZE));
 
 
-  branch_target  <= b_imm + unsigned(current_pc);
-  nbranch_target <= to_unsigned(4, REGISTER_SIZE) + unsigned(current_pc);
-  jalr_target    <= jalr_imm + unsigned(rs1_data);
-  jal_target     <= jal_imm + unsigned(current_pc);
+  branch_target  <= b_imm + unsigned(current_pc_latch);
+  nbranch_target <= to_unsigned(4, REGISTER_SIZE) + unsigned(current_pc_latch);
+  jalr_target    <= jalr_imm + unsigned(rs1_data_latch);
+  jal_target     <= jal_imm + unsigned(current_pc_latch);
+
 
   with branch_taken & opcode select
     target_pc <=
-    branch_target  when "1" & BRANCH,
-    nbranch_target when "0" & BRANCH,
     jalr_target    when "0" & JALR,
     jalr_target    when "1" & JALR,
-    jal_target     when others;
+    jal_target     when "0" & JAL,
+    jal_target     when "1" & JAL,
+    branch_target  when "1" & BRANCH,
+    nbranch_target when others;
+
 
   --target_pc <= branch_target when branch_taken = '1' and opcode = BRANCH else
   --             jump_target when opcode = JALR else
   --             unsigned(current_pc) +to_unsigned(4, REGISTER_SIZE);
 
-  br_proc : process (clk, reset) is
-  begin  -- process br_proc
-    if rising_edge(clk) then
-      if reset = '1' then
-        bad_predict <= '0';
-        data_out_en <= '0';
-      else
-        if stall = '0' then
-          data_out <= std_logic_vector(unsigned(current_pc) +
-                                       to_unsigned(4, REGISTER_SIZE));
 
-          if opcode = JAL or opcode = JALR then
-            data_out_en <= '1';
-          else
-            data_out_en <= '0';
-          end if;
-          new_pc <= std_logic_vector(target_pc);
-          if (opcode = BRANCH and target_pc /= unsigned(predicted_pc)) or opcode = JALR or opcode = JAL then
-            bad_predict <= '1';
-          else
-            bad_predict <= '0';
-          end if;
-        end if;  --stall
-      end if;  --reset
-    end if;  --clk
+  data_out_en <= '1' when valid_latch = '1' and (opcode = JAL or opcode = JALR)           else '0';
+  data_out    <= std_logic_vector(nbranch_target);
+  new_pc      <= std_logic_vector(target_pc);
+  bad_predict <= '1' when valid_latch = '1' and target_pc /= unsigned(predicted_pc_latch) else '0';
+  --br_proc : process (clk, reset) is
+  --begin  -- process br_proc
+  --  if rising_edge(clk) then
+  --    if reset = '1' then
+  --      bad_predict <= '0';
+  --      data_out_en <= '0';
+  --    else
+  --      if stall = '0' then
+  --        data_out <= std_logic_vector(unsigned(current_pc) +
+  --                                     to_unsigned(4, REGISTER_SIZE));
 
-  end process br_proc;
+  --        if opcode = JAL or opcode = JALR then
+  --          data_out_en <= '1';
+  --        else
+  --          data_out_en <= '0';
+  --        end if;
+  --        new_pc <= std_logic_vector(target_pc);
+  --        if (opcode = BRANCH and target_pc /= unsigned(predicted_pc)) or opcode = JALR or opcode = JAL then
+  --          bad_predict <= '1';
+  --        else
+  --          bad_predict <= '0';
+  --        end if;
+  --      end if;  --stall
+  --    end if;  --reset
+  --  end if;  --clk
+
+  --end process br_proc;
 
 end architecture;

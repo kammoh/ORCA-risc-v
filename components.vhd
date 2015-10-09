@@ -150,15 +150,16 @@ package rv_components is
       REGISTER_SIZE       : integer;
       SIGN_EXTENSION_SIZE : integer);
     port (
-      clk            : in  std_logic;
-      stall          : in  std_logic;
-      valid          : in  std_logic;
-      rs1_data       : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
-      rs2_data       : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
-      instruction    : in  std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
-      sign_extension : in  std_logic_vector(SIGN_EXTENSION_SIZE-1 downto 0);
-      data_out       : out std_logic_vector(REGISTER_SIZE-1 downto 0);
-      data_enable    : out std_logic);
+      clk             : in  std_logic;
+      stall           : in  std_logic;
+      valid           : in  std_logic;
+      rs1_data        : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
+      rs2_data        : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
+      instruction     : in  std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
+      sign_extension  : in  std_logic_vector(SIGN_EXTENSION_SIZE-1 downto 0);
+      program_counter : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
+      data_out        : out std_logic_vector(REGISTER_SIZE-1 downto 0);
+      data_enable     : out std_logic);
   end component arithmetic_unit;
 
   component branch_unit is
@@ -169,6 +170,7 @@ package rv_components is
     port (
       clk            : in  std_logic;
       stall          : in  std_logic;
+      valid          : in  std_logic;
       reset          : in  std_logic;
       rs1_data       : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
       rs2_data       : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
