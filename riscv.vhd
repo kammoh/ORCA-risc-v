@@ -110,7 +110,7 @@ begin  -- architecture rtl
   pipeline_flush      <= pc_corr_en;
   coe_program_counter <= d_pc;
 
-  if_stall_in <= execute_stalled or decode_stalled;
+  if_stall_in <= execute_stalled;
   instr_fetch : component instruction_fetch
     generic map (
       REGISTER_SIZE    => REGISTER_SIZE,
@@ -134,7 +134,7 @@ begin  -- architecture rtl
       read_datavalid  => instr_readvalid);
 
 
-  d_valid     <= if_valid_out and not pipeline_flush;
+  d_valid <= if_valid_out and not pipeline_flush;
   D : component decode
     generic map(
       REGISTER_SIZE       => REGISTER_SIZE,
@@ -162,7 +162,6 @@ begin  -- architecture rtl
       pc_next_out    => e_next_pc,
       pc_curr_out    => e_pc,
       instr_out      => e_instr,
-      stall_out      => decode_stalled,
       valid_output   => d_valid_out);
 
   e_valid <= d_valid_out and not pipeline_flush;

@@ -62,7 +62,7 @@ begin
   end process;
   process(clk) is
   begin
-    if rising_edge(clk) then
+    if rising_edge(clk) and stall = '0' then
       data_latched <= writeback_data;
     end if;
   end process;
