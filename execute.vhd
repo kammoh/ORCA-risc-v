@@ -114,15 +114,16 @@ begin
       REGISTER_SIZE       => REGISTER_SIZE,
       SIGN_EXTENSION_SIZE => SIGN_EXTENSION_SIZE)
     port map (
-      clk            => clk,
-      stall          => stall_pipeline,
-      valid          => valid_input,
-      rs1_data       => rs1_data_fwd,
-      rs2_data       => rs2_data_fwd,
-      instruction    => instruction,
-      sign_extension => sign_extension,
-      data_out       => alu_data_out,
-      data_enable    => alu_data_en);
+      clk             => clk,
+      stall           => stall_pipeline,
+      valid           => valid_input,
+      rs1_data        => rs1_data_fwd,
+      rs2_data        => rs2_data_fwd,
+      instruction     => instruction,
+      sign_extension  => sign_extension,
+      program_counter => pc_current,
+      data_out        => alu_data_out,
+      data_enable     => alu_data_en);
 
 
   branch : component branch_unit
@@ -192,17 +193,6 @@ begin
       pc_correction => syscall_target,
       pc_corr_en    => syscall_en);
 
-  uppimm : component upper_immediate
-    generic map (
-      REGISTER_SIZE    => REGISTER_SIZE,
-      INSTRUCTION_SIZE => INSTRUCTION_SIZE)
-    port map (
-      clk        => clk,
-      valid      => valid_input,
-      instr      => instruction,
-      pc_current => pc_current,
-      data_out   => upp_data_out,
-      data_en    => upp_data_en);
 
   stall_pipeline <= ls_unit_waiting;
 

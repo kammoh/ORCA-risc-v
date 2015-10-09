@@ -13,20 +13,30 @@ entity arithmetic_unit is
     SIGN_EXTENSION_SIZE : integer);
 
   port (
-    clk            : in  std_logic;
-    stall          : in  std_logic;
-    valid          : in  std_logic;
-    rs1_data       : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
-    rs2_data       : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
-    instruction    : in  std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
-    sign_extension : in  std_logic_vector(SIGN_EXTENSION_SIZE-1 downto 0);
-    data_out       : out std_logic_vector(REGISTER_SIZE-1 downto 0);
-    data_enable    : out std_logic
+    clk             : in  std_logic;
+    stall           : in  std_logic;
+    valid           : in  std_logic;
+    rs1_data        : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
+    rs2_data        : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
+    instruction     : in  std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
+    sign_extension  : in  std_logic_vector(SIGN_EXTENSION_SIZE-1 downto 0);
+    program_counter : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
+    data_out        : out std_logic_vector(REGISTER_SIZE-1 downto 0);
+    data_enable     : out std_logic
     );
 
 end entity arithmetic_unit;
 
 architecture rtl of arithmetic_unit is
+
+  --op codes
+  constant OP     : std_logic_vector(6 downto 0) := "0110011";
+  constant OP_IMM : std_logic_vector(6 downto 0) := "0010011";
+  constant LUI    : std_logic_vector(6 downto 0) := "0110111";
+  constant AUIPC  : std_logic_vector(6 downto 0) := "0010111";
+
+
+
   constant ADD_OP  : std_logic_vector(2 downto 0) := "000";
   constant SLL_OP  : std_logic_vector(2 downto 0) := "001";
   constant SLT_OP  : std_logic_vector(2 downto 0) := "010";
@@ -37,6 +47,10 @@ architecture rtl of arithmetic_unit is
   constant AND_OP  : std_logic_vector(2 downto 0) := "111";
 
   constant OP_IMM_IMMEDIATE_SIZE : integer := 12;
+  constant UP_IMM_IMMEDIATE_SIZE : integer := 20;
+
+  alias func3  : std_logic_vector(2 downto 0) is instruction(14 downto 12);
+  alias opcode : std_logic_vector(6 downto 0) is instruction(6 downto 0);
 
   signal is_immediate    : std_logic;
   signal data1           : unsigned(REGISTER_SIZE-1 downto 0);
@@ -51,6 +65,10 @@ architecture rtl of arithmetic_unit is
   signal op2            : signed(REGISTER_SIZE downto 0);
   signal sub            : signed(REGISTER_SIZE downto 0);
   signal slt_val        : unsigned(REGISTER_SIZE-1 downto 0);
+
+  signal upp_imm_sel      : std_logic;
+  signal upper_immediate1 : signed(REGISTER_SIZE-1 downto 0);
+  signal upper_immediate  : signed(REGISTER_SIZE-1 downto 0);
 
 begin  -- architecture rtl
 
@@ -69,6 +87,12 @@ begin  -- architecture rtl
   op2     <= signed((not instruction(12) and data2(data2'left)) & data2);
   sub     <= op1 - op2;
   slt_val <= to_unsigned(1, REGISTER_SIZE) when sub(sub'left) = '1' else to_unsigned(0, REGISTER_SIZE);
+
+  upp_imm_sel <= '1' when opcode = LUI or opcode = AUIPC else '0';
+
+  upper_immediate1(31 downto 12) <= signed(instruction(31 downto 12));
+  upper_immediate1(11 downto 0)  <= (others => '0');
+  upper_immediate                <= upper_immediate1 when instruction(5) = '1' else upper_immediate1 + signed(program_counter);
 
   alu_proc : process(clk) is
     variable func        : std_logic_vector(2 downto 0);
@@ -101,12 +125,18 @@ begin  -- architecture rtl
           data_result := data1 and data2;
         when others => null;
       end case;
-      case instruction(6 downto 0) is
-        when "0010011" => data_enable <= valid;
-        when "0110011" => data_enable <= valid;
-        when others    => data_enable <= '0';
+      case OPCODE is
+        when OP     => data_enable <= valid;
+        when OP_IMM => data_enable <= valid;
+        when LUI    => data_enable <= valid;
+        when AUIPC  => data_enable <= valid;
+        when others => data_enable <= '0';
       end case;
-      data_out <= std_logic_vector(data_result);
+      if opcode = LUI or opcode = AUIPC then
+        data_out <= std_logic_vector(upper_immediate);
+      else
+        data_out <= std_logic_vector(data_result);
+      end if;
 
     end if;  --clock
   end process;
