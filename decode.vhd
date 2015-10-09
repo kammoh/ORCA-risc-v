@@ -33,6 +33,7 @@ entity decode is
     pc_next_out    : out std_logic_vector(REGISTER_SIZE-1 downto 0);
     pc_curr_out    : out std_logic_vector(REGISTER_SIZE-1 downto 0);
     instr_out      : out std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
+    stall_out      : out std_logic;
     valid_output   : out std_logic);
 
 
@@ -46,8 +47,16 @@ architecture behavioural of decode is
     instruction(19 downto 15);
   alias rs2 : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0) is
     instruction(24 downto 20);
+  alias opcode : std_logic_vector(6 downto 0) is
+    instruction(6 downto 0);
 
+  constant LOAD : std_logic_vector(6 downto 0)                    := "0000011";
+  constant ZERO : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0) := (others => '0');
 
+  signal load_dest       : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0);
+  signal load_dest_valid : boolean;
+  signal stall_o         : std_logic;
+  signal valid_latched   : std_logic;
 begin
   register_file_1 : component register_file
     generic map (
@@ -66,25 +75,39 @@ begin
       rs2_data         => rs2_data
       );
 
+  stall_o      <= valid_input when (rs1 = load_dest or rs2 = load_dest) and load_dest_valid else '0';
+
+  stall_out    <= stall_o;
+--  valid_output <= valid_latched and not stall_o;
   decode_stage : process (clk, reset) is
   begin  -- process decode_stage
     if rising_edge(clk) then            -- rising clock edge
       if reset = '1' then
-        sign_extension <= (others => '0');
-        pc_next_out    <= (others => '0');
-        pc_curr_out    <= (others => '0');
-        instr_out      <= (others => '0');
+        sign_extension  <= (others => '0');
+        pc_next_out     <= (others => '0');
+        pc_curr_out     <= (others => '0');
+        instr_out       <= (others => '0');
         valid_output   <= '0';
+        load_dest_valid <= false;
       else
-        if not stall = '1' then
+        if stall = '0' then
+          --if this is a load, remeber so that we can insert a stall
+          --if rd is used in next instruction
+          if opcode = LOAD and rd /= ZERO and valid_input = '1' then
+            load_dest_valid <= true;
+          else
+            load_dest_valid <= false;
+          end if;
+          load_dest <= rd;
           sign_extension <= std_logic_vector(
             resize(signed(instruction(INSTRUCTION_SIZE-1 downto INSTRUCTION_SIZE-1)),
                    SIGN_EXTENSION_SIZE));
-          pc_next_out  <= PC_next_in;
-          pc_curr_out  <= PC_curr_in;
-          instr_out    <= instruction;
-          valid_output <= valid_input;
+          pc_next_out   <= PC_next_in;
+          pc_curr_out   <= PC_curr_in;
+          instr_out     <= instruction;
+          valid_output <= valid_input and not stall_o;
         end if;
+
       end if;
     end if;
   end process decode_stage;

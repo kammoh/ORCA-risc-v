@@ -57,14 +57,17 @@ architecture rtl of riscV is
 
   signal pc_corr_en   : std_logic;
   signal pc_corr      : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal if_stall_in  : std_logic;
   signal if_valid_out : std_logic;
 
+
   --signals going into decode
-  signal d_instr     : std_logic_vector(INSTRUCTION_SIZE -1 downto 0);
-  signal d_pc        : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal d_next_pc   : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal d_valid     : std_logic;
-  signal d_valid_out : std_logic;
+  signal d_instr        : std_logic_vector(INSTRUCTION_SIZE -1 downto 0);
+  signal d_pc           : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal d_next_pc      : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal d_valid        : std_logic;
+  signal d_valid_out    : std_logic;
+  signal decode_stalled : std_logic;
 
   signal wb_data : std_logic_vector(REGISTER_SIZE-1 downto 0);
   signal wb_sel  : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0);
@@ -107,6 +110,7 @@ begin  -- architecture rtl
   pipeline_flush      <= pc_corr_en;
   coe_program_counter <= d_pc;
 
+  if_stall_in <= execute_stalled or decode_stalled;
   instr_fetch : component instruction_fetch
     generic map (
       REGISTER_SIZE    => REGISTER_SIZE,
@@ -115,7 +119,7 @@ begin  -- architecture rtl
     port map (
       clk        => clk,
       reset      => reset,
-      stall      => execute_stalled,
+      stall      => if_stall_in,
       pc_corr    => pc_corr,
       pc_corr_en => pc_corr_en,
 
@@ -129,7 +133,8 @@ begin  -- architecture rtl
       read_wait       => instr_read_wait,
       read_datavalid  => instr_readvalid);
 
-  d_valid <= if_valid_out and not pipeline_flush;
+
+  d_valid     <= if_valid_out and not pipeline_flush;
   D : component decode
     generic map(
       REGISTER_SIZE       => REGISTER_SIZE,
@@ -157,6 +162,7 @@ begin  -- architecture rtl
       pc_next_out    => e_next_pc,
       pc_curr_out    => e_pc,
       instr_out      => e_instr,
+      stall_out      => decode_stalled,
       valid_output   => d_valid_out);
 
   e_valid <= d_valid_out and not pipeline_flush;

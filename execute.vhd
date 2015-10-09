@@ -72,7 +72,7 @@ architecture behavioural of execute is
   signal upp_data_en : std_logic;
   signal sys_data_en : std_logic;
 
-  signal writeback_1hot : std_logic_vector(4 downto 0);
+  signal fwd_mux : std_logic_vector(1 downto 0);
 
   signal br_bad_predict : std_logic;
   signal br_new_pc      : std_logic_vector(REGISTER_SIZE-1 downto 0);
@@ -89,9 +89,15 @@ architecture behavioural of execute is
   signal ls_unit_waiting     : std_logic;
   signal valid_input_latched : std_logic;
 
-  signal wb_sel_latched  : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0);
-  signal wb_data_latched : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal wb_en_latched   : std_logic;
+  signal fwd_sel_latched  : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0);
+  signal fwd_data_latched : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal fwd_en_latched   : std_logic;
+
+  signal fwd_sel  : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0);
+  signal fwd_data : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal fwd_en   : std_logic;
+
+
 
 
   constant ZERO : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0) := (others => '0');
@@ -100,10 +106,10 @@ begin
 
   --use the previous clock's writeback data when appropriate
 
-  rs1_data_fwd <= wb_data_latched when wb_sel_latched = rs1 and wb_en_latched = '1'and wb_sel_latched /= ZERO else
-                  wb_data when wb_sel = rs1 and wb_en = '1'and wb_sel /= ZERO else rs1_data;
-  rs2_data_fwd <= wb_data_latched when wb_sel_latched = rs2 and wb_en_latched = '1'and wb_sel_latched /= ZERO else
-                  wb_data when wb_sel = rs2 and wb_en = '1'and wb_sel /= ZERO else rs2_data;
+  rs1_data_fwd <= fwd_data_latched when fwd_sel_latched = rs1 and fwd_en_latched = '1' else
+                  fwd_data when fwd_sel = rs1 and fwd_en = '1' else rs1_data;
+  rs2_data_fwd <= fwd_data_latched when fwd_sel_latched = rs2 and fwd_en_latched = '1' else
+                  fwd_data when fwd_sel = rs2 and fwd_en = '1' else rs2_data;
 
 
   ls_valid <= valid_input and not reset;
@@ -134,6 +140,7 @@ begin
     port map(
       clk            => clk,
       reset          => reset,
+      valid          => valid_input,
       stall          => stall_pipeline,
       rs1_data       => rs1_data_fwd,
       rs2_data       => rs2_data_fwd,
@@ -154,7 +161,7 @@ begin
     port map(
       clk            => clk,
       reset          => reset,
-      valid          => ls_valid,
+      valid          => valid_input,
       rs1_data       => rs1_data_fwd,
       rs2_data       => rs2_data_fwd,
       instruction    => instruction,
@@ -196,30 +203,34 @@ begin
 
   stall_pipeline <= ls_unit_waiting;
 
-  --the above rv_components have output latches,
-  --find out which is the actual output
-  writeback_1hot(4) <= sys_data_en;
-  writeback_1hot(3) <= upp_data_en;
-  writeback_1hot(2) <= alu_data_en;
-  writeback_1hot(1) <= br_data_en;
-  writeback_1hot(0) <= ld_data_en;
 
-  --with writeback_1hot select
-  --  wb_data <=
-  --  sys_data_out    when "10000",
-  --  upp_data_out    when "01000",
-  --  alu_data_out    when "00100",
-  --  br_data_out     when "00010",
-  --  ld_data_out     when "00001",
-  --  (others => 'X') when others;
+  fwd_mux <= "00" when sys_data_en = '1' else
+             --"01" when ld_data_en = '1' else
+             "10" when br_data_en = '1' else
+             "11" when alu_data_en = '1';
 
-  wb_data <= sys_data_out when sys_data_en = '1' else
-             upp_data_out when upp_data_en = '1' else
-             alu_data_out when alu_data_en = '1' else
-             br_data_out  when br_data_en = '1' else
-             ld_data_out;
+  with fwd_mux select
+    fwd_data <=
+    sys_data_out when "00",
+--    ld_data_out  when "01",
+    br_data_out  when "10",
+    alu_data_out when others;
+
+  fwd_en <= (alu_data_en or br_data_en or sys_data_en)when wb_sel /= ZERO
+                else '0';
+  fwd_sel <= wb_sel;
+
+  --wb_data <= sys_data_out when sys_data_en = '1' else
+  --           upp_data_out when upp_data_en = '1' else
+  --           alu_data_out when alu_data_en = '1' else
+  --           br_data_out  when br_data_en = '1' else
+  --           ld_data_out;
 --  wb_data <= alu_data_out;
-  wb_en <= alu_data_en or br_data_en or ld_data_en or upp_data_en or sys_data_en;
+
+  wb_data <= ld_data_out when ld_data_en = '1' else fwd_data;
+
+  wb_en <= fwd_en or ld_data_en when wb_sel /= ZERO
+           else '0';
 
   predict_corr_en <= (syscall_en or br_bad_predict) and valid_input_latched;
 
@@ -230,19 +241,19 @@ begin
   begin
     if rising_edge(clk) then
       if reset = '1' then
-        wb_en_latched       <= '0';
+        fwd_en_latched      <= '0';
         valid_input_latched <= '0';
       else
         valid_input_latched <= valid_input;
         wb_sel              <= rd;
-        if stall_pipeline = '1' and wb_en_latched = '0' then
+        if stall_pipeline = '1' and fwd_en_latched = '0' then
           --first stall cycle
-          wb_en_latched   <= wb_en;
-          wb_data_latched <= wb_data;
-          wb_sel_latched  <= wb_sel;
+          fwd_en_latched   <= fwd_en;
+          fwd_data_latched <= fwd_data;
+          fwd_sel_latched  <= fwd_sel;
         elsif stall_pipeline = '0' then
           --pipeline not stalling
-          wb_en_latched <= '0';
+          fwd_en_latched <= '0';
         end if;
 
       end if;  --reset

@@ -98,9 +98,9 @@ begin  -- architecture rtl
       next_pc     => generated_pc);
 
 
-  instr_out   <= saved_instr_out   when stall = '1' else instr;
-  pc_out      <= saved_pc_out      when stall = '1' else program_counter;
-  next_pc_out <= saved_next_pc_out when stall = '1' else generated_pc;
+  instr_out   <=  instr;
+  pc_out      <=  program_counter;
+  next_pc_out <=  generated_pc;
 
   valid_instr_out <= saved_valid_instr_out when stall = '1' else valid_instr;
 

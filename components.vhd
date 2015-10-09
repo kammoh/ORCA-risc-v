@@ -74,6 +74,7 @@ package rv_components is
       pc_next_out    : out std_logic_vector(REGISTER_SIZE-1 downto 0);
       pc_curr_out    : out std_logic_vector(REGISTER_SIZE-1 downto 0);
       instr_out      : out std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
+      stall_out      : out std_logic;
       valid_output   : out std_logic);
   end component decode;
 
