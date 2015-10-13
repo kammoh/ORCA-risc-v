@@ -145,6 +145,7 @@ begin  -- architecture rtl
       clk            => clk,
       reset          => reset,
       stall          => execute_stalled,
+      flush          => pipeline_flush,
       instruction    => d_instr,
       valid_input    => d_valid,
       --writeback ,signals

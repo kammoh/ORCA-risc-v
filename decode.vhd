@@ -15,6 +15,7 @@ entity decode is
     clk         : in std_logic;
     reset       : in std_logic;
     stall       : in std_logic;
+    flush       : in std_logic;
     instruction : in std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
     valid_input : in std_logic;
     --writeback signals
@@ -47,6 +48,10 @@ architecture behavioural of decode is
   alias rs2 : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0) is
     instruction(24 downto 20);
 
+  signal pc_next_latch : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal pc_curr_latch : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal instr_latch   : std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
+  signal valid_latch   : std_logic;
 
 begin
   register_file_1 : component register_file
@@ -69,21 +74,27 @@ begin
   decode_stage : process (clk, reset) is
   begin  -- process decode_stage
     if rising_edge(clk) then            -- rising clock edge
-      if reset = '1' then
-        sign_extension <= (others => '0');
-        pc_next_out    <= (others => '0');
-        pc_curr_out    <= (others => '0');
-        instr_out      <= (others => '0');
-        valid_output   <= '0';
+      if reset = '1' or flush = '1' then
+        valid_output <= '0';
+        valid_latch  <= '0';
       else
         if not stall = '1' then
           sign_extension <= std_logic_vector(
-            resize(signed(instruction(INSTRUCTION_SIZE-1 downto INSTRUCTION_SIZE-1)),
+            resize(signed(instr_latch(INSTRUCTION_SIZE-1 downto INSTRUCTION_SIZE-1)),
                    SIGN_EXTENSION_SIZE));
-          pc_next_out  <= PC_next_in;
-          pc_curr_out  <= PC_curr_in;
-          instr_out    <= instruction;
-          valid_output <= valid_input;
+
+
+          PC_next_latch <= PC_next_in;
+          PC_curr_latch <= PC_curr_in;
+          instr_latch   <= instruction;
+          valid_latch   <= valid_input;
+
+          pc_next_out  <= PC_next_latch;
+          pc_curr_out  <= PC_curr_latch;
+          instr_out    <= instr_latch;
+          valid_output <= valid_latch;
+
+
         end if;
       end if;
     end if;

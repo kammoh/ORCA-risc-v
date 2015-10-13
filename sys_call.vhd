@@ -215,69 +215,72 @@ begin  -- architecture rtl
         --mcpuid    (others => '0');
         --mimpid    (others => '0');
         --mhartid   (others => '0');
-        mstatus   <= (others => '0');
-        mtvec     <= SYSTEM_RESET;
-        mtdeleg   <= (others => '0');
-        mie       <= (others => '0');
-        mtimecmp  <= (others => '0');
+        mstatus  <= (others => '0');
+        mtvec    <= SYSTEM_RESET;
+        mtdeleg  <= (others => '0');
+        mie      <= (others => '0');
+        mtimecmp <= (others => '0');
         --mtime     <= (others => '0');
         --mtimeh    <= (others => '0');
-        mscratch  <= (others => '0');
-        mepc      <= (others => '0');
-        mcause    <= (others => '0');
-        mbadaddr  <= (others => '0');
-        mip       <= (others => '0');
-        mbase     <= (others => '0');
-        mbound    <= (others => '0');
-        mibase    <= (others => '0');
-        mibound   <= (others => '0');
-        mdbase    <= (others => '0');
-        mdbound   <= (others => '0');
-        htimew    <= (others => '0');
-        htimehw   <= (others => '0');
+        mscratch <= (others => '0');
+        mepc     <= (others => '0');
+        mcause   <= (others => '0');
+        mbadaddr <= (others => '0');
+        mip      <= (others => '0');
+        mbase    <= (others => '0');
+        mbound   <= (others => '0');
+        mibase   <= (others => '0');
+        mibound  <= (others => '0');
+        mdbase   <= (others => '0');
+        mdbound  <= (others => '0');
+        htimew   <= (others => '0');
+        htimehw  <= (others => '0');
         --mfromhost <= (others => '0');
-        mtohost   <= (others => '0');
+        mtohost  <= (others => '0');
 
       else
         --writeback to register file
         wb_data    <= csr_read_val;
         pc_corr_en <= '0';
         wb_en      <= '0';
-        if opcode = "1110011" then
-          if func3 /= "000" and func3 /= "100" then
-            wb_en <= valid;
-          end if;
-
-          if zimm & func3 = "00000"&"000" then
-            if CSR = x"000" then        --ECALL
-              mcause(REGISTER_SIZE-1 downto 4) <= (others => '0');
-              mcause(3 downto 0)               <= MMODE_ECALL;
-              pc_corr_en                       <= '1';
-              pc_correction                    <= MACHINE_MODE_TRAP;
-              mepc                             <= current_pc;
-            elsif CSR = x"001" then     --EBREAK
-              mcause(REGISTER_SIZE-1 downto 4) <= (others => '0');
-              mcause(3 downto 0)               <= BREAKPOINT;
-              pc_corr_en                       <= '1';
-              pc_correction                    <= MACHINE_MODE_TRAP;
-              mepc                             <= current_pc;
-            elsif CSR = x"100" then     --ERET
-              pc_corr_en    <= '1';
-              pc_correction <= mepc;
+        if valid = '1' then
+          if opcode = "1110011" then
+            if func3 /= "000" and func3 /= "100" then
+              wb_en <= valid;
             end if;
-          else
-            --writeback to CSR
-            case CSR is
-              --read-write registers
-              when CSR_MTOHOST =>
-                mtohost <= csr_write_val;
-              when CSR_MEPC =>
-                mepc <= csr_write_val;
-              when others =>
-                null;
-            end case;
 
-          end if;  --system_calls
+            if zimm & func3 = "00000"&"000" then
+              if CSR = x"000" then      --ECALL
+                mcause(REGISTER_SIZE-1 downto 4) <= (others => '0');
+                mcause(3 downto 0)               <= MMODE_ECALL;
+                pc_corr_en                       <= '1';
+                pc_correction                    <= MACHINE_MODE_TRAP;
+                mepc                             <= current_pc;
+              elsif CSR = x"001" then   --EBREAK
+                mcause(REGISTER_SIZE-1 downto 4) <= (others => '0');
+                mcause(3 downto 0)               <= BREAKPOINT;
+                pc_corr_en                       <= '1';
+                pc_correction                    <= MACHINE_MODE_TRAP;
+                mepc                             <= current_pc;
+              elsif CSR = x"100" then   --ERET
+                pc_corr_en    <= '1';
+                pc_correction <= mepc;
+              end if;
+            else
+              --writeback to CSR
+              case CSR is
+                --read-write registers
+                when CSR_MTOHOST =>
+                  mtohost <= csr_write_val;
+                when CSR_MEPC =>
+                  mepc <= csr_write_val;
+                when others =>
+                  null;
+              end case;
+
+            end if;  --system_calls
+
+          end if;
 
         end if;  --opcode
       end if;  --reset

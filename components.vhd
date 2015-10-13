@@ -56,6 +56,7 @@ package rv_components is
       clk         : in std_logic;
       reset       : in std_logic;
       stall       : in std_logic;
+      flush       : in std_logic;
       instruction : in std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
       valid_input : in std_logic;
       --writeback signals
