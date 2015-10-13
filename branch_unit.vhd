@@ -430,7 +430,7 @@ begin  -- architecture
 
 
   data_out_en <= data_en_latch;
-  bad_predict <= valid_latch when target_pc_latch /= predicted_pc_latch else '0';
+  bad_predict <= valid_latch when target_pc_latch /= predicted_pc_latch or data_en_latch = '1' else '0';
   --data_out    <= std_logic_vector(nbranch_target);
   new_pc      <= std_logic_vector(target_pc_latch);
 
