@@ -73,13 +73,6 @@ begin
   begin
     if rising_edge(clk) then
       if stall = '0' then
-        wb_data_latched1 <= writeback_data;
-        wb_sel_latched1  <= writeback_sel;
-        wb_en_latched1   <= writeback_enable;
-
-        wb_data_latched2 <= wb_data_latched1;
-        wb_sel_latched2  <= wb_sel_latched1;
-        wb_en_latched2   <= wb_en_latched1;
 
         rs1_sel_latched1 <= rs1_sel;
         rs1_sel_latched2 <= rs1_sel_latched1;
@@ -87,6 +80,15 @@ begin
         rs2_sel_latched2 <= rs2_sel_latched1;
 
       end if;
+
+      wb_data_latched1 <= writeback_data;
+      wb_sel_latched1  <= writeback_sel;
+      wb_en_latched1   <= writeback_enable;
+
+      wb_data_latched2 <= wb_data_latched1;
+      wb_sel_latched2  <= wb_sel_latched1;
+      wb_en_latched2   <= wb_en_latched1;
+
     end if;
   end process;
 
