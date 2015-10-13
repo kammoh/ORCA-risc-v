@@ -91,7 +91,7 @@ architecture behavioural of execute is
   signal fwd_sel  : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0);
   signal fwd_data : std_logic_vector(REGISTER_SIZE-1 downto 0);
   signal fwd_en   : std_logic;
-  signal fwd_mux  : std_logic_vector(1 downto 0);
+  signal fwd_mux  : std_logic;
 
   signal ld_latch_en  : std_logic;
   signal ld_latch_out : std_logic_vector(REGISTER_SIZE-1 downto 0);
@@ -104,30 +104,38 @@ architecture behavioural of execute is
 
   constant ZERO : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0) := (others => '0');
 
+  signal rs1_mux : std_logic_vector(1 downto 0);
+  signal rs2_mux : std_logic_vector(1 downto 0);
 begin
 
   --use the previous clock's writeback data when appropriate
+  rs1_mux <= "00" when fwd_sel = rs1 and fwd_en = '1' else
+             "01" when ld_rd = rs1 and ld_latch_en = '1' else
+             "10" when saved_rs_en = '1' else
+             "11";
+  rs2_mux <= "00" when fwd_sel = rs2 and fwd_en = '1' else
+             "01" when ld_rd = rs2 and ld_latch_en = '1' else
+             "10" when saved_rs_en = '1' else
+             "11";
 
-  rs1_data_fwd <= fwd_data when fwd_sel = rs1 and fwd_en = '1' else
-                  ld_latch_out when ld_rd = rs1 and ld_latch_en = '1' else
-                  saved_rs1    when saved_rs_en = '1' else rs1_data;
-  rs2_data_fwd <= fwd_data when fwd_sel = rs2 and fwd_en = '1' else
-                  ld_latch_out when ld_rd = rs2 and ld_latch_en = '1' else
-                  saved_rs2    when saved_rs_en = '1' else rs2_data;
+  with rs1_mux select
+    rs1_data_fwd <=
+    fwd_data     when "00",
+    ld_latch_out when "01",
+    saved_rs1    when "10",
+    rs1_data     when others;
+  with rs2_mux select
+    rs2_data_fwd <=
+    fwd_data     when "00",
+    ld_latch_out when "01",
+    saved_rs2    when "10",
+    rs2_data     when others;
 
-  process(clk)
-  begin
-    if rising_edge(clk) then
-    end if;
-  end process;
 
   --note, these muxes are different
-  --fwd uses the latched_en, wb uses data_en
-  fwd_mux <= "00" when sys_data_en = '1' else
-             --"01" when ld_latch_en = '1' else
-             "10" when br_data_en = '1' else
-             "11";                      --when alu_data_en = '1'
-  fwd_en  <= sys_data_en or br_data_en or alu_data_en when fwd_sel /= ZERO else '0';
+  fwd_mux <= '0' when sys_data_en = '1' else
+             '1';--when alu_data_en = '1'
+  fwd_en  <= sys_data_en or alu_data_en when fwd_sel /= ZERO else '0';
   fwd_sel <= rd_latch;
 
 
@@ -147,9 +155,7 @@ begin
 
   with fwd_mux select
     fwd_data <=
-    sys_data_out when "00",
-    ld_latch_out when "01",
-    br_data_out  when "10",
+    sys_data_out when '0',
     alu_data_out when others;
 
 
@@ -159,28 +165,37 @@ begin
   process(clk)
   begin
     if rising_edge(clk) then
-      --save various flip flops for forwarding
-      --and writeback
-      if ls_unit_waiting = '0' then
-        rd_latch <= rd;
-      end if;
-      ld_latch_out <= ld_data_out;
-      if rd_latch /= ZERO then
-        ld_latch_en <= ld_data_en;
-      else
+      if reset = '1' then
         ld_latch_en <= '0';
+        saved_rs_en <= '0';
+      else
+        --save various flip flops for forwarding
+        --and writeback
+        if ls_unit_waiting = '0' then
+          rd_latch <= rd;
+        end if;
+        ld_latch_out <= ld_data_out;
+        if rd_latch /= ZERO then
+          ld_latch_en <= ld_data_en;
+        else
+          ld_latch_en <= '0';
+        end if;
+        ld_rd <= rd_latch;
+
+
+        --save rs2 during a stall
+        if stall_pipeline = '1' and saved_rs_en = '0' then
+          saved_rs1   <= rs1_data_fwd;
+          saved_rs2   <= rs2_data_fwd;
+          saved_rs_en <= '1';
+        elsif stall_pipeline = '0' then
+          saved_rs_en <= '0';
+        end if;
+
       end if;
-      ld_rd <= rd_latch;
+
     end if;
 
-    --save rs2 during a stall
-    if stall_pipeline = '1' and saved_rs_en = '0' then
-        saved_rs1   <= rs1_data_fwd;
-        saved_rs2   <= rs2_data_fwd;
-        saved_rs_en <= '1';
-      elsif stall_pipeline = '0' then
-        saved_rs_en <= '0';
-      end if;
 
   end process;
   alu : component arithmetic_unit
@@ -201,7 +216,7 @@ begin
       data_enable     => alu_data_en);
 
 
-  branch : entity work.branch_unit(latch_on_output)
+  branch : entity work.branch_unit(latch_middle)
     generic map (
       REGISTER_SIZE       => REGISTER_SIZE,
       INSTRUCTION_SIZE    => INSTRUCTION_SIZE,

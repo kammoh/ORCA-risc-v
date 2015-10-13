@@ -245,18 +245,4 @@ begin  -- architecture rtl
       instr_av_waitrequest   => avm_instruction_waitrequest,
       instr_av_readdatavalid => avm_instruction_readdatavalid);
 
-
-  -- during reset, the next executed instruction will be at reset target
-  -- if not in reset: if pc_corr_en, all pipeline stages will be flushed and
-  -- pc_corr will be the next executed instruction. if neither of these conditions
-  -- are true the next instruction will be the the one that is currently being
-  -- decoded.
-  -- It is possible that the instruction in the deode stage is not valid, but
-  -- the pc in d_pc always points to the correct instruction, see instruction_fetch.vhd
-  -- if you need to see.
-
-  next_valid_ex_pc <= (others => 'X') when reset = '1' else
-                      pc_corr when pc_corr_en = '1' else
-                      d_pc;
-
 end architecture rtl;
