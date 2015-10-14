@@ -34,6 +34,7 @@ entity decode is
     pc_next_out    : out std_logic_vector(REGISTER_SIZE-1 downto 0);
     pc_curr_out    : out std_logic_vector(REGISTER_SIZE-1 downto 0);
     instr_out      : out std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
+    subseq_instr   : out std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
     valid_output   : out std_logic);
 
 
@@ -95,9 +96,10 @@ begin
           valid_output <= valid_latch;
 
 
+
         end if;
       end if;
     end if;
   end process decode_stage;
-
+  subseq_instr <= instr_latch;
 end architecture;

@@ -74,11 +74,12 @@ architecture rtl of riscV is
   signal wb_en   : std_logic;
 
   --signals going into execute
-  signal e_instr     : std_logic_vector(INSTRUCTION_SIZE -1 downto 0);
-  signal e_pc        : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal e_next_pc   : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal e_valid     : std_logic;
-  signal e_readvalid : std_logic;
+  signal e_instr        : std_logic_vector(INSTRUCTION_SIZE -1 downto 0);
+  signal e_subseq_instr : std_logic_vector(INSTRUCTION_SIZE -1 downto 0);
+  signal e_pc           : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal e_next_pc      : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal e_valid        : std_logic;
+  signal e_readvalid    : std_logic;
 
   signal execute_stalled : std_logic;
   signal rs1_data        : std_logic_vector(REGISTER_SIZE-1 downto 0);
@@ -103,8 +104,6 @@ architecture rtl of riscV is
   signal instr_read_en   : std_logic;
   signal instr_readvalid : std_logic;
 
-  --calculate this for interupts
-  signal next_valid_ex_pc : std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
 
 begin  -- architecture rtl
   pipeline_flush      <= pc_corr_en;
@@ -163,6 +162,7 @@ begin  -- architecture rtl
       pc_next_out    => e_next_pc,
       pc_curr_out    => e_pc,
       instr_out      => e_instr,
+      subseq_instr   => e_subseq_instr,
       valid_output   => d_valid_out);
 
   e_valid <= d_valid_out and not pipeline_flush;
@@ -180,6 +180,7 @@ begin  -- architecture rtl
       pc_next         => e_next_pc,
       pc_current      => e_pc,
       instruction     => e_instr,
+      subseq_instr    => e_subseq_instr,
       rs1_data        => rs1_data,
       rs2_data        => rs2_data,
       sign_extension  => sign_extension,

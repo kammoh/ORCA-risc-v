@@ -75,6 +75,7 @@ package rv_components is
       pc_next_out    : out std_logic_vector(REGISTER_SIZE-1 downto 0);
       pc_curr_out    : out std_logic_vector(REGISTER_SIZE-1 downto 0);
       instr_out      : out std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
+      subseq_instr   : out std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
       valid_output   : out std_logic);
   end component decode;
 
@@ -90,9 +91,10 @@ package rv_components is
       reset       : in std_logic;
       valid_input : in std_logic;
 
-      pc_next     : in std_logic_vector(REGISTER_SIZE-1 downto 0);
-      pc_current  : in std_logic_vector(REGISTER_SIZE-1 downto 0);
-      instruction : in std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
+      pc_next      : in std_logic_vector(REGISTER_SIZE-1 downto 0);
+      pc_current   : in std_logic_vector(REGISTER_SIZE-1 downto 0);
+      instruction  : in std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
+      subseq_instr : in std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
 
       rs1_data       : in std_logic_vector(REGISTER_SIZE-1 downto 0);
       rs2_data       : in std_logic_vector(REGISTER_SIZE-1 downto 0);

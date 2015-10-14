@@ -20,9 +20,10 @@ entity execute is
     reset       : in std_logic;
     valid_input : in std_logic;
 
-    pc_next     : in std_logic_vector(REGISTER_SIZE-1 downto 0);
-    pc_current  : in std_logic_vector(REGISTER_SIZE-1 downto 0);
-    instruction : in std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
+    pc_next      : in std_logic_vector(REGISTER_SIZE-1 downto 0);
+    pc_current   : in std_logic_vector(REGISTER_SIZE-1 downto 0);
+    instruction  : in std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
+    subseq_instr : in std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
 
     rs1_data       : in std_logic_vector(REGISTER_SIZE-1 downto 0);
     rs2_data       : in std_logic_vector(REGISTER_SIZE-1 downto 0);
@@ -106,17 +107,23 @@ architecture behavioural of execute is
 
   signal rs1_mux : std_logic_vector(1 downto 0);
   signal rs2_mux : std_logic_vector(1 downto 0);
+
+  constant LUI_OP   : std_logic_vector(6 downto 0) := "0110111";
+  constant AUIPC_OP : std_logic_vector(6 downto 0) := "0010111";
+  constant ALU_OP   : std_logic_vector(6 downto 0) := "0110011";
+  constant ALUI_OP  : std_logic_vector(6 downto 0) := "0010011";
+  constant CSR_OP   : std_logic_vector(6 downto 0) := "1110011";
 begin
 
   --use the previous clock's writeback data when appropriate
-  rs1_mux <= "00" when fwd_sel = rs1 and fwd_en = '1' else
-             "01" when ld_rd = rs1 and ld_latch_en = '1' else
-             "10" when saved_rs_en = '1' else
-             "11";
-  rs2_mux <= "00" when fwd_sel = rs2 and fwd_en = '1' else
-             "01" when ld_rd = rs2 and ld_latch_en = '1' else
-             "10" when saved_rs_en = '1' else
-             "11";
+  --rs1_mux <= "00" when fwd_sel = rs1 and fwd_en = '1' else
+  --           "01" when ld_rd = rs1 and ld_latch_en = '1' else
+  --           "10" when saved_rs_en = '1' else
+  --           "11";
+  --rs2_mux <= "00" when fwd_sel = rs2 and fwd_en = '1' else
+  --           "01" when ld_rd = rs2 and ld_latch_en = '1' else
+  --           "10" when saved_rs_en = '1' else
+  --           "11";
 
   with rs1_mux select
     rs1_data_fwd <=
@@ -134,7 +141,7 @@ begin
 
   --note, these muxes are different
   fwd_mux <= '0' when sys_data_en = '1' else
-             '1';--when alu_data_en = '1'
+             '1';                       --when alu_data_en = '1'
   fwd_en  <= sys_data_en or alu_data_en when fwd_sel /= ZERO else '0';
   fwd_sel <= rd_latch;
 
@@ -163,12 +170,52 @@ begin
   stall_pipeline       <= ls_unit_waiting or use_after_load_stall;
 
   process(clk)
+    variable next_instr  : std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
+    variable current_alu : boolean;
+    alias ni_rs1         : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0) is next_instr(19 downto 15);
+    alias ni_rs2         : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0) is next_instr(24 downto 20);
   begin
     if rising_edge(clk) then
       if reset = '1' then
         ld_latch_en <= '0';
         saved_rs_en <= '0';
       else
+        if stall_pipeline = '1' then
+          next_instr := instruction;
+        else
+          next_instr := subseq_instr;
+        end if;
+
+        current_alu := (instruction(6 downto 0) = LUI_OP or
+                        instruction(6 downto 0) = AUIPC_OP or
+                        instruction(6 downto 0) = ALU_OP or
+                        instruction(6 downto 0) = ALUI_OP or
+                        instruction(6 downto 0) = CSR_OP);
+
+        --calculate where the next forward data will go
+
+        if current_alu and rd = ni_rs1 and rd /= ZERO and valid_input = '1' then
+          rs1_mux <= "00";
+        elsif ld_data_en = '1' and rd_latch = ni_rs1 and rd_latch /= ZERO then
+          rs1_mux <= "01";
+        elsif stall_pipeline = '1' then
+          rs1_mux <= "10";
+        else
+          rs1_mux <= "11";
+        end if;
+
+
+        if current_alu and rd = ni_rs2 and rd /= ZERO and valid_input = '1' then
+          rs2_mux <= "00";
+        elsif ld_data_en = '1' and rd_latch = ni_rs2 and rd_latch /= ZERO then
+          rs2_mux <= "01";
+        elsif stall_pipeline = '1' then
+          rs2_mux <= "10";
+        else
+          rs2_mux <= "11";
+        end if;
+
+
         --save various flip flops for forwarding
         --and writeback
         if ls_unit_waiting = '0' then
