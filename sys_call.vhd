@@ -42,32 +42,16 @@ architecture rtl of system_calls is
   signal cycles        : unsigned(63 downto 0);
   signal instr_retired : unsigned(63 downto 0);
 
-  constant mcpuid  : std_logic_vector(REGISTER_SIZE-1 downto 0) := (others => '0');
-  constant mimpid  : std_logic_vector(REGISTER_SIZE-1 downto 0) := x"0000" &x"8000";
-  constant mhartid : std_logic_vector(REGISTER_SIZE-1 downto 0) := (others => '0');
-  signal mstatus   : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal mtvec     : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal mtdeleg   : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal mie       : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal mtimecmp  : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal mtime     : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal mtimeh    : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal mscratch  : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal mepc      : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal mcause    : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal mbadaddr  : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal mip       : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal mbase     : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal mbound    : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal mibase    : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal mibound   : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal mdbase    : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal mdbound   : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal htimew    : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal htimehw   : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal mtohost   : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal mfromhost : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal mstatus_ie : std_logic;
+  constant mtvec    : std_logic_vector(REGISTER_SIZE-1 downto 0) := x"00000200";
+  signal mtime      : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal mtimeh     : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal mepc       : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal mcause     : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal mtohost    : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal mfromhost  : std_logic_vector(REGISTER_SIZE-1 downto 0);
 
+  signal mstatus : std_logic_vector(REGISTER_SIZE-1 downto 0);
 
   subtype csr_t is std_logic_vector(11 downto 0);
   --CSR constants
@@ -133,7 +117,6 @@ architecture rtl of system_calls is
 
 
 begin  -- architecture rtl
-
   counter_increment : process (clk) is
   begin  -- process
     if rising_edge(clk) then
@@ -149,9 +132,11 @@ begin  -- architecture rtl
     end if;
   end process;
 
-  mfromhost <= from_host;
-  mtime     <= std_logic_vector(cycles(REGISTER_SIZE-1 downto 0));
-  mtimeh    <= std_logic_vector(cycles(63 downto 64-REGISTER_SIZE));
+  mfromhost                      <= from_host;
+  mtime                          <= std_logic_vector(cycles(REGISTER_SIZE-1 downto 0));
+  mtimeh                         <= std_logic_vector(cycles(63 downto 64-REGISTER_SIZE));
+  mstatus(mstatus'left downto 1) <= (others => '0');
+  mstatus(0)                     <= mstatus_ie;
 
   with csr select
     csr_read_val <=
@@ -162,33 +147,16 @@ begin  -- architecture rtl
     mtime     when CSR_TIME,
     mtimeh    when CSR_CYCLEH,
     mtimeh    when CSR_TIMEH,
-    mcpuid    when CSR_MCPUID,
-    mimpid    when CSR_MIMPID,
-    mhartid   when CSR_MHARTID,
     mstatus   when CSR_MSTATUS,
     mtvec     when CSR_MTVEC,
-    mtdeleg   when CSR_MTDELEG,
-    mie       when CSR_MIE,
-    mtimecmp  when CSR_MTIMECMP,
     mtime     when CSR_MTIME,
     mtimeh    when CSR_MTIMEH,
-    mscratch  when CSR_MSCRATCH,
     mepc      when CSR_MEPC,
     mcause    when CSR_MCAUSE,
-    mbadaddr  when CSR_MBADADDR,
-    mip       when CSR_MIP,
-    mbase     when CSR_MBASE,
-    mbound    when CSR_MBOUND,
-    mibase    when CSR_MIBASE,
-    mibound   when CSR_MIBOUND,
-    mdbase    when CSR_MDBASE,
-    mdbound   when CSR_MDBOUND,
-    htimew    when CSR_HTIMEW,
-    htimehw   when CSR_HTIMEHW,
     mtohost   when CSR_MTOHOST,
     mfromhost when CSR_MFROMHOST,
 
-    (others => 'X') when others;
+    (others => '0') when others;
 
   bit_sel                                      <= rs1_data;
   ibit_sel(REGISTER_SIZE-1 downto zimm'left+1) <= (others => '0');
@@ -212,30 +180,8 @@ begin  -- architecture rtl
   begin
     if rising_edge(clk) then
       if reset = '1' then
-        --mcpuid    (others => '0');
-        --mimpid    (others => '0');
-        --mhartid   (others => '0');
-        mstatus  <= (others => '0');
-        mtvec    <= SYSTEM_RESET;
-        mtdeleg  <= (others => '0');
-        mie      <= (others => '0');
-        mtimecmp <= (others => '0');
-        --mtime     <= (others => '0');
-        --mtimeh    <= (others => '0');
-        mscratch <= (others => '0');
         mepc     <= (others => '0');
         mcause   <= (others => '0');
-        mbadaddr <= (others => '0');
-        mip      <= (others => '0');
-        mbase    <= (others => '0');
-        mbound   <= (others => '0');
-        mibase   <= (others => '0');
-        mibound  <= (others => '0');
-        mdbase   <= (others => '0');
-        mdbound  <= (others => '0');
-        htimew   <= (others => '0');
-        htimehw  <= (others => '0');
-        --mfromhost <= (others => '0');
         mtohost  <= (others => '0');
 
       else
