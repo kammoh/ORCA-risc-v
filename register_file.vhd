@@ -18,14 +18,16 @@ entity register_file is
     writeback_data   : in std_logic_vector(REGISTER_SIZE -1 downto 0);
     writeback_enable : in std_logic;
 
-    rs1_data : out std_logic_vector(REGISTER_SIZE -1 downto 0);
-    rs2_data : out std_logic_vector(REGISTER_SIZE -1 downto 0)
+    rs1_data : buffer std_logic_vector(REGISTER_SIZE -1 downto 0);
+    rs2_data : buffer std_logic_vector(REGISTER_SIZE -1 downto 0)
 
     );
 end;
 
 architecture rtl of register_file is
   type register_list is array(31 downto 0) of std_logic_vector(REGISTER_SIZE-1 downto 0);
+
+
   signal registers : register_list := (others => (others => '0'));
 
   constant ZERO : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0) := (others => '0');
@@ -42,37 +44,69 @@ architecture rtl of register_file is
   signal rs1_sel_latched2 : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0);
   signal rs2_sel_latched2 : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0);
 
+  signal read_during_write1 : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal read_during_write2 : std_logic_vector(REGISTER_SIZE-1 downto 0);
 
-  signal wb_data_latched1 : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal wb_sel_latched1  : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0);
-  signal wb_en_latched1   : std_logic;
+  signal saved_or_new_data1 : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal saved_or_new_data2 : std_logic_vector(REGISTER_SIZE-1 downto 0);
+
+  signal saved_rs1 : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal saved_rs2 : std_logic_vector(REGISTER_SIZE-1 downto 0);
+
+  signal wb_fwd_data1 : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal wb_fwd_data2 : std_logic_vector(REGISTER_SIZE-1 downto 0);
+
+  signal wb_data_latched  : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal wb_sel_latched   : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0);
+  signal wb_en_latched    : std_logic;
   signal wb_data_latched2 : std_logic_vector(REGISTER_SIZE-1 downto 0);
   signal wb_sel_latched2  : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0);
   signal wb_en_latched2   : std_logic;
+
+  signal saved_en : std_logic;
 
 begin
 
   we <= writeback_enable;
   re <= not stall;
   register_proc : process (clk) is
+    variable read1 : std_logic_vector(REGISTER_SIZE-1 downto 0);
+    variable read2 : std_logic_vector(REGISTER_SIZE-1 downto 0);
   begin
     if rising_edge(clk) then
       if we = '1' then
         registers(to_integer(unsigned(writeback_sel))) <= writeback_data;
       end if;
-      if re = '1' then
-        out1    <= registers(to_integer(unsigned(rs1_sel)));
-        out2    <= registers(to_integer(unsigned(rs2_sel)));
-        outreg1 <= out1;
-        outreg2 <= out2;
-      end if;
+      out1 <= registers(to_integer(unsigned(rs1_sel)));
+      out2 <= registers(to_integer(unsigned(rs2_sel)));
     end if;  --rising edge
   end process;
+
+  read_during_write1 <= wb_data_latched when wb_en_latched = '1' and wb_sel_latched = rs1_sel_latched1   else out1;
+  saved_or_new_data1 <= saved_rs1       when saved_en = '1'                                              else read_during_write1;
+  wb_fwd_data1       <= writeback_data  when writeback_sel = rs1_sel_latched1 and writeback_enable = '1' else saved_or_new_data1;
+
+
+  read_during_write2 <= wb_data_latched when wb_en_latched = '1' and wb_sel_latched = rs2_sel_latched1   else out2;
+  saved_or_new_data2 <= saved_rs2       when saved_en = '1'                                              else read_during_write2;
+  wb_fwd_data2       <= writeback_data  when writeback_sel = rs2_sel_latched1 and writeback_enable = '1' else saved_or_new_data2;
+
+
+
 
   process(clk) is
   begin
     if rising_edge(clk) then
-      if stall = '0' then
+      saved_rs1 <= wb_fwd_data1;
+      saved_rs2 <= wb_fwd_data2;
+      saved_en  <= stall;
+      if stall = '1' then
+        outreg1 <= rs1_data;
+        outreg2 <= rs2_data;
+
+      else
+        outreg1 <= wb_fwd_data1;
+        outreg2 <= wb_fwd_data2;
 
         rs1_sel_latched1 <= rs1_sel;
         rs1_sel_latched2 <= rs1_sel_latched1;
@@ -81,25 +115,16 @@ begin
 
       end if;
 
-      wb_data_latched1 <= writeback_data;
-      wb_sel_latched1  <= writeback_sel;
-      wb_en_latched1   <= writeback_enable;
-
-      wb_data_latched2 <= wb_data_latched1;
-      wb_sel_latched2  <= wb_sel_latched1;
-      wb_en_latched2   <= wb_en_latched1;
+      wb_data_latched <= writeback_data;
+      wb_sel_latched  <= writeback_sel;
+      wb_en_latched   <= writeback_enable;
 
     end if;
   end process;
 
-  --forwarding
-  rs1_data <= wb_data_latched1 when rs1_sel_latched2 = wb_sel_latched1 and wb_en_latched1 = '1' else
-              wb_data_latched2 when rs1_sel_latched2 = wb_sel_latched2 and wb_en_latched2 = '1' else
-              outreg1;
 
-  rs2_data <= wb_data_latched1 when rs2_sel_latched2 = wb_sel_latched1 and wb_en_latched1 = '1' else
-              wb_data_latched2 when rs2_sel_latched2 = wb_sel_latched2 and wb_en_latched2 = '1' else
-              outreg2;
+  rs1_data <= writeback_data when writeback_sel = rs1_sel_latched2 and writeback_enable = '1' else outreg1;
+  rs2_data <= writeback_data when writeback_sel = rs2_sel_latched2 and writeback_enable = '1' else outreg2;
 
 
 end architecture;
