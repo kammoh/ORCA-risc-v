@@ -13,18 +13,21 @@ STA_RPT_FILE=$(OUTPUT_DIR)vblox1.sta.rpt
 
 DEVICE_FAMILY=$(shell grep deviceFamily $(QSYS_FILE) | head -1 | sed 's/.*value="\(.*\)".*/\1/')
 VHDL_FILES=$(wildcard ../*.vhd)
-
+VHDL_SUBMODULE_FILES=$(addprefix vblox1/synthesis/submodules/,$(notdir $(VHDL_FILES)))
+TOP_LEVEL_FILES=$(wildcard *.vhd)
 $(QIP_FILE):$(QSYS_FILE)
 	 ip-generate --project-directory=./ --output-directory=vblox1/synthesis/\
 	 --file-set=QUARTUS_SYNTH --report-file=bsf:./vblox1.bsf\
 	 --report-file=sopcinfo:./vblox1.sopcinfo --report-file=html:./vblox1.html \
 	 --report-file=qip:vblox1/synthesis/vblox1.qip --system-info=DEVICE_FAMILY=$(DEVICE_FILE)\
 	 --component-file=vblox1.qsys 2>&1 | tee ./vblox1.qsys.log
-	for i in $(VHDL_FILES); do ln -sf $(readlink -f $i) vblox1/synthesis/submodules/$(basename $i); done
+
+$(VHDL_SUBMODULE_FILES): vblox1/synthesis/submodules/% : ../%
+	cp $^ $@
 
 HEX_FILE=$(wildcard test.hex)
 
-$(MAP_RPT_FILE) : $(QIP_FILE)
+$(MAP_RPT_FILE) : $(QIP_FILE) $(VHDL_SUBMODULE_FILES) $(TOP_LEVEL_FILES)
 	quartus_map $(QPF_FILE)
 $(FIT_RPT_FILE) : $(MAP_RPT_FILE)
 	quartus_fit $(QPF_FILE)
@@ -44,6 +47,11 @@ fit: $(FIT_RPT_FILE)
 mif: $(MIF_RPT_FILE)
 asm: $(ASM_RPT_FILE)
 sta: $(STA_RPT_FILE)
-.phony: all clean qip map fit mif asm sta
+
+.phony: all clean qip map fit mif asm sta pgm
+
 clean:
 	rm -rf vblox1/ $(OUTPUT_DIR)
+
+pgm: vblox1.sof
+	quartus_pgm -m JTAG -o P\;$^

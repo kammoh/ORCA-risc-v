@@ -23,14 +23,22 @@ entity riscv_test is
 end entity riscv_test;
 
 architecture rtl of riscv_test is
+
   component vblox1 is
-    	port (
-		clk_clk                : in  std_logic                     := '0';             --             clk.clk
-		program_counter_export : out std_logic_vector(31 downto 0);                    -- program_counter.export
-		reset_reset_n          : in  std_logic                     := '0';             --           reset.reset_n
-		from_host_export       : in  std_logic_vector(31 downto 0) := (others => '0')  --       from_host.export
-	);
+    port (
+      clk_clk                : in  std_logic                     := 'X';  -- clk
+      from_host_export       : in  std_logic_vector(31 downto 0) := (others => 'X');  -- export
+      program_counter_export : out std_logic_vector(31 downto 0);  -- export
+      reset_reset_n          : in  std_logic                     := 'X';  -- reset_n
+      ledg_export            : out std_logic_vector(31 downto 0);   -- export
+      ledr_export            : out std_logic_vector(31 downto 0);  -- export
+      hex0_export            : out std_logic_vector(31 downto 0);  -- export
+      hex1_export            : out std_logic_vector(31 downto 0);  -- export
+      hex2_export            : out std_logic_vector(31 downto 0);  -- export
+      hex3_export            : out std_logic_vector(31 downto 0)   -- export
+      );
   end component vblox1;
+
 
   component sevseg_conv is
 
@@ -40,30 +48,58 @@ architecture rtl of riscv_test is
 
   end component sevseg_conv;
 
-  signal hex_input : std_logic_vector(31 downto 0);
-  signal pc        : std_logic_vector(31 downto 0);
-  signal th        : std_logic_vector(31 downto 0);
-  signal fh        : std_logic_vector(31 downto 0);
-  signal clk       : std_logic;
-  signal reset     : std_logic;
+  signal hex_input   : std_logic_vector(31 downto 0);
+  signal pc          : std_logic_vector(31 downto 0);
+  signal th          : std_logic_vector(31 downto 0);
+  signal fh          : std_logic_vector(31 downto 0);
+  signal clk         : std_logic;
+  signal reset       : std_logic;
+  signal ledg_export : std_logic_vector(31 downto 0);
+  signal ledr_export : std_logic_vector(31 downto 0);
+  signal hex3_export : std_logic_vector(31 downto 0);
+  signal hex2_export : std_logic_vector(31 downto 0);
+  signal hex1_export : std_logic_vector(31 downto 0);
+  signal hex0_export : std_logic_vector(31 downto 0);
 
+  function le2be (
+    signal input : std_logic_vector)
+    return std_logic_vector is
+    variable to_ret : std_logic_vector(31 downto 0);
+  begin  -- function le2be
+to_ret :=  (input(7 downto 0) &
+            input(15 downto 8) &
+            input(23 downto 16) &
+            input(31 downto 24));
+return to_ret;
+  end function le2be;
 begin
   clk   <= clock_50;
   reset <= key(1);
 
   fh <= std_logic_vector(resize(signed(sw), fh'length));
 
-  LEDR <= fh(17 downto 0);
   rv : component vblox1
     port map (
       clk_clk                => clk,
       reset_reset_n          => reset,
       from_host_export       => fh,
-      program_counter_export => pc);
+      program_counter_export => pc,
+      ledg_export            => ledg_export,
+      ledr_export            => ledr_export,
+      hex3_export            => hex3_export,
+      hex2_export            => hex2_export,
+      hex1_export            => hex1_export,
+      hex0_export            => hex0_export);
+
+
 
 --  hex_input(15 downto 0)  <= pc(15 downto 0);
 --  hex_input(31 downto 16) <= th(15 downto 0);
-	hex_input <=pc;
+  hex_input <= le2be(hex3_export) when sw(3) = '1' else
+               le2be(hex2_export) when sw(2) = '1' else
+               le2be(hex1_export) when sw(1) = '1' else
+               le2be(hex0_export) when sw(0) = '1' else
+               pc;
   ss0 : component sevseg_conv
     port map (
       input  => hex_input(3 downto 0),
@@ -97,7 +133,7 @@ begin
       input  => hex_input(31 downto 28),
       output => HEX7);
 
-  LEDR             <= SW;
-  LEDG(6 downto 0) <= (others => '1');
+  LEDR             <= le2be(ledr_export)(17 downto 0);
+  LEDG(6 downto 0) <= le2be(ledg_export)(6 downto 0);
   LEDG(7)          <= reset;
 end;

@@ -37,7 +37,7 @@ entity execute is
     from_host : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
 
     predict_corr    : out    std_logic_vector(REGISTER_SIZE-1 downto 0);
-    predict_corr_en : out    std_logic;
+    predict_corr_en : buffer    std_logic;
     stall_pipeline  : buffer std_logic;
 --memory-bus
     address         : out    std_logic_vector(REGISTER_SIZE-1 downto 0);
@@ -94,6 +94,8 @@ architecture behavioural of execute is
   signal fwd_en   : std_logic;
   signal fwd_mux  : std_logic;
 
+
+  signal ls_valid_in  : std_logic;
   signal ld_latch_en  : std_logic;
   signal ld_latch_out : std_logic_vector(REGISTER_SIZE-1 downto 0);
   signal ld_rd        : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0);
@@ -107,6 +109,8 @@ architecture behavioural of execute is
 
   signal rs1_mux : std_logic_vector(1 downto 0);
   signal rs2_mux : std_logic_vector(1 downto 0);
+
+  signal finished_instr : std_logic;
 
   constant LUI_OP   : std_logic_vector(6 downto 0) := "0110111";
   constant AUIPC_OP : std_logic_vector(6 downto 0) := "0010111";
@@ -232,8 +236,9 @@ begin
 
         --save rs2 during a stall
         if stall_pipeline = '1' and saved_rs_en = '0' then
-          saved_rs1   <= rs1_data_fwd;
-          saved_rs2   <= rs2_data_fwd;
+          saved_rs1 <= rs1_data_fwd;
+          saved_rs2 <= rs2_data_fwd;
+
           saved_rs_en <= '1';
         elsif stall_pipeline = '0' then
           saved_rs_en <= '0';
@@ -283,7 +288,7 @@ begin
       data_out_en    => br_data_en,
       new_pc         => br_new_pc,
       bad_predict    => br_bad_predict);
-
+  ls_valid_in <= valid_input and not use_after_load_stall;
   ls_unit : component load_store_unit
     generic map(
       REGISTER_SIZE       => REGISTER_SIZE,
@@ -292,7 +297,7 @@ begin
     port map(
       clk            => clk,
       reset          => reset,
-      valid          => valid_input,
+      valid          => ls_valid_in,
       rs1_data       => rs1_data_fwd,
       rs2_data       => rs2_data_fwd,
       instruction    => instruction,
@@ -325,7 +330,7 @@ begin
       valid          => valid_input,
       rs1_data       => rs1_data_fwd,
       instruction    => instruction,
-      finished_instr => '0',
+      finished_instr => finished_instr,
       wb_data        => sys_data_out,
       wb_en          => sys_data_en,
       to_host        => to_host,
@@ -333,13 +338,18 @@ begin
 
       current_pc    => pc_current,
       pc_correction => syscall_target,
-      pc_corr_en    => syscall_en);
+      pc_corr_en    => syscall_en,
+
+      use_after_load_stall => use_after_load_stall,
+      load_stall           => ls_unit_waiting,
+      predict_corr         => predict_corr_en
+      );
 
 
+  finished_instr <= valid_input and not stall_pipeline;
 
   predict_corr_en <= syscall_en or br_bad_predict;
-
-  predict_corr <= br_new_pc when br_bad_predict = '1' else syscall_target;
+  predict_corr    <= br_new_pc when br_bad_predict = '1' else syscall_target;
 
 
   --my_print : process(clk)
@@ -359,7 +369,6 @@ begin
   --      write(my_line, string'("bubble"));  -- formatting
   --      writeline(output, my_line);     -- write to "output"
   --    end if;
-
   --  end if;
   --end process my_print;
 

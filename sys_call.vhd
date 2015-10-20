@@ -25,7 +25,11 @@ entity system_calls is
     from_host     : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
     current_pc    : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
     pc_correction : out std_logic_vector(REGISTER_SIZE -1 downto 0);
-    pc_corr_en    : out std_logic);
+    pc_corr_en    : buffer std_logic;
+
+    use_after_load_stall : in std_logic;
+    predict_corr         : in std_logic;
+    load_stall           : in std_logic);
 
 end entity system_calls;
 
@@ -42,14 +46,26 @@ architecture rtl of system_calls is
   signal cycles        : unsigned(63 downto 0);
   signal instr_retired : unsigned(63 downto 0);
 
+  signal use_after_load_stalls : unsigned(31 downto 0);
+  signal jal_instructions      : unsigned(31 downto 0);
+  signal jalr_instructions     : unsigned(31 downto 0);
+  signal branch_mispredicts    : unsigned(31 downto 0);
+  signal other_flush           : unsigned(31 downto 0);
+  signal load_stalls           : unsigned(31 downto 0);
+
   signal mstatus_ie : std_logic;
   constant mtvec    : std_logic_vector(REGISTER_SIZE-1 downto 0) := x"00000200";
   signal mtime      : std_logic_vector(REGISTER_SIZE-1 downto 0);
   signal mtimeh     : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal mepc       : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal mcause     : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal mtohost    : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal mfromhost  : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal instret    : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal instreth   : std_logic_vector(REGISTER_SIZE-1 downto 0);
+
+  signal mepc      : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal mcause    : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal mcause_i  : std_logic;
+  signal mcause_ex : std_logic_vector(3 downto 0);
+  signal mtohost   : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal mfromhost : std_logic_vector(REGISTER_SIZE-1 downto 0);
 
   signal mstatus : std_logic_vector(REGISTER_SIZE-1 downto 0);
 
@@ -114,20 +130,44 @@ architecture rtl of system_calls is
   signal bit_sel       : std_logic_vector(REGISTER_SIZE-1 downto 0);
   signal ibit_sel      : std_logic_vector(REGISTER_SIZE-1 downto 0);
   signal resized_zimm  : std_logic_vector(REGISTER_SIZE-1 downto 0);
-
+  signal instr : std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
 
 begin  -- architecture rtl
-  counter_increment : process (clk) is
+  counter_increment : process (clk, reset) is
+
   begin  -- process
-    if rising_edge(clk) then
-      if reset = '1' then
-        cycles        <= (others => '0');
-        instr_retired <= (others => '0');
-      else
-        cycles <= cycles +1;
-        if finished_instr = '1' then
-          instr_retired <= instr_retired +1;
+    if reset = '1' then
+      cycles                <= (others => '0');
+      instr_retired         <= (others => '0');
+      use_after_load_stalls <= (others => '0');
+      jal_instructions      <= (others => '0');
+      jalr_instructions     <= (others => '0');
+      branch_mispredicts    <= (others => '0');
+      other_flush           <= (others => '0');
+      load_stalls           <= (others => '0');
+
+    elsif rising_edge(clk) then
+      instr  <= instruction;
+      cycles <= cycles +1;
+      if finished_instr = '1' then
+        instr_retired <= instr_retired +1;
+      end if;
+      if predict_corr = '1' then
+        if instr(6 downto 0) = "1101111" then
+          jal_instructions <= jal_instructions + 1;
+        elsif instr(6 downto 0) = "1100111" then
+          jalr_instructions <= jalr_instructions +1;
+        elsif instr(6 downto 0) = "1100011" then
+          branch_mispredicts <= branch_mispredicts +1;
+        else
+          other_flush <= other_flush +1;
         end if;
+      end if;
+      if use_after_load_stall = '1' then
+        use_after_load_stalls <= use_after_load_stalls + 1;
+      end if;
+      if load_stall = '1' then
+        load_stalls <= load_stalls + 1;
       end if;
     end if;
   end process;
@@ -137,26 +177,34 @@ begin  -- architecture rtl
   mtimeh                         <= std_logic_vector(cycles(63 downto 64-REGISTER_SIZE));
   mstatus(mstatus'left downto 1) <= (others => '0');
   mstatus(0)                     <= mstatus_ie;
+  mcause(mcause'left)            <= mcause_i;
+  mcause(mcause'left-1 downto 4) <= (others => '0');
+  mcause(3 downto 0)             <= mcause_ex;
+
+  instret  <= std_logic_vector(instr_retired(REGISTER_SIZE-1 downto 0));
+  instreth <= std_logic_vector(instr_retired(63 downto 64-REGISTER_SIZE));
 
   with csr select
     csr_read_val <=
-    std_logic_vector(instr_retired(REGISTER_SIZE-1 downto 0))   when CSR_INSTRET,
-    std_logic_vector(instr_retired(63 downto 64-REGISTER_SIZE)) when CSR_INSTRETH,
-
-    mtime     when CSR_CYCLE,
-    mtime     when CSR_TIME,
-    mtimeh    when CSR_CYCLEH,
-    mtimeh    when CSR_TIMEH,
-    mstatus   when CSR_MSTATUS,
-    mtvec     when CSR_MTVEC,
-    mtime     when CSR_MTIME,
-    mtimeh    when CSR_MTIMEH,
-    mepc      when CSR_MEPC,
-    mcause    when CSR_MCAUSE,
-    mtohost   when CSR_MTOHOST,
-    mfromhost when CSR_MFROMHOST,
-
-    (others => '0') when others;
+    mtime                                   when CSR_CYCLE,
+    mtime                                   when CSR_TIME,
+    mtimeh                                  when CSR_CYCLEH,
+    mtimeh                                  when CSR_TIMEH,
+    mstatus                                 when CSR_MSTATUS,
+    mtvec                                   when CSR_MTVEC,
+    mepc                                    when CSR_MEPC,
+    mcause                                  when CSR_MCAUSE,
+    mtohost                                 when CSR_MTOHOST,
+    mfromhost                               when CSR_MFROMHOST,
+    instret                                 when CSR_INSTRET,
+    instreth                                when CSR_INSTRETH,
+    std_logic_vector(jal_instructions)      when CSR_MBASE,
+    std_logic_vector(jalr_instructions)     when CSR_MBOUND,
+    std_logic_vector(branch_mispredicts)    when CSR_MIBASE,
+    std_logic_vector(other_flush)           when CSR_MIBOUND,
+    std_logic_vector(use_after_load_stalls) when CSR_MDBASE,
+    std_logic_vector(load_stalls)           when CSR_MDBOUND,
+    (others => '0')                         when others;
 
   bit_sel                                      <= rs1_data;
   ibit_sel(REGISTER_SIZE-1 downto zimm'left+1) <= (others => '0');
@@ -176,14 +224,12 @@ begin  -- architecture rtl
     (others => 'X')               when others;
 
 
+
   output_proc : process(clk) is
   begin
     if rising_edge(clk) then
       if reset = '1' then
-        mepc     <= (others => '0');
-        mcause   <= (others => '0');
-        mtohost  <= (others => '0');
-
+        mtohost <= (others => '0');
       else
         --writeback to register file
         wb_data    <= csr_read_val;
@@ -192,22 +238,22 @@ begin  -- architecture rtl
         if valid = '1' then
           if opcode = "1110011" then
             if func3 /= "000" and func3 /= "100" then
-              wb_en <= valid;
+              wb_en <= '1';
             end if;
 
             if zimm & func3 = "00000"&"000" then
               if CSR = x"000" then      --ECALL
-                mcause(REGISTER_SIZE-1 downto 4) <= (others => '0');
-                mcause(3 downto 0)               <= MMODE_ECALL;
-                pc_corr_en                       <= '1';
-                pc_correction                    <= MACHINE_MODE_TRAP;
-                mepc                             <= current_pc;
+                mcause_i      <= '0';
+                mcause_ex     <= MMODE_ECALL;
+                pc_corr_en    <= '1';
+                pc_correction <= MACHINE_MODE_TRAP;
+                mepc          <= current_pc;
               elsif CSR = x"001" then   --EBREAK
-                mcause(REGISTER_SIZE-1 downto 4) <= (others => '0');
-                mcause(3 downto 0)               <= BREAKPOINT;
-                pc_corr_en                       <= '1';
-                pc_correction                    <= MACHINE_MODE_TRAP;
-                mepc                             <= current_pc;
+                mcause_i      <= '0';
+                mcause_ex     <= BREAKPOINT;
+                pc_corr_en    <= '1';
+                pc_correction <= MACHINE_MODE_TRAP;
+                mepc          <= current_pc;
               elsif CSR = x"100" then   --ERET
                 pc_corr_en    <= '1';
                 pc_correction <= mepc;

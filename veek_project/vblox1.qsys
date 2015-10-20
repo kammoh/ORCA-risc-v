@@ -25,6 +25,70 @@
          type = "int";
       }
    }
+   element hex_0
+   {
+      datum _sortIndex
+      {
+         value = "8";
+         type = "int";
+      }
+   }
+   element hex_0.s1
+   {
+      datum baseAddress
+      {
+         value = "65584";
+         type = "String";
+      }
+   }
+   element hex_1
+   {
+      datum _sortIndex
+      {
+         value = "9";
+         type = "int";
+      }
+   }
+   element hex_1.s1
+   {
+      datum baseAddress
+      {
+         value = "65568";
+         type = "String";
+      }
+   }
+   element hex_2
+   {
+      datum _sortIndex
+      {
+         value = "10";
+         type = "int";
+      }
+   }
+   element hex_2.s1
+   {
+      datum baseAddress
+      {
+         value = "65552";
+         type = "String";
+      }
+   }
+   element hex_3
+   {
+      datum _sortIndex
+      {
+         value = "11";
+         type = "int";
+      }
+   }
+   element hex_3.s1
+   {
+      datum baseAddress
+      {
+         value = "65536";
+         type = "String";
+      }
+   }
    element jtag_master
    {
       datum _sortIndex
@@ -33,12 +97,76 @@
          type = "int";
       }
    }
+   element jtag_uart_0
+   {
+      datum _sortIndex
+      {
+         value = "5";
+         type = "int";
+      }
+   }
+   element jtag_uart_0.avalon_jtag_slave
+   {
+      datum baseAddress
+      {
+         value = "65632";
+         type = "String";
+      }
+   }
+   element ledg
+   {
+      datum _sortIndex
+      {
+         value = "6";
+         type = "int";
+      }
+   }
+   element ledg.s1
+   {
+      datum baseAddress
+      {
+         value = "65616";
+         type = "String";
+      }
+   }
+   element ledr
+   {
+      datum _sortIndex
+      {
+         value = "7";
+         type = "int";
+      }
+   }
+   element ledr.s1
+   {
+      datum baseAddress
+      {
+         value = "65600";
+         type = "String";
+      }
+   }
    element onchip_memory2_0
    {
       datum _sortIndex
       {
          value = "1";
          type = "int";
+      }
+   }
+   element onchip_memory2_0.s1
+   {
+      datum baseAddress
+      {
+         value = "0";
+         type = "String";
+      }
+   }
+   element onchip_memory2_0.s2
+   {
+      datum baseAddress
+      {
+         value = "0";
+         type = "String";
       }
    }
    element riscv_0
@@ -55,6 +183,14 @@
       {
          value = "4";
          type = "int";
+      }
+   }
+   element tohost_pio.s1
+   {
+      datum baseAddress
+      {
+         value = "65536";
+         type = "String";
       }
    }
 }
@@ -85,6 +221,36 @@
    type="conduit"
    dir="end" />
  <interface
+   name="hex0"
+   internal="hex_0.external_connection"
+   type="conduit"
+   dir="end" />
+ <interface
+   name="hex1"
+   internal="hex_1.external_connection"
+   type="conduit"
+   dir="end" />
+ <interface
+   name="hex2"
+   internal="hex_2.external_connection"
+   type="conduit"
+   dir="end" />
+ <interface
+   name="hex3"
+   internal="hex_3.external_connection"
+   type="conduit"
+   dir="end" />
+ <interface
+   name="ledg"
+   internal="ledg.external_connection"
+   type="conduit"
+   dir="end" />
+ <interface
+   name="ledr"
+   internal="ledr.external_connection"
+   type="conduit"
+   dir="end" />
+ <interface
    name="program_counter"
    internal="riscv_0.program_counter"
    type="conduit"
@@ -95,6 +261,62 @@
   <parameter name="clockFrequencyKnown" value="true" />
   <parameter name="inputClockFrequency" value="0" />
   <parameter name="resetSynchronousEdges" value="NONE" />
+ </module>
+ <module name="hex_0" kind="altera_avalon_pio" version="15.0" enabled="1">
+  <parameter name="bitClearingEdgeCapReg" value="false" />
+  <parameter name="bitModifyingOutReg" value="false" />
+  <parameter name="captureEdge" value="false" />
+  <parameter name="clockRate" value="50000000" />
+  <parameter name="direction" value="Output" />
+  <parameter name="edgeType" value="RISING" />
+  <parameter name="generateIRQ" value="false" />
+  <parameter name="irqType" value="LEVEL" />
+  <parameter name="resetValue" value="0" />
+  <parameter name="simDoTestBenchWiring" value="false" />
+  <parameter name="simDrivenValue" value="0" />
+  <parameter name="width" value="32" />
+ </module>
+ <module name="hex_1" kind="altera_avalon_pio" version="15.0" enabled="1">
+  <parameter name="bitClearingEdgeCapReg" value="false" />
+  <parameter name="bitModifyingOutReg" value="false" />
+  <parameter name="captureEdge" value="false" />
+  <parameter name="clockRate" value="50000000" />
+  <parameter name="direction" value="Output" />
+  <parameter name="edgeType" value="RISING" />
+  <parameter name="generateIRQ" value="false" />
+  <parameter name="irqType" value="LEVEL" />
+  <parameter name="resetValue" value="0" />
+  <parameter name="simDoTestBenchWiring" value="false" />
+  <parameter name="simDrivenValue" value="0" />
+  <parameter name="width" value="32" />
+ </module>
+ <module name="hex_2" kind="altera_avalon_pio" version="15.0" enabled="1">
+  <parameter name="bitClearingEdgeCapReg" value="false" />
+  <parameter name="bitModifyingOutReg" value="false" />
+  <parameter name="captureEdge" value="false" />
+  <parameter name="clockRate" value="50000000" />
+  <parameter name="direction" value="Output" />
+  <parameter name="edgeType" value="RISING" />
+  <parameter name="generateIRQ" value="false" />
+  <parameter name="irqType" value="LEVEL" />
+  <parameter name="resetValue" value="0" />
+  <parameter name="simDoTestBenchWiring" value="false" />
+  <parameter name="simDrivenValue" value="0" />
+  <parameter name="width" value="32" />
+ </module>
+ <module name="hex_3" kind="altera_avalon_pio" version="15.0" enabled="1">
+  <parameter name="bitClearingEdgeCapReg" value="false" />
+  <parameter name="bitModifyingOutReg" value="false" />
+  <parameter name="captureEdge" value="false" />
+  <parameter name="clockRate" value="50000000" />
+  <parameter name="direction" value="Output" />
+  <parameter name="edgeType" value="RISING" />
+  <parameter name="generateIRQ" value="false" />
+  <parameter name="irqType" value="LEVEL" />
+  <parameter name="resetValue" value="0" />
+  <parameter name="simDoTestBenchWiring" value="false" />
+  <parameter name="simDrivenValue" value="0" />
+  <parameter name="width" value="32" />
  </module>
  <module
    name="jtag_master"
@@ -109,6 +331,53 @@
   <parameter name="FIFO_DEPTHS" value="2" />
   <parameter name="PLI_PORT" value="50000" />
   <parameter name="USE_PLI" value="0" />
+ </module>
+ <module
+   name="jtag_uart_0"
+   kind="altera_avalon_jtag_uart"
+   version="15.0"
+   enabled="1">
+  <parameter name="allowMultipleConnections" value="false" />
+  <parameter name="avalonSpec" value="2.0" />
+  <parameter name="clkFreq" value="50000000" />
+  <parameter name="hubInstanceID" value="0" />
+  <parameter name="readBufferDepth" value="64" />
+  <parameter name="readIRQThreshold" value="8" />
+  <parameter name="simInputCharacterStream" value="" />
+  <parameter name="simInteractiveOptions">NO_INTERACTIVE_WINDOWS</parameter>
+  <parameter name="useRegistersForReadBuffer" value="false" />
+  <parameter name="useRegistersForWriteBuffer" value="false" />
+  <parameter name="useRelativePathForSimFile" value="false" />
+  <parameter name="writeBufferDepth" value="64" />
+  <parameter name="writeIRQThreshold" value="8" />
+ </module>
+ <module name="ledg" kind="altera_avalon_pio" version="15.0" enabled="1">
+  <parameter name="bitClearingEdgeCapReg" value="false" />
+  <parameter name="bitModifyingOutReg" value="false" />
+  <parameter name="captureEdge" value="false" />
+  <parameter name="clockRate" value="50000000" />
+  <parameter name="direction" value="Output" />
+  <parameter name="edgeType" value="RISING" />
+  <parameter name="generateIRQ" value="false" />
+  <parameter name="irqType" value="LEVEL" />
+  <parameter name="resetValue" value="0" />
+  <parameter name="simDoTestBenchWiring" value="false" />
+  <parameter name="simDrivenValue" value="0" />
+  <parameter name="width" value="31" />
+ </module>
+ <module name="ledr" kind="altera_avalon_pio" version="15.0" enabled="1">
+  <parameter name="bitClearingEdgeCapReg" value="false" />
+  <parameter name="bitModifyingOutReg" value="false" />
+  <parameter name="captureEdge" value="false" />
+  <parameter name="clockRate" value="50000000" />
+  <parameter name="direction" value="Output" />
+  <parameter name="edgeType" value="RISING" />
+  <parameter name="generateIRQ" value="false" />
+  <parameter name="irqType" value="LEVEL" />
+  <parameter name="resetValue" value="0" />
+  <parameter name="simDoTestBenchWiring" value="false" />
+  <parameter name="simDrivenValue" value="0" />
+  <parameter name="width" value="31" />
  </module>
  <module
    name="onchip_memory2_0"
@@ -161,6 +430,45 @@
    kind="avalon"
    version="15.0"
    start="riscv_0.data"
+   end="jtag_uart_0.avalon_jtag_slave">
+  <parameter name="arbitrationPriority" value="1" />
+  <parameter name="baseAddress" value="0x00010060" />
+  <parameter name="defaultConnection" value="false" />
+ </connection>
+ <connection kind="avalon" version="15.0" start="riscv_0.data" end="ledg.s1">
+  <parameter name="arbitrationPriority" value="1" />
+  <parameter name="baseAddress" value="0x00010050" />
+  <parameter name="defaultConnection" value="false" />
+ </connection>
+ <connection kind="avalon" version="15.0" start="riscv_0.data" end="ledr.s1">
+  <parameter name="arbitrationPriority" value="1" />
+  <parameter name="baseAddress" value="0x00010040" />
+  <parameter name="defaultConnection" value="false" />
+ </connection>
+ <connection kind="avalon" version="15.0" start="riscv_0.data" end="hex_0.s1">
+  <parameter name="arbitrationPriority" value="1" />
+  <parameter name="baseAddress" value="0x00010030" />
+  <parameter name="defaultConnection" value="false" />
+ </connection>
+ <connection kind="avalon" version="15.0" start="riscv_0.data" end="hex_1.s1">
+  <parameter name="arbitrationPriority" value="1" />
+  <parameter name="baseAddress" value="0x00010020" />
+  <parameter name="defaultConnection" value="false" />
+ </connection>
+ <connection kind="avalon" version="15.0" start="riscv_0.data" end="hex_2.s1">
+  <parameter name="arbitrationPriority" value="1" />
+  <parameter name="baseAddress" value="0x00010010" />
+  <parameter name="defaultConnection" value="false" />
+ </connection>
+ <connection kind="avalon" version="15.0" start="riscv_0.data" end="hex_3.s1">
+  <parameter name="arbitrationPriority" value="1" />
+  <parameter name="baseAddress" value="0x00010000" />
+  <parameter name="defaultConnection" value="false" />
+ </connection>
+ <connection
+   kind="avalon"
+   version="15.0"
+   start="riscv_0.data"
    end="onchip_memory2_0.s2">
   <parameter name="arbitrationPriority" value="1" />
   <parameter name="baseAddress" value="0x0000" />
@@ -195,6 +503,13 @@
  </connection>
  <connection kind="clock" version="15.0" start="clk_0.clk" end="jtag_master.clk" />
  <connection kind="clock" version="15.0" start="clk_0.clk" end="tohost_pio.clk" />
+ <connection kind="clock" version="15.0" start="clk_0.clk" end="jtag_uart_0.clk" />
+ <connection kind="clock" version="15.0" start="clk_0.clk" end="ledg.clk" />
+ <connection kind="clock" version="15.0" start="clk_0.clk" end="ledr.clk" />
+ <connection kind="clock" version="15.0" start="clk_0.clk" end="hex_0.clk" />
+ <connection kind="clock" version="15.0" start="clk_0.clk" end="hex_1.clk" />
+ <connection kind="clock" version="15.0" start="clk_0.clk" end="hex_2.clk" />
+ <connection kind="clock" version="15.0" start="clk_0.clk" end="hex_3.clk" />
  <connection
    kind="clock"
    version="15.0"
@@ -232,6 +547,17 @@
    version="15.0"
    start="clk_0.clk_reset"
    end="tohost_pio.reset" />
+ <connection
+   kind="reset"
+   version="15.0"
+   start="clk_0.clk_reset"
+   end="jtag_uart_0.reset" />
+ <connection kind="reset" version="15.0" start="clk_0.clk_reset" end="ledg.reset" />
+ <connection kind="reset" version="15.0" start="clk_0.clk_reset" end="ledr.reset" />
+ <connection kind="reset" version="15.0" start="clk_0.clk_reset" end="hex_0.reset" />
+ <connection kind="reset" version="15.0" start="clk_0.clk_reset" end="hex_1.reset" />
+ <connection kind="reset" version="15.0" start="clk_0.clk_reset" end="hex_2.reset" />
+ <connection kind="reset" version="15.0" start="clk_0.clk_reset" end="hex_3.reset" />
  <connection
    kind="reset"
    version="15.0"
