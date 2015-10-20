@@ -112,7 +112,7 @@ begin  -- architecture
 
   jalr_imm <= unsigned(sign_extension(REGISTER_SIZE-12-1 downto 0) &
                        instr(31 downto 21) & "0") ;
-  jal_imm <= unsigned(RESIZE(signed(instr(31) & instr(19 downto 12) & instr(19 downto 12) & instr(20) &
+  jal_imm <= unsigned(RESIZE(signed(instr(31) & instr(19 downto 12) & instr(20) &
                                     instr(30 downto 21)&"0"),REGISTER_SIZE));
 
   branch_target      <= b_imm + unsigned(current_pc);
