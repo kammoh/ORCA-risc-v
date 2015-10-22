@@ -23,6 +23,7 @@ proc com {} {
 							hdl/wb_ram.vhd 		  \
 							hdl/top.vhd				  \
 							hdl/wb_arbiter.vhd \
+							hdl/wb_pio.vhd \
 							hdl/bram.vhd \
 							hdl/my_led_sim.v\
 							hdl/uart_rd1042/uart_core.vhd\

@@ -9,8 +9,8 @@ use work.top_util_pkg.all;
 
 entity top is
   port(
-    clk     : in std_logic;
-    reset_n : in std_logic;
+    clk       : in std_logic;
+    reset_btn : in std_logic;
 
     cts : in  std_logic;
     rts : out std_logic;
@@ -31,7 +31,9 @@ architecture rtl of top is
 
 
   constant REGISTER_SIZE : natural := 32;
-  signal reset           : std_logic;
+  constant RAM_SIZE      : natural := 8*1024;
+
+  signal reset : std_logic;
 
   signal RAM_ADR_I  : std_logic_vector(31 downto 0);
   signal RAM_DAT_I  : std_logic_vector(REGISTER_SIZE-1 downto 0);
@@ -81,8 +83,25 @@ architecture rtl of top is
   signal instr_ERR_I   : std_logic;
   signal instr_RTY_I   : std_logic;
 
+  constant DATA_RAM_ADDR : unsigned(REGISTER_SIZE-1 downto 0) := x"00000000";
+  constant DATA_RAM_MASK : unsigned(REGISTER_SIZE-1 downto 0) := not to_unsigned(RAM_SIZE-1, REGISTER_SIZE);
+  signal data_ram_stb    : std_logic;
+  signal data_ram_ack    : std_logic;
+  signal data_ram_stall  : std_logic;
+  signal data_ram_rdata  : std_logic_vector(REGISTER_SIZE-1 downto 0);
 
-  constant DEBUG_ENABLE  : boolean := true;
+  constant LED_ADDR : unsigned(REGISTER_SIZE-1 downto 0) := x"00010000";
+  constant LED_MASK : unsigned(REGISTER_SIZE-1 downto 0) := not to_unsigned(7, REGISTER_SIZE);
+  signal led_stb    : std_logic;
+  signal led_ack    : std_logic;
+  signal led_stall  : std_logic;
+  signal led_rdata  : std_logic_vector(REGISTER_SIZE-1 downto 0);
+
+  signal led_pio_out      : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  type data_port_choice_t is (RAM_CHOICE, LED_CHOICE);
+  signal data_port_choice : data_port_choice_t;
+
+  constant DEBUG_ENABLE  : boolean := false;
   signal debug_en        : std_logic;
   signal debug_write     : std_logic;
   signal debug_writedata : std_logic_vector(7 downto 0);
@@ -129,10 +148,10 @@ architecture rtl of top is
 
 begin
 
-  reset <= not reset_n;
+  reset <= not reset_btn;
   mem : component wb_ram
     generic map(
-      SIZE             => 8*1024,
+      SIZE             => RAM_SIZE,
       INIT_FILE_FORMAT => "hex",
       INIT_FILE_NAME   => "test.mem",
       LATTICE_FAMILY   => "iCE5LP")
@@ -156,6 +175,8 @@ begin
       ERR_O   => RAM_ERR_O,
       RTY_O   => RAM_RTY_O);
 
+  data_ram_stb <= data_stb_o when (unsigned(data_ADR_O) and DATA_RAM_MASK) = DATA_RAM_ADDR else '0';
+
   arbiter : component wb_arbiter
     port map (
       CLK_I => clk,
@@ -165,17 +186,17 @@ begin
       slave1_DAT_I  => data_DAT_O,
       slave1_WE_I   => data_WE_O,
       slave1_CYC_I  => data_CYC_O,
-      slave1_STB_I  => data_STB_O,
+      slave1_STB_I  => data_ram_stb,
       slave1_SEL_I  => data_SEL_O,
       slave1_CTI_I  => data_CTI_O,
       slave1_BTE_I  => data_BTE_O,
       slave1_LOCK_I => data_LOCK_O,
 
-      slave1_STALL_O => data_STALL_I,
-      slave1_DAT_O   => data_DAT_I,
-      slave1_ACK_O   => data_ACK_I,
-      slave1_ERR_O   => data_ERR_I,
-      slave1_RTY_O   => data_RTY_I,
+      slave1_STALL_O => data_ram_stall,
+      slave1_DAT_O   => data_ram_rdata,
+      slave1_ACK_O   => data_ram_ack,
+--      slave1_ERR_O   => data_ERR_I,
+--      slave1_RTY_O   => data_RTY_I,
 
       slave2_ADR_I  => instr_ADR_O,
       slave2_DAT_I  => instr_DAT_O,
@@ -242,21 +263,42 @@ begin
       instr_CTI_O   => instr_CTI_O,
       instr_STALL_I => instr_STALL_I);
 
-  data_BTE_O  <= "00";
-  data_LOCK_O <= '0';
-
+  data_BTE_O   <= "00";
+  data_LOCK_O  <= '0';
   instr_BTE_O  <= "00";
   instr_LOCK_O <= '0';
+
+  process(clk)
+  begin
+    if rising_edge(clk) then
+      if data_ram_stb = '1' then
+        data_port_choice <= RAM_CHOICE;
+      else
+        data_port_choice <= LED_CHOICE;
+      end if;
+    end if;
+  end process;
+
+  with data_port_choice select
+    data_DAT_I <=
+    data_ram_rdata when RAM_CHOICE,
+    led_rdata      when others;
+
+  data_ACK_I <= data_ram_ack or led_ack;
+  with data_port_choice select
+    data_STALL_I <=
+    data_ram_stall when RAM_CHOICE,
+    led_stall      when others;
 
   instr_stall_i <= uart_stall or mem_instr_stall;
   instr_ack_i   <= not uart_stall and mem_instr_ack;
 
+  data_ack_i <= led_ack or data_ram_ack;
+
   rgb_led <=
     "000" when heartbeat_counter(6 downto 0) /= "0000001" else
     "111" when reset = '1' else
-    "001" when coe_to_host = std_logic_vector(to_unsigned(0, coe_to_host'length)) else
-    "010" when coe_to_host = std_logic_vector(to_unsigned(1, coe_to_host'length)) else
-    "100";
+    led_pio_out(2 downto 0) ;
 
   led : component my_led
     port map(
@@ -280,7 +322,27 @@ begin
     end if;
   end process;
 
+  led_stb <= data_STB_O when (unsigned(data_ADR_O) and LED_MASK) = LED_ADDR else '0';
+  led_pio : component wb_pio
+    port map(
+      CLK_I => clk,
+      RST_I => reset,
 
+      ADR_I   => data_ADR_O,
+      DAT_I   => data_DAT_O,
+      WE_I    => data_WE_O,
+      CYC_I   => data_CYC_O,
+      STB_I   => led_STB,
+      SEL_I   => data_SEL_O,
+      CTI_I   => data_CTI_O,
+      BTE_I   => data_BTE_O,
+      LOCK_I  => data_LOCK_O,
+      ACK_O   => led_ACK,
+      STALL_O => led_STALL,
+      DATA_O  => led_rdata,
+--      ERR_O   => led_ERR_O,
+--      RTY_O   => led_RTY_O,
+      output  => led_pio_out);
 
 -----------------------------------------------------------------------------
 -- Debugging logic (PC over UART)

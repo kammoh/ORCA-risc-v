@@ -37,7 +37,7 @@ entity execute is
     from_host : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
 
     predict_corr    : out    std_logic_vector(REGISTER_SIZE-1 downto 0);
-    predict_corr_en : buffer    std_logic;
+    predict_corr_en : buffer std_logic;
     stall_pipeline  : buffer std_logic;
 --memory-bus
     address         : out    std_logic_vector(REGISTER_SIZE-1 downto 0);
@@ -351,7 +351,6 @@ begin
   predict_corr_en <= syscall_en or br_bad_predict;
   predict_corr    <= br_new_pc when br_bad_predict = '1' else syscall_target;
 
-
   --my_print : process(clk)
   --  variable my_line : line;            -- type 'line' comes from textio
   --begin
@@ -366,8 +365,8 @@ begin
   --      end if;
   --      writeline(output, my_line);     -- write to "output"
   --    else
-  --      write(my_line, string'("bubble"));  -- formatting
-  --      writeline(output, my_line);     -- write to "output"
+  --    --write(my_line, string'("bubble"));  -- formatting
+  --    --writeline(output, my_line);     -- write to "output"
   --    end if;
   --  end if;
   --end process my_print;

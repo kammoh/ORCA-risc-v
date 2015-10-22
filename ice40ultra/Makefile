@@ -14,6 +14,7 @@ BITFILE=$(OUTPUT_DIR)/sbt/outputs/bitmap/$(TOP_LEVEL_ENTITY)_bitmap.hex
 
 MEM_LIST=imem.list
 MEM_FILE=test.mem
+HDL_FILES=$(wildcard hdl/*.vhd) $(wildcard hdl/*.v) $(wildcard ../*.vhd)
 all: $(BITFILE)
 
 $(BITFILE): $(TIMING_REPORT) $(MEM_FILE) $(MEM_LIST)
@@ -24,7 +25,7 @@ $(BITFILE): $(TIMING_REPORT) $(MEM_FILE) $(MEM_LIST)
 
 $(TIMING_REPORT): $(EDF)
 	tclsh iCEcube2_flow.tcl
-$(EDF):
+$(EDF): $(HDL_FILES)
 	SYNPLIFY_PATH=$${ICECUBE2}/synpbase \
 	SBT_DIR=$${ICECUBE2}/sbt_backend/ \
 	LD_LIBRARY_PATH=$${ICECUBE2}/sbt_backend/bin/linux/opt/synpwrap:$${LD_LIBRARY_PATH} \

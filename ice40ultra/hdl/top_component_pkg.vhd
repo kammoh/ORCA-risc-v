@@ -198,7 +198,34 @@ package top_component_pkg is
       );
   end component;
 
+  component wb_pio is
+    generic (
+      DATA_WIDTH : integer := 32
+      );
+    port (
+      CLK_I : in std_logic;
+      RST_I : in std_logic;
+
+      ADR_I   : in  std_logic_vector(31 downto 0);
+      DAT_I   : in  std_logic_vector(DATA_WIDTH-1 downto 0);
+      WE_I    : in  std_logic;
+      CYC_I   : in  std_logic;
+      STB_I   : in  std_logic;
+      SEL_I   : in  std_logic_vector(DATA_WIDTH/8-1 downto 0);
+      CTI_I   : in  std_logic_vector(2 downto 0);
+      BTE_I   : in  std_logic_vector(1 downto 0);
+      LOCK_I  : in  std_logic;
+      ACK_O   : out std_logic;
+      STALL_O : out std_logic;
+      DATA_O  : out std_logic_vector(DATA_WIDTH -1 downto 0);
+      ERR_O   : out std_logic;
+      RTY_O   : out std_logic;
+      output  : out std_logic_vector(DATA_WIDTH -1 downto 0)
+      );
+  end component;
+
 end package;
+
 
 package body top_component_pkg is
 end top_component_pkg;
