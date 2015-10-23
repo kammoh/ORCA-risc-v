@@ -222,9 +222,7 @@ begin
 
         --save various flip flops for forwarding
         --and writeback
-        if ls_unit_waiting = '0' then
           rd_latch <= rd;
-        end if;
         ld_latch_out <= ld_data_out;
         if rd_latch /= ZERO then
           ld_latch_en <= ld_data_en;

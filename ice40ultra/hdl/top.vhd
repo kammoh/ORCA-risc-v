@@ -83,22 +83,66 @@ architecture rtl of top is
   signal instr_ERR_I   : std_logic;
   signal instr_RTY_I   : std_logic;
 
-  constant DATA_RAM_ADDR : unsigned(REGISTER_SIZE-1 downto 0) := x"00000000";
-  constant DATA_RAM_MASK : unsigned(REGISTER_SIZE-1 downto 0) := not to_unsigned(RAM_SIZE-1, REGISTER_SIZE);
-  signal data_ram_stb    : std_logic;
-  signal data_ram_ack    : std_logic;
-  signal data_ram_stall  : std_logic;
-  signal data_ram_rdata  : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal led_adr_i   : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal led_dat_i   : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal led_dat_o   : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal led_stb_i   : std_logic;
+  signal led_cyc_i   : std_logic;
+  signal led_we_i    : std_logic;
+  signal led_sel_i   : std_logic_vector(3 downto 0);
+  signal led_cti_i   : std_logic_vector(2 downto 0);
+  signal led_bte_i   : std_logic_vector(1 downto 0);
+  signal led_ack_o   : std_logic;
+  signal led_stall_o : std_logic;
+  signal led_lock_i  : std_logic;
+  signal led_err_o   : std_logic;
+  signal led_rty_o   : std_logic;
 
-  constant LED_ADDR : unsigned(REGISTER_SIZE-1 downto 0) := x"00010000";
-  constant LED_MASK : unsigned(REGISTER_SIZE-1 downto 0) := not to_unsigned(7, REGISTER_SIZE);
-  signal led_stb    : std_logic;
-  signal led_ack    : std_logic;
-  signal led_stall  : std_logic;
-  signal led_rdata  : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal data_uart_adr_i   : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal data_uart_dat_i   : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal data_uart_dat_o   : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal data_uart_stb_i   : std_logic;
+  signal data_uart_cyc_i   : std_logic;
+  signal data_uart_we_i    : std_logic;
+  signal data_uart_sel_i   : std_logic_vector(3 downto 0);
+  signal data_uart_cti_i   : std_logic_vector(2 downto 0);
+  signal data_uart_bte_i   : std_logic_vector(1 downto 0);
+  signal data_uart_ack_o   : std_logic;
+  signal data_uart_stall_o : std_logic;
+  signal data_uart_lock_i  : std_logic;
+  signal data_uart_err_o   : std_logic;
+  signal data_uart_rty_o   : std_logic;
+
+  signal data_ram_adr_i   : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal data_ram_dat_i   : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal data_ram_dat_o   : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal data_ram_stb_i   : std_logic;
+  signal data_ram_cyc_i   : std_logic;
+  signal data_ram_we_i    : std_logic;
+  signal data_ram_sel_i   : std_logic_vector(3 downto 0);
+  signal data_ram_cti_i   : std_logic_vector(2 downto 0);
+  signal data_ram_bte_i   : std_logic_vector(1 downto 0);
+  signal data_ram_ack_o   : std_logic;
+  signal data_ram_lock_i  : std_logic;
+  signal data_ram_stall_o : std_logic;
+  signal data_ram_err_o   : std_logic;
+  signal data_ram_rty_o   : std_logic;
+
+
+
+
+  signal data_ram_stb   : std_logic;
+  signal data_ram_ack   : std_logic;
+  signal data_ram_stall : std_logic;
+  signal data_ram_rdata : std_logic_vector(REGISTER_SIZE-1 downto 0);
+
+  signal led_stb   : std_logic;
+  signal led_ack   : std_logic;
+  signal led_stall : std_logic;
+  signal led_rdata : std_logic_vector(REGISTER_SIZE-1 downto 0);
 
   signal led_pio_out      : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  type data_port_choice_t is (RAM_CHOICE, LED_CHOICE);
+  type data_port_choice_t is (RAM_CHOICE, LED_CHOICE, UART_CHOICE);
   signal data_port_choice : data_port_choice_t;
 
   constant DEBUG_ENABLE  : boolean := false;
@@ -114,6 +158,7 @@ architecture rtl of top is
   signal txrdy_n    : std_logic;
   signal rts_n      : std_logic;
   signal dir_n      : std_logic;
+
 
   signal uart_adr_i     : std_logic_vector(7 downto 0);
   signal uart_dat_i     : std_logic_vector(15 downto 0);
@@ -144,11 +189,25 @@ architecture rtl of top is
   constant HEARTBEAT_COUNTER_BITS : positive                                    := log2(SYSCLK_FREQ_HZ);  -- ~1 second to roll over
   signal heartbeat_counter        : unsigned(HEARTBEAT_COUNTER_BITS-1 downto 0) := (others => '0');
 
-
-
+  signal auto_reset_count : unsigned(3 downto 0) := "1111";
+  signal auto_reset       : std_logic            := '1';
 begin
 
-  reset <= not reset_btn;
+
+  auto_reset_proc : process(clk)
+  begin
+    if rising_edge(clk) then
+      if auto_reset = '1' then
+        auto_reset_count <= auto_reset_count -1;
+        if auto_reset_count = "0000" then
+          auto_reset <= '0';
+        end if;
+      end if;
+    end if;
+  end process;
+  reset <= not reset_btn or auto_reset;
+--  reset <= not reset_btn;
+
   mem : component wb_ram
     generic map(
       SIZE             => RAM_SIZE,
@@ -175,26 +234,25 @@ begin
       ERR_O   => RAM_ERR_O,
       RTY_O   => RAM_RTY_O);
 
-  data_ram_stb <= data_stb_o when (unsigned(data_ADR_O) and DATA_RAM_MASK) = DATA_RAM_ADDR else '0';
 
   arbiter : component wb_arbiter
     port map (
       CLK_I => clk,
       RST_I => reset,
 
-      slave1_ADR_I  => data_ADR_O,
-      slave1_DAT_I  => data_DAT_O,
-      slave1_WE_I   => data_WE_O,
-      slave1_CYC_I  => data_CYC_O,
-      slave1_STB_I  => data_ram_stb,
-      slave1_SEL_I  => data_SEL_O,
-      slave1_CTI_I  => data_CTI_O,
-      slave1_BTE_I  => data_BTE_O,
-      slave1_LOCK_I => data_LOCK_O,
+      slave1_ADR_I  => data_ram_ADR_I,
+      slave1_DAT_I  => data_ram_DAT_I,
+      slave1_WE_I   => data_ram_WE_I,
+      slave1_CYC_I  => data_ram_CYC_I,
+      slave1_STB_I  => data_ram_STB_I,
+      slave1_SEL_I  => data_ram_SEL_I,
+      slave1_CTI_I  => data_ram_CTI_I,
+      slave1_BTE_I  => data_ram_BTE_I,
+      slave1_LOCK_I => data_ram_LOCK_I,
 
-      slave1_STALL_O => data_ram_stall,
-      slave1_DAT_O   => data_ram_rdata,
-      slave1_ACK_O   => data_ram_ack,
+      slave1_STALL_O => data_ram_STALL_O,
+      slave1_DAT_O   => data_ram_DAT_O,
+      slave1_ACK_O   => data_ram_ack_O,
 --      slave1_ERR_O   => data_ERR_I,
 --      slave1_RTY_O   => data_RTY_I,
 
@@ -268,80 +326,98 @@ begin
   instr_BTE_O  <= "00";
   instr_LOCK_O <= '0';
 
-  process(clk)
-  begin
-    if rising_edge(clk) then
-      if data_ram_stb = '1' then
-        data_port_choice <= RAM_CHOICE;
-      else
-        data_port_choice <= LED_CHOICE;
-      end if;
-    end if;
-  end process;
+  split_wb_data : component wb_splitter
+    generic map(
+      master0_address => (16#00000000#, 4*1024),
+      master1_address => (16#00010000#, 8),
+      master2_address => (16#00020000#, 256))
+    port map(
+      clk_i => clk,
+      rst_i => reset,
 
-  with data_port_choice select
-    data_DAT_I <=
-    data_ram_rdata when RAM_CHOICE,
-    led_rdata      when others;
+      slave_ADR_I   => data_ADR_O,
+      slave_DAT_I   => data_DAT_O,
+      slave_WE_I    => data_WE_O,
+      slave_CYC_I   => data_CYC_O,
+      slave_STB_I   => data_STB_O,
+      slave_SEL_I   => data_SEL_O,
+      slave_CTI_I   => data_CTI_O,
+      slave_BTE_I   => data_BTE_O,
+      slave_LOCK_I  => data_LOCK_O,
+      slave_STALL_O => data_STALL_I,
+      slave_DAT_O   => data_DAT_I,
+      slave_ACK_O   => data_ACK_I,
+      slave_ERR_O   => data_ERR_I,
+      slave_RTY_O   => data_RTY_I,
 
-  data_ACK_I <= data_ram_ack or led_ack;
-  with data_port_choice select
-    data_STALL_I <=
-    data_ram_stall when RAM_CHOICE,
-    led_stall      when others;
+      master0_ADR_O   => data_ram_ADR_I,
+      master0_DAT_O   => data_ram_DAT_I,
+      master0_WE_O    => data_ram_WE_I,
+      master0_CYC_O   => data_ram_CYC_I,
+      master0_STB_O   => data_ram_STB_I,
+      master0_SEL_O   => data_ram_SEL_I,
+      master0_CTI_O   => data_ram_CTI_I,
+      master0_BTE_O   => data_ram_BTE_I,
+      master0_LOCK_O  => data_ram_LOCK_I,
+      master0_STALL_I => data_ram_STALL_O,
+      master0_DAT_I   => data_ram_DAT_O,
+      master0_ACK_I   => data_ram_ACK_O,
+      master0_ERR_I   => data_ram_ERR_O,
+      master0_RTY_I   => data_ram_RTY_O,
+
+      master1_ADR_O   => led_ADR_I,
+      master1_DAT_O   => led_DAT_I,
+      master1_WE_O    => led_WE_I,
+      master1_CYC_O   => led_CYC_I,
+      master1_STB_O   => led_STB_I,
+      master1_SEL_O   => led_SEL_I,
+      master1_CTI_O   => led_CTI_I,
+      master1_BTE_O   => led_BTE_I,
+      master1_LOCK_O  => led_LOCK_I,
+      master1_STALL_I => led_STALL_O,
+      master1_DAT_I   => led_DAT_O,
+      master1_ACK_I   => led_ACK_O,
+      master1_ERR_I   => led_ERR_O,
+      master1_RTY_I   => led_RTY_O,
+
+      master2_ADR_O   => data_uart_ADR_I,
+      master2_DAT_O   => data_uart_DAT_I,
+      master2_WE_O    => data_uart_WE_I,
+      master2_CYC_O   => data_uart_CYC_I,
+      master2_STB_O   => data_uart_STB_I,
+      master2_SEL_O   => data_uart_SEL_I,
+      master2_CTI_O   => data_uart_CTI_I,
+      master2_BTE_O   => data_uart_BTE_I,
+      master2_LOCK_O  => data_uart_LOCK_I,
+      master2_STALL_I => data_uart_STALL_O,
+      master2_DAT_I   => data_uart_DAT_O,
+      master2_ACK_I   => data_uart_ACK_O,
+      master2_ERR_I   => data_uart_ERR_O,
+      master2_RTY_I   => data_uart_RTY_O);
+
 
   instr_stall_i <= uart_stall or mem_instr_stall;
   instr_ack_i   <= not uart_stall and mem_instr_ack;
 
-  data_ack_i <= led_ack or data_ram_ack;
-
-  rgb_led <=
-    "000" when heartbeat_counter(6 downto 0) /= "0000001" else
-    "111" when reset = '1' else
-    led_pio_out(2 downto 0) ;
-
-  led : component my_led
-    port map(
-      red_i   => rgb_led(2),
-      green_i => rgb_led(1),
-      blue_i  => rgb_led(0),
-      hp_i    => hp_pwm,
-      red     => R_LED,
-      green   => G_LED,
-      blue    => B_LED,
-      hp      => HP_LED
-      );
-
-  hp_pwm <= heartbeat_counter(heartbeat_counter'left) when heartbeat_counter(7 downto 0) = "00000001" else '0';
-
-
-  process(clk, reset)
-  begin
-    if rising_edge(clk) then
-      heartbeat_counter <= heartbeat_counter + to_unsigned(1, heartbeat_counter'length);
-    end if;
-  end process;
-
-  led_stb <= data_STB_O when (unsigned(data_ADR_O) and LED_MASK) = LED_ADDR else '0';
   led_pio : component wb_pio
     port map(
       CLK_I => clk,
       RST_I => reset,
 
-      ADR_I   => data_ADR_O,
-      DAT_I   => data_DAT_O,
-      WE_I    => data_WE_O,
-      CYC_I   => data_CYC_O,
-      STB_I   => led_STB,
-      SEL_I   => data_SEL_O,
-      CTI_I   => data_CTI_O,
-      BTE_I   => data_BTE_O,
-      LOCK_I  => data_LOCK_O,
-      ACK_O   => led_ACK,
-      STALL_O => led_STALL,
-      DATA_O  => led_rdata,
---      ERR_O   => led_ERR_O,
---      RTY_O   => led_RTY_O,
+      ADR_I   => led_ADR_I,
+      DAT_I   => led_DAT_I,
+      WE_I    => led_WE_I,
+      CYC_I   => led_CYC_I,
+      STB_I   => led_STB_I,
+      SEL_I   => led_SEL_I,
+      CTI_I   => led_CTI_I,
+      BTE_I   => led_BTE_I,
+      LOCK_I  => led_LOCK_I,
+      ACK_O   => led_ACK_O,
+      STALL_O => led_STALL_O,
+      DATA_O  => led_DAT_O,
+      ERR_O   => led_ERR_O,
+      RTY_O   => led_RTY_O,
       output  => led_pio_out);
 
 -----------------------------------------------------------------------------
@@ -457,10 +533,10 @@ begin
     uart_stall      <= '0';
   end generate no_debug_gen;
 
-  -----------------------------------------------------------------------------
-  -- UART signals and interface
-  -----------------------------------------------------------------------------
-  --PmodUSBUART (0->RTS, 1->RXD, 2->TXD, 3->CTS)
+                                        -----------------------------------------------------------------------------
+                                        -- UART signals and interface
+                                        -----------------------------------------------------------------------------
+                                        --PmodUSBUART (0->RTS, 1->RXD, 2->TXD, 3->CTS)
   cts_n     <= not cts;
   txd       <= serial_out;
   serial_in <= rxd;
@@ -475,10 +551,10 @@ begin
       FIFO       => false
       )
     port map (
-      -- Global reset and clock
+                                        -- Global reset and clock
       CLK        => clk,
       RESET      => reset,
-      -- WISHBONE interface
+                                        -- WISHBONE interface
       UART_ADR_I => uart_adr_i,
       UART_DAT_I => uart_dat_i,
       UART_DAT_O => uart_dat_o,
@@ -490,34 +566,86 @@ begin
       UART_BTE_I => uart_bte_i,
       UART_ACK_O => uart_ack_o,
       INTR       => uart_interrupt,
-      -- Receiver interface
+                                        -- Receiver interface
       SIN        => serial_in,
       RXRDY_N    => rxrdy_n,
-      -- MODEM
+                                        -- MODEM
       DCD_N      => '1',
       CTS_N      => cts_n,
       DSR_N      => '1',
       RI_N       => '1',
       DTR_N      => dir_n,
       RTS_N      => rts_n,
-      -- Transmitter interface
+                                        -- Transmitter interface
       SOUT       => serial_out,
       TXRDY_N    => txrdy_n
       );
 
 
-  -----------------------------------------------------------------------------
-  -- WISHBONE interconnect
-  -----------------------------------------------------------------------------
-  uart_dat_i(15 downto 8) <= (others => '0');
-  uart_dat_i(7 downto 0)  <= debug_writedata;
-  uart_we_i               <= debug_write;
+                                        -----------------------------------------------------------------------------
+                                        --
+                                        -----------------------------------------------------------------------------
+  uart_pc : if DEBUG_ENABLE generate
+  begin
+    uart_dat_i(15 downto 8) <= (others => '0');
+    uart_dat_i(7 downto 0)  <= debug_writedata;
+    uart_we_i               <= debug_write;
 
-  uart_stb_i <= uart_we_i and (not txrdy_n);
-  uart_adr_i <= debug_address;
-  uart_cyc_i <= uart_stb_i and (not txrdy_n);
+    uart_stb_i <= uart_we_i and (not txrdy_n);
+    uart_adr_i <= debug_address;
+    uart_cyc_i <= uart_stb_i and (not txrdy_n);
 
-  uart_cti_i <= WB_CTI_CLASSIC;
+    uart_cti_i <= WB_CTI_CLASSIC;
+
+                                        --constant ack to the riscv port
+    data_uart_ack_o   <= '1';
+    data_uart_stall_o <= not data_uart_ack_O;
+  end generate uart_pc;
+  uart_data_bus : if not DEBUG_ENABLE generate
+  begin
+    uart_adr_i        <= data_uart_adr_i(9 downto 2);
+    uart_dat_i        <= data_uart_dat_i(23 downto 16) & data_uart_dat_i(31 downto 24);
+    data_uart_dat_o   <= uart_dat_o(7 downto 0) & uart_dat_o(15 downto 8) & x"0000";
+    uart_stb_i        <= data_uart_stb_i;
+    uart_cyc_i        <= data_uart_cyc_i;
+    uart_we_i         <= data_uart_we_i;
+    uart_sel_i        <= data_uart_sel_i;
+    uart_cti_i        <= data_uart_cti_i;
+    uart_bte_i        <= data_uart_bte_i;
+    data_uart_ack_o   <= uart_ack_o;
+    data_uart_stall_o <= not data_uart_ack_O;
+  end generate uart_data_bus;
+
+-------------------------------------------------------------------------------
+-- LED and HEARTBEAT
+-------------------------------------------------------------------------------
+
+  rgb_led <=
+    "000" when heartbeat_counter(6 downto 0) /= "0000001" else
+    "111" when reset = '1' else
+    led_pio_out(2 downto 0);
+
+  led : component my_led
+    port map(
+      red_i   => rgb_led(2),
+      green_i => rgb_led(1),
+      blue_i  => rgb_led(0),
+      hp_i    => hp_pwm,
+      red     => R_LED,
+      green   => G_LED,
+      blue    => B_LED,
+      hp      => HP_LED
+      );
+
+  hp_pwm <= heartbeat_counter(heartbeat_counter'left) when heartbeat_counter(7 downto 0) = "00000001" else '0';
+
+  process(clk, reset)
+  begin
+    if rising_edge(clk) then
+      heartbeat_counter <= heartbeat_counter + to_unsigned(1, heartbeat_counter'length);
+    end if;
+  end process;
+
 
 
 end architecture rtl;

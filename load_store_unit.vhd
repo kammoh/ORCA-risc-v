@@ -156,21 +156,7 @@ begin
     x"0000"&r1 & r0                                          when UHALF_SIZE,
     r3 &r2 & r1 & r0                                         when others;
 
-  --output_latch : process(clk, reset)
-  --begin
-  --  if rising_edge(clk) then
-  --    if waiting = '0' then
-  --      latched_data <= fixed_data;
-  --      if opcode = "0000011" then
-  --        data_enable <= readvalid;
-  --      else
-  --        data_enable <= '0';
-  --      end if;
-  --    end if;
-  --  end if;
-  --end process;
   data_enable <=  readvalid;
   data_out <= fixed_data;
-  --use latched data when waiting else use new data
 
 end architecture;

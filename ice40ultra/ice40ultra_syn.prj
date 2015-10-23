@@ -34,6 +34,7 @@ add_file -vhdl -lib work "hdl/wb_ram.vhd"
 add_file -vhdl -lib work "hdl/wb_arbiter.vhd" 
 add_file -vhdl -lib work "hdl/bram.vhd" 
 add_file -vhdl -lib work "hdl/wb_pio.vhd" 
+add_file -vhdl -lib work "hdl/wb_splitter.vhd" 
 add_file -constraint -lib work "constraints/lve_timing.sdc"
 #implementation: "ice40ultra_Implmnt"
 impl -add ice40ultra_Implmnt -type fpga

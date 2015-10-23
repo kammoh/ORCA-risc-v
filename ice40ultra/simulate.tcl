@@ -23,6 +23,7 @@ proc com {} {
 							hdl/wb_ram.vhd 		  \
 							hdl/top.vhd				  \
 							hdl/wb_arbiter.vhd \
+							hdl/wb_splitter.vhd \
 							hdl/wb_pio.vhd \
 							hdl/bram.vhd \
 							hdl/my_led_sim.v\
@@ -52,4 +53,12 @@ com
 
 vsim work.top_tb
 add log -r *
+
+add wave -noupdate /top_tb/dut/rv/rv/clk
+add wave -noupdate /top_tb/dut/rv/rv/reset
+add wave -noupdate -divider Execute
+add wave -noupdate /top_tb/dut/rv/rv/X/valid_input
+add wave -noupdate /top_tb/dut/rv/rv/X/pc_current
+add wave -noupdate /top_tb/dut/rv/rv/X/instruction
+
 set DefaultRadix hex
