@@ -57,6 +57,6 @@ begin
 
   DATA_O <= reg;
 
-  output <= reg(7 downto 0) & reg(15 downto 8) & reg(23 downto 16) & reg(31 downto 24);
+  output <= reg;
 
 end architecture output;

@@ -227,82 +227,140 @@ package top_component_pkg is
   type address_array is array(1 downto 0) of natural;
 
   component wb_splitter is
-    generic (
-      master0_address : address_array := (0, 0);
-      master1_address : address_array := (0, 0);
-      master2_address : address_array := (0, 0);
-      DATA_WIDTH      : natural       := 32
-      );
-    port(
 
-      CLK_I : in std_logic;
-      RST_I : in std_logic;
+  generic (
+    master0_address : address_array := (0, 0);
+    master1_address : address_array := (0, 0);
+    master2_address : address_array := (0, 0);
+    master3_address : address_array := (0, 0);
+    master4_address : address_array := (0, 0);
+    DATA_WIDTH      : natural       := 32
+    );
+  port(
 
-      slave_ADR_I   : in  std_logic_vector(31 downto 0);
-      slave_DAT_I   : in  std_logic_vector(DATA_WIDTH-1 downto 0);
-      slave_WE_I    : in  std_logic;
-      slave_CYC_I   : in  std_logic;
-      slave_STB_I   : in  std_logic;
-      slave_SEL_I   : in  std_logic_vector(DATA_WIDTH/8-1 downto 0);
-      slave_CTI_I   : in  std_logic_vector(2 downto 0);
-      slave_BTE_I   : in  std_logic_vector(1 downto 0);
-      slave_LOCK_I  : in  std_logic;
-      slave_STALL_O : out std_logic;
-      slave_DAT_O   : out std_logic_vector(DATA_WIDTH-1 downto 0);
-      slave_ACK_O   : out std_logic;
-      slave_ERR_O   : out std_logic;
-      slave_RTY_O   : out std_logic;
+    CLK_I : in std_logic;
+    RST_I : in std_logic;
 
-
-      master0_ADR_O   : out std_logic_vector(31 downto 0);
-      master0_DAT_O   : out std_logic_vector(DATA_WIDTH-1 downto 0);
-      master0_WE_O    : out std_logic;
-      master0_CYC_O   : out std_logic;
-      master0_STB_O   : out std_logic;
-      master0_SEL_O   : out std_logic_vector(DATA_WIDTH/8-1 downto 0);
-      master0_CTI_O   : out std_logic_vector(2 downto 0);
-      master0_BTE_O   : out std_logic_vector(1 downto 0);
-      master0_LOCK_O  : out std_logic;
-      master0_STALL_I : in  std_logic;
-      master0_DAT_I   : in  std_logic_vector(DATA_WIDTH-1 downto 0);
-      master0_ACK_I   : in  std_logic;
-      master0_ERR_I   : in  std_logic;
-      master0_RTY_I   : in  std_logic;
+    slave_ADR_I   : in  std_logic_vector(31 downto 0);
+    slave_DAT_I   : in  std_logic_vector(DATA_WIDTH-1 downto 0);
+    slave_WE_I    : in  std_logic;
+    slave_CYC_I   : in  std_logic;
+    slave_STB_I   : in  std_logic;
+    slave_SEL_I   : in  std_logic_vector(DATA_WIDTH/8-1 downto 0);
+    slave_CTI_I   : in  std_logic_vector(2 downto 0);
+    slave_BTE_I   : in  std_logic_vector(1 downto 0);
+    slave_LOCK_I  : in  std_logic;
+    slave_STALL_O : out std_logic;
+    slave_DAT_O   : out std_logic_vector(DATA_WIDTH-1 downto 0);
+    slave_ACK_O   : out std_logic;
+    slave_ERR_O   : out std_logic;
+    slave_RTY_O   : out std_logic;
 
 
-      master1_ADR_O   : out std_logic_vector(31 downto 0);
-      master1_DAT_O   : out std_logic_vector(DATA_WIDTH-1 downto 0);
-      master1_WE_O    : out std_logic;
-      master1_CYC_O   : out std_logic;
-      master1_STB_O   : out std_logic;
-      master1_SEL_O   : out std_logic_vector(DATA_WIDTH/8-1 downto 0);
-      master1_CTI_O   : out std_logic_vector(2 downto 0);
-      master1_BTE_O   : out std_logic_vector(1 downto 0);
-      master1_LOCK_O  : out std_logic;
-      master1_STALL_I : in  std_logic;
-      master1_DAT_I   : in  std_logic_vector(DATA_WIDTH-1 downto 0);
-      master1_ACK_I   : in  std_logic;
-      master1_ERR_I   : in  std_logic;
-      master1_RTY_I   : in  std_logic;
+    master0_ADR_O   : out std_logic_vector(31 downto 0);
+    master0_DAT_O   : out std_logic_vector(DATA_WIDTH-1 downto 0);
+    master0_WE_O    : out std_logic;
+    master0_CYC_O   : out std_logic;
+    master0_STB_O   : out std_logic;
+    master0_SEL_O   : out std_logic_vector(DATA_WIDTH/8-1 downto 0);
+    master0_CTI_O   : out std_logic_vector(2 downto 0);
+    master0_BTE_O   : out std_logic_vector(1 downto 0);
+    master0_LOCK_O  : out std_logic;
+    master0_STALL_I : in  std_logic                               := '0';
+    master0_DAT_I   : in  std_logic_vector(DATA_WIDTH-1 downto 0) := (others => '0');
+    master0_ACK_I   : in  std_logic                               := '0';
+    master0_ERR_I   : in  std_logic                               := '0';
+    master0_RTY_I   : in  std_logic                               := '0';
 
+    master1_ADR_O   : out std_logic_vector(31 downto 0);
+    master1_DAT_O   : out std_logic_vector(DATA_WIDTH-1 downto 0);
+    master1_WE_O    : out std_logic;
+    master1_CYC_O   : out std_logic;
+    master1_STB_O   : out std_logic;
+    master1_SEL_O   : out std_logic_vector(DATA_WIDTH/8-1 downto 0);
+    master1_CTI_O   : out std_logic_vector(2 downto 0);
+    master1_BTE_O   : out std_logic_vector(1 downto 0);
+    master1_LOCK_O  : out std_logic;
+    master1_STALL_I : in  std_logic                               := '0';
+    master1_DAT_I   : in  std_logic_vector(DATA_WIDTH-1 downto 0) := (others => '0');
+    master1_ACK_I   : in  std_logic                               := '0';
+    master1_ERR_I   : in  std_logic                               := '0';
+    master1_RTY_I   : in  std_logic                               := '0';
 
-      master2_ADR_O   : out std_logic_vector(31 downto 0);
-      master2_DAT_O   : out std_logic_vector(DATA_WIDTH-1 downto 0);
-      master2_WE_O    : out std_logic;
-      master2_CYC_O   : out std_logic;
-      master2_STB_O   : out std_logic;
-      master2_SEL_O   : out std_logic_vector(DATA_WIDTH/8-1 downto 0);
-      master2_CTI_O   : out std_logic_vector(2 downto 0);
-      master2_BTE_O   : out std_logic_vector(1 downto 0);
-      master2_LOCK_O  : out std_logic;
-      master2_STALL_I : in  std_logic;
-      master2_DAT_I   : in  std_logic_vector(DATA_WIDTH-1 downto 0);
-      master2_ACK_I   : in  std_logic;
-      master2_ERR_I   : in  std_logic;
-      master2_RTY_I   : in  std_logic
-      );
+    master2_ADR_O   : out std_logic_vector(31 downto 0);
+    master2_DAT_O   : out std_logic_vector(DATA_WIDTH-1 downto 0);
+    master2_WE_O    : out std_logic;
+    master2_CYC_O   : out std_logic;
+    master2_STB_O   : out std_logic;
+    master2_SEL_O   : out std_logic_vector(DATA_WIDTH/8-1 downto 0);
+    master2_CTI_O   : out std_logic_vector(2 downto 0);
+    master2_BTE_O   : out std_logic_vector(1 downto 0);
+    master2_LOCK_O  : out std_logic;
+    master2_STALL_I : in  std_logic                               := '0';
+    master2_DAT_I   : in  std_logic_vector(DATA_WIDTH-1 downto 0) := (others => '0');
+    master2_ACK_I   : in  std_logic                               := '0';
+    master2_ERR_I   : in  std_logic                               := '0';
+    master2_RTY_I   : in  std_logic                               := '0';
 
+    master3_ADR_O   : out std_logic_vector(31 downto 0);
+    master3_DAT_O   : out std_logic_vector(DATA_WIDTH-1 downto 0);
+    master3_WE_O    : out std_logic;
+    master3_CYC_O   : out std_logic;
+    master3_STB_O   : out std_logic;
+    master3_SEL_O   : out std_logic_vector(DATA_WIDTH/8-1 downto 0);
+    master3_CTI_O   : out std_logic_vector(2 downto 0);
+    master3_BTE_O   : out std_logic_vector(1 downto 0);
+    master3_LOCK_O  : out std_logic;
+    master3_STALL_I : in  std_logic                               := '0';
+    master3_DAT_I   : in  std_logic_vector(DATA_WIDTH-1 downto 0) := (others => '0');
+    master3_ACK_I   : in  std_logic                               := '0';
+    master3_ERR_I   : in  std_logic                               := '0';
+    master3_RTY_I   : in  std_logic                               := '0';
+
+    master4_ADR_O   : out std_logic_vector(31 downto 0);
+    master4_DAT_O   : out std_logic_vector(DATA_WIDTH-1 downto 0);
+    master4_WE_O    : out std_logic;
+    master4_CYC_O   : out std_logic;
+    master4_STB_O   : out std_logic;
+    master4_SEL_O   : out std_logic_vector(DATA_WIDTH/8-1 downto 0);
+    master4_CTI_O   : out std_logic_vector(2 downto 0);
+    master4_BTE_O   : out std_logic_vector(1 downto 0);
+    master4_LOCK_O  : out std_logic;
+    master4_STALL_I : in  std_logic                               := '0';
+    master4_DAT_I   : in  std_logic_vector(DATA_WIDTH-1 downto 0) := (others => '0');
+    master4_ACK_I   : in  std_logic                               := '0';
+    master4_ERR_I   : in  std_logic                               := '0';
+    master4_RTY_I   : in  std_logic                               := '0');
   end component wb_splitter;
+
+  component pmod_mic_wb is
+    generic (
+      PORTS          : positive range 1 to 8 := 1;
+      CLK_FREQ_HZ    : positive              := 25000000;
+      SAMPLE_RATE_HZ : positive              := 48000
+      );
+    port (
+      clk   : in std_logic;
+      reset : in std_logic;
+
+      --PmodMic
+      sdata : in  std_logic_vector(PORTS-1 downto 0);
+      sclk  : out std_logic_vector(PORTS-1 downto 0);
+      cs_n  : out std_logic_vector(PORTS-1 downto 0);
+
+      --WISHBONE
+      pmodmic_adr_i : in     std_logic_vector(7 downto 0);
+      pmodmic_dat_i : in     std_logic_vector(15 downto 0);
+      pmodmic_dat_o : out    std_logic_vector(15 downto 0);
+      pmodmic_stb_i : in     std_logic;
+      pmodmic_cyc_i : in     std_logic;
+      pmodmic_we_i  : in     std_logic;
+      pmodmic_sel_i : in     std_logic_vector(3 downto 0);
+      pmodmic_cti_i : in     std_logic_vector(2 downto 0);
+      pmodmic_bte_i : in     std_logic_vector(1 downto 0);
+      pmodmic_ack_o : buffer std_logic
+      );
+  end component pmod_mic_wb;
 
 
 end package;

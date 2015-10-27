@@ -21,7 +21,6 @@ proc com {} {
 							hdl/top_util_pkg.vhd \
 							hdl/top_component_pkg.vhd\
 							hdl/wb_ram.vhd 		  \
-							hdl/top.vhd				  \
 							hdl/wb_arbiter.vhd \
 							hdl/wb_splitter.vhd \
 							hdl/wb_pio.vhd \
@@ -34,6 +33,7 @@ proc com {} {
 							hdl/uart_rd1042/rxcver_fifo.vhd\
 							hdl/uart_rd1042/intface.vhd	 \
 							hdl/uart_rd1042/txmitt.vhd     \
+							hdl/top.vhd				  \
 							hdl/top_tb.vhd]
 
 

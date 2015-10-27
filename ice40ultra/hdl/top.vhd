@@ -12,11 +12,15 @@ entity top is
     clk       : in std_logic;
     reset_btn : in std_logic;
 
+    --uart
     cts : in  std_logic;
     rts : out std_logic;
     txd : out std_logic;
     rxd : in  std_logic;
-
+    --pmodmic0
+    --mic0_cs_n : out std_logic; --pmod(0)
+    --mic0_sdata : in std_logic; --pmod(2)
+    --mic0_sclk : out std_logic; --pmod(3)
 
     R_LED  : out std_logic;
     G_LED  : out std_logic;
@@ -98,6 +102,22 @@ architecture rtl of top is
   signal led_err_o   : std_logic;
   signal led_rty_o   : std_logic;
 
+  signal pmod_mic_adr_i   : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal pmod_mic_dat_i   : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal pmod_mic_dat_o   : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal pmod_mic_stb_i   : std_logic;
+  signal pmod_mic_cyc_i   : std_logic;
+  signal pmod_mic_we_i    : std_logic;
+  signal pmod_mic_sel_i   : std_logic_vector(3 downto 0);
+  signal pmod_mic_cti_i   : std_logic_vector(2 downto 0);
+  signal pmod_mic_bte_i   : std_logic_vector(1 downto 0);
+  signal pmod_mic_ack_o   : std_logic;
+  signal pmod_mic_stall_o : std_logic;
+  signal pmod_mic_lock_i  : std_logic;
+  signal pmod_mic_err_o   : std_logic;
+  signal pmod_mic_rty_o   : std_logic;
+
+
   signal data_uart_adr_i   : std_logic_vector(REGISTER_SIZE-1 downto 0);
   signal data_uart_dat_i   : std_logic_vector(REGISTER_SIZE-1 downto 0);
   signal data_uart_dat_o   : std_logic_vector(REGISTER_SIZE-1 downto 0);
@@ -131,15 +151,15 @@ architecture rtl of top is
 
 
 
-  signal data_ram_stb   : std_logic;
-  signal data_ram_ack   : std_logic;
-  signal data_ram_stall : std_logic;
-  signal data_ram_rdata : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  --signal data_ram_stb   : std_logic;
+  --signal data_ram_ack   : std_logic;
+  --signal data_ram_stall : std_logic;
+  --signal data_ram_rdata : std_logic_vector(REGISTER_SIZE-1 downto 0);
 
-  signal led_stb   : std_logic;
-  signal led_ack   : std_logic;
-  signal led_stall : std_logic;
-  signal led_rdata : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  --signal led_stb   : std_logic;
+  --signal led_ack   : std_logic;
+  --signal led_stall : std_logic;
+  --signal led_rdata : std_logic_vector(REGISTER_SIZE-1 downto 0);
 
   signal led_pio_out      : std_logic_vector(REGISTER_SIZE-1 downto 0);
   type data_port_choice_t is (RAM_CHOICE, LED_CHOICE, UART_CHOICE);
@@ -380,6 +400,7 @@ begin
       master1_ERR_I   => led_ERR_O,
       master1_RTY_I   => led_RTY_O,
 
+
       master2_ADR_O   => data_uart_ADR_I,
       master2_DAT_O   => data_uart_DAT_I,
       master2_WE_O    => data_uart_WE_I,
@@ -393,7 +414,22 @@ begin
       master2_DAT_I   => data_uart_DAT_O,
       master2_ACK_I   => data_uart_ACK_O,
       master2_ERR_I   => data_uart_ERR_O,
-      master2_RTY_I   => data_uart_RTY_O);
+      master2_RTY_I   => data_uart_RTY_O,
+
+      master3_ADR_O   => pmod_mic_ADR_I,
+      master3_DAT_O   => pmod_mic_DAT_I,
+      master3_WE_O    => pmod_mic_WE_I,
+      master3_CYC_O   => pmod_mic_CYC_I,
+      master3_STB_O   => pmod_mic_STB_I,
+      master3_SEL_O   => pmod_mic_SEL_I,
+      master3_CTI_O   => pmod_mic_CTI_I,
+      master3_BTE_O   => pmod_mic_BTE_I,
+      master3_LOCK_O  => pmod_mic_LOCK_I,
+      master3_STALL_I => pmod_mic_STALL_O,
+      master3_DAT_I   => pmod_mic_DAT_O,
+      master3_ACK_I   => pmod_mic_ACK_O,
+      master3_ERR_I   => pmod_mic_ERR_O,
+      master3_RTY_I   => pmod_mic_RTY_O);
 
 
   instr_stall_i <= uart_stall or mem_instr_stall;
@@ -419,6 +455,30 @@ begin
       ERR_O   => led_ERR_O,
       RTY_O   => led_RTY_O,
       output  => led_pio_out);
+
+  --pmod_mic : component pmod_mic_wb
+  --  generic map(
+  --    PORTS => 1,
+  --    CLK_FREQ_HZ => SYSCLK_FREQ_HZ,
+  --    SAMPLE_RATE_HZ => 44100           --44.1kHz
+  --    )
+  --  port map(
+  --    clk => clk,
+  --    reset => reset,
+  --    sdata => mic_sdata,
+  --    sclk => mic_sclk,
+  --    cs_n => mic_cs_n,
+  --    pmodmic_adr_i  => pmod_mic_ADR_I,
+  --    pmodmic_dat_i  => pmod_mic_DAT_I(15 downto 0),
+  --    pmodmic_dat_o  => pmod_mic_DAT_O(15 downto 0),
+  --    pmodmic_stb_i  => pmod_mic_STB_I,
+  --    pmodmic_cyc_i  => pmod_mic_CYC_I,
+  --    pmodmic_we_i   => pmod_mic_WE_I,
+  --    pmodmic_sel_i  => pmod_mic_SEL_I,
+  --    pmodmic_cti_i  => pmod_mic_CTI_I,
+  --    pmodmic_bte_i  => pmod_mic_BTE_I,
+  --    pmodmic_ack_o  => pmod_mic_ACK_O);
+  --pmod_mic_STALL_O <= not pmod_mic_ACK_O;
 
 -----------------------------------------------------------------------------
 -- Debugging logic (PC over UART)
@@ -604,8 +664,8 @@ begin
   uart_data_bus : if not DEBUG_ENABLE generate
   begin
     uart_adr_i        <= data_uart_adr_i(9 downto 2);
-    uart_dat_i        <= data_uart_dat_i(23 downto 16) & data_uart_dat_i(31 downto 24);
-    data_uart_dat_o   <= uart_dat_o(7 downto 0) & uart_dat_o(15 downto 8) & x"0000";
+    uart_dat_i        <= data_uart_dat_i(15 downto 0) ;
+    data_uart_dat_o   <= x"0000" & uart_dat_o(15 downto 0) ;
     uart_stb_i        <= data_uart_stb_i;
     uart_cyc_i        <= data_uart_cyc_i;
     uart_we_i         <= data_uart_we_i;
