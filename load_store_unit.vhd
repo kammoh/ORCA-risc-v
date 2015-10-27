@@ -90,28 +90,28 @@ begin
   address_unaligned <= std_logic_vector(unsigned(sign_extension(REGISTER_SIZE-12-1 downto 0) &
                                                  imm)+unsigned(base_address));
   --set the byte enables correctly, (Remember little endian)
-  byte_en <= "1000" when fun3 = BYTE_SIZE and address_unaligned(1 downto 0) = "00" else
-             "0100" when fun3 = BYTE_SIZE and address_unaligned(1 downto 0) = "01" else
-             "0010" when fun3 = BYTE_SIZE and address_unaligned(1 downto 0) = "10" else
-             "0001" when fun3 = BYTE_SIZE and address_unaligned(1 downto 0) = "11" else
-             "1100" when fun3 = HALF_SIZE and address_unaligned(1 downto 0) = "00" else
-             "0011" when fun3 = HALF_SIZE and address_unaligned(1 downto 0) = "10" else
+  byte_en <= "0001" when fun3 = BYTE_SIZE and address_unaligned(1 downto 0) = "00" else
+             "0010" when fun3 = BYTE_SIZE and address_unaligned(1 downto 0) = "01" else
+             "0100" when fun3 = BYTE_SIZE and address_unaligned(1 downto 0) = "10" else
+             "1000" when fun3 = BYTE_SIZE and address_unaligned(1 downto 0) = "11" else
+             "0011" when fun3 = HALF_SIZE and address_unaligned(1 downto 0) = "00" else
+             "1100" when fun3 = HALF_SIZE and address_unaligned(1 downto 0) = "10" else
              "1111";
 
   --move bytes around to be placed at correct address
-  w0 <= source_data(7 downto 0);
-  w1 <= source_data(7 downto 0) when address_unaligned(1 downto 0) = "01" else
-        source_data(15 downto 8);
-  w2 <= source_data(7 downto 0) when address_unaligned(1 downto 0) = "10" else
-        source_data(23 downto 16);
+
   w3 <= source_data(7 downto 0) when address_unaligned(1 downto 0) = "11" else
         source_data(15 downto 8) when address_unaligned(1 downto 0) = "10" else
         source_data(31 downto 24);
-
+  w2 <= source_data(7 downto 0) when address_unaligned(1 downto 0) = "10" else
+        source_data(23 downto 16);
+  w1 <= source_data(7 downto 0) when address_unaligned(1 downto 0) = "01" else
+        source_data(15 downto 8);
+  w0 <= source_data(7 downto 0);
 
 
   --little endian
-  write_data <= w0 & w1 & w2 & w3;
+  write_data <= w3 & w2 & w1 & w0;
   --align to word boundary
   address    <= address_unaligned(REGISTER_SIZE-1 downto 2) & "00";
 
@@ -138,14 +138,14 @@ begin
   end process;
 
   --sort the read data into to correct byte in the register
-  r0 <= read_data(31 downto 24) when alignment = "00" else
-        read_data(23 downto 16) when alignment = "01" else
-        read_data(15 downto 8)  when alignment = "10" else
-        read_data(7 downto 0);
-  r1 <= read_data(23 downto 16) when alignment = "00" else
-        read_data(7 downto 0);
-  r2 <= read_data(15 downto 8);
-  r3 <= read_data(7 downto 0);
+  r3 <= read_data(31 downto 24);
+  r2 <= read_data(23 downto 16);
+  r1 <= read_data(15 downto 8) when alignment = "00" else
+        read_data(31 downto 24);
+  r0 <= read_data(7 downto 0) when alignment = "00" else
+        read_data(15 downto 8)  when alignment = "01" else
+        read_data(23 downto 16) when alignment = "10" else
+        read_data(31 downto 24);
 
   --zero/sign extend the read data
   with latched_fun3 select
@@ -156,7 +156,7 @@ begin
     x"0000"&r1 & r0                                          when UHALF_SIZE,
     r3 &r2 & r1 & r0                                         when others;
 
-  data_enable <=  readvalid;
-  data_out <= fixed_data;
+  data_enable <= readvalid;
+  data_out    <= fixed_data;
 
 end architecture;

@@ -82,8 +82,7 @@ begin  -- architecture rtl
 
 
 --unpack instruction
-  instr <= (read_data(7 downto 0) & read_data(15 downto 8) &
-            read_data(23 downto 16) & read_data(31 downto 24));
+  instr <= read_data;
 
   valid_instr <= read_datavalid and not correction_en and not stall;
 

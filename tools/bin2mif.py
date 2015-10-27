@@ -23,7 +23,7 @@ with open(f) as ff:
             done=1
             line +="\0"
 
-        for i in line:
+        for i in line[::-1]:
             k=k*256+ord(i)
         words.append(k)
         depth+=1

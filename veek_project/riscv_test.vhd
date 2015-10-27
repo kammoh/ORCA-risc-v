@@ -95,10 +95,10 @@ begin
 
 --  hex_input(15 downto 0)  <= pc(15 downto 0);
 --  hex_input(31 downto 16) <= th(15 downto 0);
-  hex_input <= le2be(hex3_export) when sw(3) = '1' else
-               le2be(hex2_export) when sw(2) = '1' else
-               le2be(hex1_export) when sw(1) = '1' else
-               le2be(hex0_export) when sw(0) = '1' else
+  hex_input <= hex3_export when sw(3) = '1' else
+               hex2_export when sw(2) = '1' else
+               hex1_export when sw(1) = '1' else
+               hex0_export when sw(0) = '1' else
                pc;
   ss0 : component sevseg_conv
     port map (
@@ -133,7 +133,7 @@ begin
       input  => hex_input(31 downto 28),
       output => HEX7);
 
-  LEDR             <= le2be(ledr_export)(17 downto 0);
-  LEDG(6 downto 0) <= le2be(ledg_export)(6 downto 0);
+  LEDR             <= ledr_export(17 downto 0);
+  LEDG(6 downto 0) <= ledg_export(6 downto 0);
   LEDG(7)          <= reset;
 end;
