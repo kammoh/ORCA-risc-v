@@ -39,7 +39,7 @@ architecture rtl of system_calls is
   alias zimm   : std_logic_vector(4 downto 0) is instruction(19 downto 15);
   alias func3  : std_logic_vector(2 downto 0) is instruction(14 downto 12);
   alias dest   : std_logic_vector(4 downto 0) is instruction(11 downto 7);
-  alias opcode : std_logic_vector(6 downto 0) is instruction(6 downto 0);
+  alias opcode : std_logic_vector(4 downto 0) is instruction(6 downto 2);
 
   signal bad_instruction : std_logic;
 
@@ -140,14 +140,8 @@ begin  -- architecture rtl
 
   begin  -- process
     if reset = '1' then
-      cycles                <= (others => '0');
-      instr_retired         <= (others => '0');
-      use_after_load_stalls <= (others => '0');
-      jal_instructions      <= (others => '0');
-      jalr_instructions     <= (others => '0');
-      branch_mispredicts    <= (others => '0');
-      other_flush           <= (others => '0');
-      load_stalls           <= (others => '0');
+      cycles        <= (others => '0');
+      instr_retired <= (others => '0');
 
     elsif rising_edge(clk) then
       instr  <= instruction;
@@ -269,53 +263,52 @@ begin  -- architecture rtl
   output_proc : process(clk) is
   begin
     if rising_edge(clk) then
-      if reset = '1' then
-        mtohost <= (others => '0');
-      else
-        --writeback to register file
-        wb_data    <= csr_read_val;
-        pc_corr_en <= '0';
-        wb_en      <= '0';
-        if valid = '1' then
-          if opcode = "1110011" then
-            if func3 /= "000" and func3 /= "100" then
-              wb_en <= '1';
-            end if;
-
-            if zimm & func3 = "00000"&"000" then
-              if CSR = x"000" then      --ECALL
-                mcause_i      <= '0';
-                mcause_ex     <= MMODE_ECALL;
-                pc_corr_en    <= '1';
-                pc_correction <= MACHINE_MODE_TRAP;
-                mepc          <= current_pc;
-              elsif CSR = x"001" then   --EBREAK
-                mcause_i      <= '0';
-                mcause_ex     <= BREAKPOINT;
-                pc_corr_en    <= '1';
-                pc_correction <= MACHINE_MODE_TRAP;
-                mepc          <= current_pc;
-              elsif CSR = x"100" then   --ERET
-                pc_corr_en    <= '1';
-                pc_correction <= mepc;
-              end if;
-            else
-              --writeback to CSR
-              case CSR is
-                --read-write registers
-                when CSR_MTOHOST =>
-                  mtohost <= csr_write_val;
-                when CSR_MEPC =>
-                  mepc <= csr_write_val;
-                when others =>
-                  null;
-              end case;
-
-            end if;  --system_calls
-
+      --writeback to register file
+      wb_data    <= csr_read_val;
+      pc_corr_en <= '0';
+      wb_en      <= '0';
+      if valid = '1' then
+        if opcode = "11100" then --SYSTEM OP CODE
+          if func3 /= "000" and func3 /= "100" then
+            wb_en <= valid;
           end if;
 
-        end if;  --opcode
+          if zimm & func3 = "00000"&"000" then
+            if CSR = x"000" then        --ECALL
+              mcause_i      <= '0';
+              mcause_ex     <= MMODE_ECALL;
+              pc_corr_en    <= '1';
+              pc_correction <= MACHINE_MODE_TRAP;
+              mepc          <= current_pc;
+            elsif CSR = x"001" then     --EBREAK
+              mcause_i      <= '0';
+              mcause_ex     <= BREAKPOINT;
+              pc_corr_en    <= '1';
+              pc_correction <= MACHINE_MODE_TRAP;
+              mepc          <= current_pc;
+            elsif CSR = x"100" then     --ERET
+              pc_corr_en    <= '1';
+              pc_correction <= mepc;
+            end if;
+          else
+            --writeback to CSR
+            case CSR is
+              --read-write registers
+              when CSR_MTOHOST =>
+                mtohost <= csr_write_val;
+              when CSR_MEPC =>
+                mepc <= csr_write_val;
+              when others =>
+                null;
+            end case;
+
+          end if;  --system_calls
+
+        end if;
+
+      end if;  --opcode
+      if reset = '1' then
+        mtohost <= (others => '0');
       end if;  --reset
     end if;  --clk
   end process;

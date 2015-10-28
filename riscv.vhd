@@ -158,7 +158,6 @@ begin  -- architecture rtl
       --inputs jus,t for carrying to next pipeline stage
       pc_next_in     => d_next_pc,
       pc_curr_in     => d_pc,
-      instr_in       => d_instr,
       pc_next_out    => e_next_pc,
       pc_curr_out    => e_pc,
       instr_out      => e_instr,

@@ -13,15 +13,9 @@ entity top is
     reset_btn : in std_logic;
 
     --uart
-    cts : in  std_logic;
-    rts : out std_logic;
-    txd : out std_logic;
-    rxd : in  std_logic;
+    uart_pmod : inout std_logic_vector(3 downto 0);
     --pmodmic0
-    --mic0_cs_n : out std_logic; --pmod(0)
-    --mic0_sdata : in std_logic; --pmod(2)
-    --mic0_sclk : out std_logic; --pmod(3)
-
+    mic0_pmod : inout std_logic_vector(3 downto 0);
     R_LED  : out std_logic;
     G_LED  : out std_logic;
     B_LED  : out std_logic;
@@ -148,19 +142,6 @@ architecture rtl of top is
   signal data_ram_err_o   : std_logic;
   signal data_ram_rty_o   : std_logic;
 
-
-
-
-  --signal data_ram_stb   : std_logic;
-  --signal data_ram_ack   : std_logic;
-  --signal data_ram_stall : std_logic;
-  --signal data_ram_rdata : std_logic_vector(REGISTER_SIZE-1 downto 0);
-
-  --signal led_stb   : std_logic;
-  --signal led_ack   : std_logic;
-  --signal led_stall : std_logic;
-  --signal led_rdata : std_logic_vector(REGISTER_SIZE-1 downto 0);
-
   signal led_pio_out      : std_logic_vector(REGISTER_SIZE-1 downto 0);
   type data_port_choice_t is (RAM_CHOICE, LED_CHOICE, UART_CHOICE);
   signal data_port_choice : data_port_choice_t;
@@ -209,24 +190,27 @@ architecture rtl of top is
   constant HEARTBEAT_COUNTER_BITS : positive                                    := log2(SYSCLK_FREQ_HZ);  -- ~1 second to roll over
   signal heartbeat_counter        : unsigned(HEARTBEAT_COUNTER_BITS-1 downto 0) := (others => '0');
 
-  signal auto_reset_count : unsigned(3 downto 0) := "1111";
-  signal auto_reset       : std_logic            := '1';
+  constant MICS    : natural := 1;
+  signal mic_sdata : std_logic_vector(MICS-1 downto 0);
+  signal mic_sclk  : std_logic_vector(MICS-1 downto 0);
+  signal mic_cs_n  : std_logic_vector(MICS-1 downto 0);
+
+
+  alias cts : std_logic is uart_pmod(3);
+  alias rts : std_logic is uart_pmod(0);
+  alias txd : std_logic is uart_pmod(2);
+  alias rxd : std_logic is uart_pmod(1);
+
+  alias mic0_cs_n  : std_logic is mic0_pmod(0);  --pmod(0)
+  alias mic0_nc    : std_logic is mic0_pmod(1);  --not connected
+  alias mic0_sdata : std_logic is mic0_pmod(2);  --pmod(2)
+  alias mic0_sclk  : std_logic is mic0_pmod(3);  --pmod(3)
+
+
 begin
 
 
-  auto_reset_proc : process(clk)
-  begin
-    if rising_edge(clk) then
-      if auto_reset = '1' then
-        auto_reset_count <= auto_reset_count -1;
-        if auto_reset_count = "0000" then
-          auto_reset <= '0';
-        end if;
-      end if;
-    end if;
-  end process;
-  reset <= not reset_btn or auto_reset;
---  reset <= not reset_btn;
+  reset <= not reset_btn;
 
   mem : component wb_ram
     generic map(
@@ -349,8 +333,9 @@ begin
   split_wb_data : component wb_splitter
     generic map(
       master0_address => (16#00000000#, 4*1024),
-      master1_address => (16#00010000#, 8),
-      master2_address => (16#00020000#, 256))
+      master1_address => (16#00010000#, 0),
+      master2_address => (16#00020000#, 256),
+      master3_address => (16#00030000#, 256))
     port map(
       clk_i => clk,
       rst_i => reset,
@@ -456,30 +441,37 @@ begin
       RTY_O   => led_RTY_O,
       output  => led_pio_out);
 
-  --pmod_mic : component pmod_mic_wb
-  --  generic map(
-  --    PORTS => 1,
-  --    CLK_FREQ_HZ => SYSCLK_FREQ_HZ,
-  --    SAMPLE_RATE_HZ => 44100           --44.1kHz
-  --    )
-  --  port map(
-  --    clk => clk,
-  --    reset => reset,
-  --    sdata => mic_sdata,
-  --    sclk => mic_sclk,
-  --    cs_n => mic_cs_n,
-  --    pmodmic_adr_i  => pmod_mic_ADR_I,
-  --    pmodmic_dat_i  => pmod_mic_DAT_I(15 downto 0),
-  --    pmodmic_dat_o  => pmod_mic_DAT_O(15 downto 0),
-  --    pmodmic_stb_i  => pmod_mic_STB_I,
-  --    pmodmic_cyc_i  => pmod_mic_CYC_I,
-  --    pmodmic_we_i   => pmod_mic_WE_I,
-  --    pmodmic_sel_i  => pmod_mic_SEL_I,
-  --    pmodmic_cti_i  => pmod_mic_CTI_I,
-  --    pmodmic_bte_i  => pmod_mic_BTE_I,
-  --    pmodmic_ack_o  => pmod_mic_ACK_O);
-  --pmod_mic_STALL_O <= not pmod_mic_ACK_O;
+  pmod_mic : component pmod_mic_wb
+    generic map(
+      PORTS          => 1,
+      CLK_FREQ_HZ    => SYSCLK_FREQ_HZ,
+      SAMPLE_RATE_HZ => 44100           --44.1kHz
+      )
+    port map(
+      clk           => clk,
+      reset         => reset,
+      sdata         => mic_sdata,
+      sclk          => mic_sclk,
+      cs_n          => mic_cs_n,
+      pmodmic_adr_i => pmod_mic_ADR_I(7 downto 0),
+      pmodmic_dat_i => pmod_mic_DAT_I(15 downto 0),
+      pmodmic_dat_o => pmod_mic_DAT_O(15 downto 0),
+      pmodmic_stb_i => pmod_mic_STB_I,
+      pmodmic_cyc_i => pmod_mic_CYC_I,
+      pmodmic_we_i  => pmod_mic_WE_I,
+      pmodmic_sel_i => pmod_mic_SEL_I,
+      pmodmic_cti_i => pmod_mic_CTI_I,
+      pmodmic_bte_i => pmod_mic_BTE_I,
+      pmodmic_ack_o => pmod_mic_ACK_O);
+  pmod_mic_STALL_O <= not pmod_mic_ACK_O;
 
+  mic0_pmod(0)  <= mic_cs_n(0);
+  mic0_pmod(1)  <= 'Z';
+  mic0_pmod(2)  <= 'Z';
+  mic_sdata(0) <= mic0_pmod(2);
+  mic0_pmod(3)  <= mic_sclk(0);
+
+  --mic0_pmod(2)   <= 'Z';
 -----------------------------------------------------------------------------
 -- Debugging logic (PC over UART)
 -----------------------------------------------------------------------------
@@ -593,14 +585,17 @@ begin
     uart_stall      <= '0';
   end generate no_debug_gen;
 
-                                        -----------------------------------------------------------------------------
-                                        -- UART signals and interface
-                                        -----------------------------------------------------------------------------
-                                        --PmodUSBUART (0->RTS, 1->RXD, 2->TXD, 3->CTS)
+  -----------------------------------------------------------------------------
+  -- UART signals and interface
+  -----------------------------------------------------------------------------
+  --PmodUSBUART (0->RTS, 1->RXD, 2->TXD, 3->CTS)
   cts_n     <= not cts;
+  cts       <= 'Z';
   txd       <= serial_out;
   serial_in <= rxd;
+  rxd       <= 'Z';
   rts       <= rts_n;
+
   the_uart : uart_core
     generic map (
       CLK_IN_MHZ => (SYSCLK_FREQ_HZ+500000)/1000000,
@@ -664,8 +659,8 @@ begin
   uart_data_bus : if not DEBUG_ENABLE generate
   begin
     uart_adr_i        <= data_uart_adr_i(9 downto 2);
-    uart_dat_i        <= data_uart_dat_i(15 downto 0) ;
-    data_uart_dat_o   <= x"0000" & uart_dat_o(15 downto 0) ;
+    uart_dat_i        <= data_uart_dat_i(15 downto 0);
+    data_uart_dat_o   <= x"0000" & uart_dat_o(15 downto 0);
     uart_stb_i        <= data_uart_stb_i;
     uart_cyc_i        <= data_uart_cyc_i;
     uart_we_i         <= data_uart_we_i;

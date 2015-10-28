@@ -58,8 +58,8 @@ architecture behavioural of execute is
     instruction(19 downto 15);
   alias rs2 : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0) is
     instruction(24 downto 20);
-  alias opcode : std_logic_vector(6 downto 0) is
-    instruction(6 downto 0);
+  alias opcode : std_logic_vector(4 downto 0) is
+    instruction(6 downto 2);
 
   -- various writeback sources
   signal br_data_out  : std_logic_vector(REGISTER_SIZE-1 downto 0);
@@ -112,11 +112,11 @@ architecture behavioural of execute is
 
   signal finished_instr : std_logic;
 
-  constant LUI_OP   : std_logic_vector(6 downto 0) := "0110111";
-  constant AUIPC_OP : std_logic_vector(6 downto 0) := "0010111";
-  constant ALU_OP   : std_logic_vector(6 downto 0) := "0110011";
-  constant ALUI_OP  : std_logic_vector(6 downto 0) := "0010011";
-  constant CSR_OP   : std_logic_vector(6 downto 0) := "1110011";
+  constant LUI_OP   : std_logic_vector(4 downto 0) := "01101";
+  constant AUIPC_OP : std_logic_vector(4 downto 0) := "00101";
+  constant ALU_OP   : std_logic_vector(4 downto 0) := "01100";
+  constant ALUI_OP  : std_logic_vector(4 downto 0) := "00100";
+  constant CSR_OP   : std_logic_vector(4 downto 0) := "11100";
 begin
 
   --use the previous clock's writeback data when appropriate
@@ -180,74 +180,66 @@ begin
     alias ni_rs2         : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0) is next_instr(24 downto 20);
   begin
     if rising_edge(clk) then
+      if stall_pipeline = '1' then
+        next_instr := instruction;
+      else
+        next_instr := subseq_instr;
+      end if;
+
+      current_alu := (opcode = LUI_OP or
+                      opcode = AUIPC_OP or
+                      opcode = ALU_OP or
+                      opcode = ALUI_OP or
+                      opcode = CSR_OP);
+
+      --calculate where the next forward data will go
+
+      if current_alu and rd = ni_rs1 and rd /= ZERO and valid_input = '1' then
+        rs1_mux <= "00";
+      elsif ld_data_en = '1' and rd_latch = ni_rs1 and rd_latch /= ZERO then
+        rs1_mux <= "01";
+      elsif stall_pipeline = '1' then
+        rs1_mux <= "10";
+      else
+        rs1_mux <= "11";
+      end if;
+
+
+      if current_alu and rd = ni_rs2 and rd /= ZERO and valid_input = '1' then
+        rs2_mux <= "00";
+      elsif ld_data_en = '1' and rd_latch = ni_rs2 and rd_latch /= ZERO then
+        rs2_mux <= "01";
+      elsif stall_pipeline = '1' then
+        rs2_mux <= "10";
+      else
+        rs2_mux <= "11";
+      end if;
+
+
+      --save various flip flops for forwarding
+      --and writeback
+      rd_latch     <= rd;
+      ld_latch_out <= ld_data_out;
+      if rd_latch /= ZERO then
+        ld_latch_en <= ld_data_en;
+      else
+        ld_latch_en <= '0';
+      end if;
+      ld_rd <= rd_latch;
+
+
+      --save rs2 during a stall
+      saved_rs1 <= rs1_data_fwd;
+      saved_rs2 <= rs2_data_fwd;
+
+      saved_rs_en <= stall_pipeline;
       if reset = '1' then
         ld_latch_en <= '0';
         saved_rs_en <= '0';
-      else
-        if stall_pipeline = '1' then
-          next_instr := instruction;
-        else
-          next_instr := subseq_instr;
-        end if;
-
-        current_alu := (instruction(6 downto 0) = LUI_OP or
-                        instruction(6 downto 0) = AUIPC_OP or
-                        instruction(6 downto 0) = ALU_OP or
-                        instruction(6 downto 0) = ALUI_OP or
-                        instruction(6 downto 0) = CSR_OP);
-
-        --calculate where the next forward data will go
-
-        if current_alu and rd = ni_rs1 and rd /= ZERO and valid_input = '1' then
-          rs1_mux <= "00";
-        elsif ld_data_en = '1' and rd_latch = ni_rs1 and rd_latch /= ZERO then
-          rs1_mux <= "01";
-        elsif stall_pipeline = '1' then
-          rs1_mux <= "10";
-        else
-          rs1_mux <= "11";
-        end if;
-
-
-        if current_alu and rd = ni_rs2 and rd /= ZERO and valid_input = '1' then
-          rs2_mux <= "00";
-        elsif ld_data_en = '1' and rd_latch = ni_rs2 and rd_latch /= ZERO then
-          rs2_mux <= "01";
-        elsif stall_pipeline = '1' then
-          rs2_mux <= "10";
-        else
-          rs2_mux <= "11";
-        end if;
-
-
-        --save various flip flops for forwarding
-        --and writeback
-          rd_latch <= rd;
-        ld_latch_out <= ld_data_out;
-        if rd_latch /= ZERO then
-          ld_latch_en <= ld_data_en;
-        else
-          ld_latch_en <= '0';
-        end if;
-        ld_rd <= rd_latch;
-
-
-        --save rs2 during a stall
-        if stall_pipeline = '1' and saved_rs_en = '0' then
-          saved_rs1 <= rs1_data_fwd;
-          saved_rs2 <= rs2_data_fwd;
-
-          saved_rs_en <= '1';
-        elsif stall_pipeline = '0' then
-          saved_rs_en <= '0';
-        end if;
-
       end if;
-
     end if;
-
-
   end process;
+
   alu : component arithmetic_unit
     generic map (
       INSTRUCTION_SIZE    => INSTRUCTION_SIZE,

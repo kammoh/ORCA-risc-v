@@ -71,7 +71,6 @@ package rv_components is
       --inputs just for carrying to next pipeline stage
       pc_next_in     : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
       pc_curr_in     : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
-      instr_in       : in  std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
       pc_next_out    : out std_logic_vector(REGISTER_SIZE-1 downto 0);
       pc_curr_out    : out std_logic_vector(REGISTER_SIZE-1 downto 0);
       instr_out      : out std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
