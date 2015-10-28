@@ -160,10 +160,4 @@ begin
     mic_data_out(gport) <= (others => '0');
   end generate no_mic_gen;
 
-  assert CLK_FREQ_HZ >= 12500000 report
-    "Error, input clock frequency (" &
-    positive'image(CLK_FREQ_HZ) &
-    " Hz) must be greater than or equal to 12.5MHz"
-    severity failure;
-
 end architecture rtl;
