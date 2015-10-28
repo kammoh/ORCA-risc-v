@@ -41,12 +41,8 @@ end;
 
 architecture behavioural of decode is
 
-  alias rd : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0) is
-    instruction(11 downto 7);
-  alias rs1 : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0) is
-    instruction(19 downto 15);
-  alias rs2 : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0) is
-    instruction(24 downto 20);
+  signal rs1 : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0);
+  signal rs2 : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0);
 
   signal pc_next_latch : std_logic_vector(REGISTER_SIZE-1 downto 0);
   signal pc_curr_latch : std_logic_vector(REGISTER_SIZE-1 downto 0);
@@ -70,7 +66,8 @@ begin
       rs1_data         => rs1_data,
       rs2_data         => rs2_data
       );
-
+  rs1 <= instruction(19 downto 15) when stall = '0' else instr_latch(19 downto 15);
+  rs2 <= instruction(24 downto 20) when stall = '0' else instr_latch(24 downto 20);
   decode_stage : process (clk, reset) is
   begin  -- process decode_stage
     if rising_edge(clk) then            -- rising clock edge
