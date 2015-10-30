@@ -13,7 +13,11 @@ entity top is
     reset_btn : in std_logic;
 
     --uart
-    uart_pmod : inout std_logic_vector(3 downto 0);
+    rxd : in std_logic;
+    txd : out std_logic;
+    cts : in std_logic;
+    rts : out std_logic;
+    --uart_pmod : inout std_logic_vector(3 downto 0);
     --pmodmic0
     mic0_pmod : inout std_logic_vector(3 downto 0);
     R_LED  : out std_logic;
@@ -196,11 +200,6 @@ architecture rtl of top is
   signal mic_cs_n  : std_logic_vector(MICS-1 downto 0);
 
 
-  alias cts : std_logic is uart_pmod(3);
-  alias rts : std_logic is uart_pmod(0);
-  alias txd : std_logic is uart_pmod(2);
-  alias rxd : std_logic is uart_pmod(1);
-
   alias mic0_cs_n  : std_logic is mic0_pmod(0);  --pmod(0)
   alias mic0_nc    : std_logic is mic0_pmod(1);  --not connected
   alias mic0_sdata : std_logic is mic0_pmod(2);  --pmod(2)
@@ -301,7 +300,6 @@ begin
       --conduit end point
       coe_to_host   => coe_to_host,
       coe_from_host => (others => '0'),
-      --coe_program_counter =>
 
       data_ADR_O   => data_ADR_O,
       data_DAT_I   => data_DAT_I,
@@ -332,10 +330,10 @@ begin
 
   split_wb_data : component wb_splitter
     generic map(
-      master0_address => (16#00000000#, 4*1024),
-      master1_address => (16#00010000#, 0),
-      master2_address => (16#00020000#, 256),
-      master3_address => (16#00030000#, 256))
+      master0_address => (16#00000000#, RAM_SIZE),
+      master1_address => (16#00010000#, 4*1024),
+      master2_address => (16#00020000#, 4*1024),
+      master3_address => (16#00030000#, 4*1024))
     port map(
       clk_i => clk,
       rst_i => reset,
@@ -380,6 +378,7 @@ begin
       master1_BTE_O   => led_BTE_I,
       master1_LOCK_O  => led_LOCK_I,
       master1_STALL_I => led_STALL_O,
+
       master1_DAT_I   => led_DAT_O,
       master1_ACK_I   => led_ACK_O,
       master1_ERR_I   => led_ERR_O,
@@ -471,7 +470,6 @@ begin
   mic_sdata(0) <= mic0_pmod(2);
   mic0_pmod(3)  <= mic_sclk(0);
 
-  --mic0_pmod(2)   <= 'Z';
 -----------------------------------------------------------------------------
 -- Debugging logic (PC over UART)
 -----------------------------------------------------------------------------
@@ -589,11 +587,9 @@ begin
   -- UART signals and interface
   -----------------------------------------------------------------------------
   --PmodUSBUART (0->RTS, 1->RXD, 2->TXD, 3->CTS)
-  cts_n     <= not cts;
-  cts       <= 'Z';
+  cts_n     <= cts ;
   txd       <= serial_out;
   serial_in <= rxd;
-  rxd       <= 'Z';
   rts       <= rts_n;
 
   the_uart : uart_core

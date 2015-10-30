@@ -47,7 +47,6 @@ if {$::argc == 2} {
 		  foreach list_line [split $list_file_lines "\n" ] {
 				set file_start [expr [string last " " $list_line] + 1]
 				if {$file_start < 1} {
-					 puts "Malformed list file, exiting"
 					continue
 				}
 				set file_name [string range $list_line $file_start [expr [string length $list_line] - 1]]
