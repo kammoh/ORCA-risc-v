@@ -46,8 +46,10 @@ architecture rtl of system_calls is
   signal cycles        : unsigned(63 downto 0);
   signal instr_retired : unsigned(63 downto 0);
 
-
-  constant USE_EXTRA_COUNTERS : boolean := false;
+  --if INCLUDE_EXTRA_COUNTERS is enabled, then
+  --INCLUDE_TIMERS must be enabled
+  constant INCLUDE_TIMERS         : boolean := true;
+  constant INCLUDE_EXTRA_COUNTERS : boolean := false;
 
   signal use_after_load_stalls : unsigned(31 downto 0);
   signal jal_instructions      : unsigned(31 downto 0);
@@ -136,22 +138,23 @@ architecture rtl of system_calls is
   signal instr         : std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
 
 begin  -- architecture rtl
-  counter_increment : process (clk, reset) is
+  timers_if_gen : if INCLUDE_TIMERS generate
+    counter_increment : process (clk, reset) is
+    begin  -- process
+      if reset = '1' then
+        cycles        <= (others => '0');
+        instr_retired <= (others => '0');
 
-  begin  -- process
-    if reset = '1' then
-      cycles        <= (others => '0');
-      instr_retired <= (others => '0');
-
-    elsif rising_edge(clk) then
-      instr  <= instruction;
-      cycles <= cycles +1;
-      if finished_instr = '1' then
-        instr_retired <= instr_retired +1;
+      elsif rising_edge(clk) then
+        instr  <= instruction;
+        cycles <= cycles +1;
+        if finished_instr = '1' then
+          instr_retired <= instr_retired +1;
+        end if;
       end if;
-    end if;
-  end process;
-  EXTRA_COUNTERS_GEN : if USE_EXTRA_COUNTERS generate
+    end process;
+  end generate timers_if_gen;
+  EXTRA_COUNTERS_GEN : if INCLUDE_EXTRA_COUNTERS generate
     extra_counter_incr : process(clk)
     begin
       if reset = '1' then
@@ -200,7 +203,14 @@ begin  -- architecture rtl
 
   instret  <= std_logic_vector(instr_retired(REGISTER_SIZE-1 downto 0));
   instreth <= std_logic_vector(instr_retired(63 downto 64-REGISTER_SIZE));
-  read_mux_extra : if USE_EXTRA_COUNTERS generate
+
+  -----------------------------------------------------------------------------
+  -- different muxes based on different configurations
+  -- Extra counters
+  -- timers
+  -- no timers
+  -----------------------------------------------------------------------------
+  read_mux_extra : if INCLUDE_EXTRA_COUNTERS generate
     with csr select
       csr_read_val <=
       mtime                                   when CSR_CYCLE,
@@ -224,23 +234,37 @@ begin  -- architecture rtl
       (others => '0')                         when others;
 
   end generate read_mux_extra;
-  read_mux_normal : if not USE_EXTRA_COUNTERS generate
+  read_mux_timers : if INCLUDE_TIMERS generate
     with csr select
       csr_read_val <=
-      mtime           when CSR_CYCLE,
-      --mtime           when CSR_TIME,
-      --mtimeh          when CSR_CYCLEH,
+      mtime           when CSR_TIME,
+      --mtime           when CSR_CYCLE,
       --mtimeh          when CSR_TIMEH,
+      --mtimeh          when CSR_CYCLEH,
+      --instret         when CSR_INSTRET,
+      --instreth        when CSR_INSTRETH,
       mstatus         when CSR_MSTATUS,
       mtvec           when CSR_MTVEC,
       mepc            when CSR_MEPC,
       mcause          when CSR_MCAUSE,
       mtohost         when CSR_MTOHOST,
       mfromhost       when CSR_MFROMHOST,
---      instret         when CSR_INSTRET,
---      instreth        when CSR_INSTRETH,
       (others => '0') when others;
-  end generate read_mux_normal;
+  end generate read_mux_timers;
+
+  read_mux_notimer : if not INCLUDE_TIMERS generate
+    with csr select
+      csr_read_val <=
+      mstatus         when CSR_MSTATUS,
+      mtvec           when CSR_MTVEC,
+      mepc            when CSR_MEPC,
+      mcause          when CSR_MCAUSE,
+      mtohost         when CSR_MTOHOST,
+      mfromhost       when CSR_MFROMHOST,
+      (others => '0') when others;
+  end generate read_mux_notimer;
+
+
   bit_sel                                      <= rs1_data;
   ibit_sel(REGISTER_SIZE-1 downto zimm'left+1) <= (others => '0');
   ibit_sel(zimm'left downto 0)                 <= zimm;
@@ -268,7 +292,7 @@ begin  -- architecture rtl
       pc_corr_en <= '0';
       wb_en      <= '0';
       if valid = '1' then
-        if opcode = "11100" then --SYSTEM OP CODE
+        if opcode = "11100" then        --SYSTEM OP CODE
           if func3 /= "000" and func3 /= "100" then
             wb_en <= valid;
           end if;

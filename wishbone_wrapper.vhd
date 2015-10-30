@@ -57,6 +57,14 @@ architecture rtl of riscV_wishbone is
   signal avm_data_waitrequest   : std_logic;
   signal avm_data_readdatavalid : std_logic;
 
+  signal data_waitrequest    : std_logic;
+  signal data_readdatavalid  : std_logic;
+  signal data_saved_data     : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal was_waiting         : std_logic;
+  signal data_delayed_valid  : std_logic;
+  signal data_suppress_valid : std_logic;
+
+
 
   signal avm_instruction_address       : std_logic_vector(REGISTER_SIZE-1 downto 0);
   signal avm_instruction_byteenable    : std_logic_vector(REGISTER_SIZE/8 -1 downto 0);
@@ -80,6 +88,8 @@ architecture rtl of riscV_wishbone is
   signal burst_break   : std_logic;
   signal expected_addr : std_logic_vector(REGISTER_SIZE -1 downto 0);
   signal last_bb       : std_logic;
+
+
 
 begin  -- architecture rtl
 
@@ -126,12 +136,15 @@ begin  -- architecture rtl
   data_DAT_O             <= avm_data_writedata;
   data_WE_O              <= avm_data_write;
   data_SEL_O             <= avm_data_byteenable;
-  data_STB_O             <= avm_data_write or avm_data_read;
-  data_CYC_O             <= avm_data_write or avm_data_read;
+  data_STB_O             <= (avm_data_write or avm_data_read) and not data_suppress_valid;
+  data_CYC_O             <= (avm_data_write or avm_data_read) and not data_suppress_valid;
+    data_CTI_O                   <= CLASSIC_CYC;
   --input
-  avm_data_readdata      <= data_DAT_I;
-  avm_data_waitrequest   <= data_STALL_I;
-  avm_data_readdatavalid <= data_ACK_I and data_readvalid_mask;
+  avm_data_readdata      <= data_saved_data when data_delayed_valid = '1' else data_DAT_I;
+  data_waitrequest       <= data_STALL_I;
+  data_readdatavalid     <= data_ACK_I and data_readvalid_mask;
+  avm_data_waitrequest   <= data_waitrequest;
+  avm_data_readdatavalid <= (data_readdatavalid and not data_suppress_valid) or data_delayed_valid;
 
 
 
@@ -140,14 +153,13 @@ begin  -- architecture rtl
   instr_DAT_O                   <= avm_instruction_writedata;
   instr_WE_O                    <= avm_instruction_write;
   instr_SEL_O                   <= avm_instruction_byteenable;
-  instr_STB_O                   <= (avm_instruction_write or avm_instruction_read);
-  instr_CYC_O                   <= (avm_instruction_write or avm_instruction_read);
---  instr_CTI_O <= INCR_BURST_CYC when burst_break = '0' else END_BURST_CYC;
+  instr_STB_O                   <= avm_instruction_write or avm_instruction_read;
+  instr_CYC_O                   <= avm_instruction_write or avm_instruction_read;
   instr_CTI_O                   <= CLASSIC_CYC;
   --input
   avm_instruction_readdata      <= instr_DAT_I;
   avm_instruction_waitrequest   <= instr_STALL_I;
-  avm_instruction_readdatavalid <= instr_ACK_I ;
+  avm_instruction_readdatavalid <= instr_ACK_I;
 
 
   --if previous cycle was a read, then this cycle can have a
@@ -168,26 +180,23 @@ begin  -- architecture rtl
         instr_readvalid_mask <= '0';
       end if;
 
-      if reset= '1' then
+      if reset = '1' then
         instr_readvalid_mask <= '0';
-        data_readvalid_mask <= '0';
+        data_readvalid_mask  <= '0';
       end if;
     end if;
   end process;
-  --process(clk) is
-  --begin
-  --  if rising_edge(clk) then
-  --    if reset = '1' then
-  --      expected_addr <= std_logic_vector(avm_instruction_address);
-  --      last_bb       <= burst_break;
-  --    else
-  --      if instr_ACK_I = '1' then
 
-  --        last_bb <= burst_break;
-
-  --      end if;
-  --    end if;
-  --  end if;
-  --end process;
+  --it is possible for waitrequest to go low on the same cycle as readvalid
+  --goes high, if this is the case, save the readdata for the next cycle.
+  process(clk)
+  begin
+    if rising_edge(clk) then
+      was_waiting        <= data_STALL_I;
+      data_delayed_valid <= data_suppress_valid;
+      data_saved_data    <= data_DAT_I;
+    end if;
+  end process;
+  data_suppress_valid <= was_waiting and data_readdatavalid;
 
 end architecture rtl;

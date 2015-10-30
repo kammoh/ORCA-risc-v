@@ -86,8 +86,10 @@ architecture behavioural of execute is
   signal rs1_data_fwd : std_logic_vector(REGISTER_SIZE-1 downto 0);
   signal rs2_data_fwd : std_logic_vector(REGISTER_SIZE-1 downto 0);
 
-  signal ls_unit_waiting      : std_logic;
-  signal use_after_load_stall : std_logic;
+  signal ls_unit_waiting       : std_logic;
+  signal use_after_load_stall1 : std_logic;
+  signal use_after_load_stall2 : std_logic;
+  signal use_after_load_stall  : std_logic;
 
   signal fwd_sel  : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0);
   signal fwd_data : std_logic_vector(REGISTER_SIZE-1 downto 0);
@@ -100,10 +102,6 @@ architecture behavioural of execute is
   signal ld_latch_out : std_logic_vector(REGISTER_SIZE-1 downto 0);
   signal ld_rd        : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0);
   signal rd_latch     : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0);
-
-  signal saved_rs2   : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal saved_rs1   : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal saved_rs_en : std_logic;
 
   constant ZERO : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0) := (others => '0');
 
@@ -119,44 +117,23 @@ architecture behavioural of execute is
   constant CSR_OP   : std_logic_vector(4 downto 0) := "11100";
 begin
 
-  --use the previous clock's writeback data when appropriate
-  --rs1_mux <= "00" when fwd_sel = rs1 and fwd_en = '1' else
-  --           "01" when ld_rd = rs1 and ld_latch_en = '1' else
-  --           "10" when saved_rs_en = '1' else
-  --           "11";
-  --rs2_mux <= "00" when fwd_sel = rs2 and fwd_en = '1' else
-  --           "01" when ld_rd = rs2 and ld_latch_en = '1' else
-  --           "10" when saved_rs_en = '1' else
-  --           "11";
 
   with rs1_mux select
     rs1_data_fwd <=
     fwd_data     when "00",
     ld_latch_out when "01",
-    saved_rs1    when "10",
     rs1_data     when others;
   with rs2_mux select
     rs2_data_fwd <=
     fwd_data     when "00",
     ld_latch_out when "01",
-    saved_rs2    when "10",
     rs2_data     when others;
-
-
-  --note, these muxes are different
-  fwd_mux <= '0' when sys_data_en = '1' else
-             '1';                       --when alu_data_en = '1'
-  fwd_en  <= sys_data_en or alu_data_en when fwd_sel /= ZERO else '0';
-  fwd_sel <= rd_latch;
 
 
   wb_mux <= "00" when sys_data_en = '1' else
             "01" when ld_data_en = '1' else
             "10" when br_data_en = '1' else
             "11";                       --when alu_data_en = '1'
-  wb_en  <= sys_data_en or ld_data_en or br_data_en or alu_data_en when wb_sel /= ZERO else '0';
-  wb_sel <= rd_latch;
-
   with wb_mux select
     wb_data <=
     sys_data_out when "00",
@@ -164,62 +141,73 @@ begin
     br_data_out  when "10",
     alu_data_out when others;
 
-  with fwd_mux select
-    fwd_data <=
-    sys_data_out when '0',
-    alu_data_out when others;
+  wb_en  <= sys_data_en or ld_data_en or br_data_en or alu_data_en when wb_sel /= ZERO else '0';
+  wb_sel <= rd_latch;
 
+  --never forward from jal (always flush pipe)
+  --never forward directly from ld_data (use register)
+  fwd_data <= sys_data_out when sys_data_en = '1' else alu_data_out;
 
-  use_after_load_stall <= ld_data_en when rd_latch = rs1 or rd_latch = rs2 else '0';
-  stall_pipeline       <= ls_unit_waiting or use_after_load_stall;
+  use_after_load_stall1 <= ld_data_en when rd_latch = rs1 else '0';
+  use_after_load_stall2 <= ld_data_en when rd_latch = rs2 else '0';
+  use_after_load_stall  <= use_after_load_stall1 or use_after_load_stall1;
+
+  stall_pipeline <= ls_unit_waiting or use_after_load_stall;
 
   process(clk)
     variable next_instr  : std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
     variable current_alu : boolean;
-    alias ni_rs1         : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0) is next_instr(19 downto 15);
-    alias ni_rs2         : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0) is next_instr(24 downto 20);
+    alias ni_rs1         : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0) is subseq_instr(19 downto 15);
+    alias ni_rs2         : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0) is subseq_instr(24 downto 20);
   begin
     if rising_edge(clk) then
-      if stall_pipeline = '1' then
-        next_instr := instruction;
-      else
-        next_instr := subseq_instr;
-      end if;
+      --if stall_pipeline = '1' then
+      --  next_instr := instruction;
+      --else
+      --  next_instr := subseq_instr;
+      --end if;
 
       current_alu := (opcode = LUI_OP or
                       opcode = AUIPC_OP or
                       opcode = ALU_OP or
                       opcode = ALUI_OP or
-                      opcode = CSR_OP);
+                      opcode = CSR_OP) ;
 
       --calculate where the next forward data will go
-
-      if current_alu and rd = ni_rs1 and rd /= ZERO and valid_input = '1' then
-        rs1_mux <= "00";
-      elsif ld_data_en = '1' and rd_latch = ni_rs1 and rd_latch /= ZERO then
+      if use_after_load_stall1 = '1' then
         rs1_mux <= "01";
-      elsif stall_pipeline = '1' then
-        rs1_mux <= "10";
-      else
-        rs1_mux <= "11";
+      elsif stall_pipeline = '0' then
+        if current_alu and rd = ni_rs1 and rd /= ZERO and valid_input = '1' then
+          rs1_mux <= "00";
+        elsif ld_data_en='1' and rd_latch = ni_rs1 and rd_latch /= ZERO then
+          rs1_mux <= "01";
+        else
+          rs1_mux <= "11";
+        end if;
       end if;
 
-
-      if current_alu and rd = ni_rs2 and rd /= ZERO and valid_input = '1' then
-        rs2_mux <= "00";
-      elsif ld_data_en = '1' and rd_latch = ni_rs2 and rd_latch /= ZERO then
+      if use_after_load_stall2 = '1' then
         rs2_mux <= "01";
-      elsif stall_pipeline = '1' then
-        rs2_mux <= "10";
-      else
-        rs2_mux <= "11";
+      elsif stall_pipeline = '0' then
+        if current_alu and rd = ni_rs2 and rd /= ZERO and valid_input = '1' then
+          rs2_mux <= "00";
+        elsif ld_data_en='1' and rd_latch = ni_rs2 and rd_latch /= ZERO then
+          rs2_mux <= "01";
+        else
+          rs2_mux <= "11";
+        end if;
       end if;
 
+      if ls_unit_waiting = '0' then
+        ld_latch_out <= ld_data_out;
+      end if;
 
       --save various flip flops for forwarding
       --and writeback
-      rd_latch     <= rd;
-      ld_latch_out <= ld_data_out;
+      if ls_unit_waiting = '0' then
+        rd_latch <= rd;
+      end if;
+
       if rd_latch /= ZERO then
         ld_latch_en <= ld_data_en;
       else
@@ -228,14 +216,8 @@ begin
       ld_rd <= rd_latch;
 
 
-      --save rs2 during a stall
-      saved_rs1 <= rs1_data_fwd;
-      saved_rs2 <= rs2_data_fwd;
-
-      saved_rs_en <= stall_pipeline;
       if reset = '1' then
         ld_latch_en <= '0';
-        saved_rs_en <= '0';
       end if;
     end if;
   end process;
@@ -306,7 +288,7 @@ begin
       readvalid      => datavalid);
   process(clk)
   begin
-  --create delayed versions
+--create delayed versions
   end process;
 
   syscall : component system_calls
@@ -341,24 +323,24 @@ begin
   predict_corr_en <= syscall_en or br_bad_predict;
   predict_corr    <= br_new_pc when br_bad_predict = '1' else syscall_target;
 
-  --my_print : process(clk)
-  --  variable my_line : line;            -- type 'line' comes from textio
-  --begin
-  --  if rising_edge(clk) then
-  --    if valid_input = '1' then
-  --      write(my_line, string'("executing pc = "));  -- formatting
-  --      hwrite(my_line, (pc_current));  -- format type std_logic_vector as hex
-  --      write(my_line, string'(" instr =  "));       -- formatting
-  --      hwrite(my_line, (instruction));  -- format type std_logic_vector as hex
-  --      if ls_unit_waiting = '1' then
-  --        write(my_line, string'(" stalling"));      -- formatting
-  --      end if;
-  --      writeline(output, my_line);     -- write to "output"
-  --    else
-  --    --write(my_line, string'("bubble"));  -- formatting
-  --    --writeline(output, my_line);     -- write to "output"
-  --    end if;
-  --  end if;
-  --end process my_print;
+--my_print : process(clk)
+--  variable my_line : line;            -- type 'line' comes from textio
+--begin
+--  if rising_edge(clk) then
+--    if valid_input = '1' then
+--      write(my_line, string'("executing pc = "));  -- formatting
+--      hwrite(my_line, (pc_current));  -- format type std_logic_vector as hex
+--      write(my_line, string'(" instr =  "));       -- formatting
+--      hwrite(my_line, (instruction));  -- format type std_logic_vector as hex
+--      if ls_unit_waiting = '1' then
+--        write(my_line, string'(" stalling"));      -- formatting
+--      end if;
+--      writeline(output, my_line);     -- write to "output"
+--    else
+--    --write(my_line, string'("bubble"));  -- formatting
+--    --writeline(output, my_line);     -- write to "output"
+--    end if;
+--  end if;
+--end process my_print;
 
 end architecture;

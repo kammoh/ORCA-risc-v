@@ -60,11 +60,11 @@ begin  -- architecture rtl
   --  SHIFT_LEFT(to_signed(1, REGISTER_SIZE+1),31) when others;
 --  left_tmp     <= RESIZE(shifted_value*multiply_val,REGISTER_SIZE+1);
 
-  left_tmp    <= SHIFT_LEFT(shifted_value, to_integer(shift_amt));
+  left_tmp     <= SHIFT_LEFT(shifted_value, to_integer(shift_amt));
   right_tmp    <= SHIFT_RIGHT(shifted_value, to_integer(shift_amt));
   right_result <= unsigned(right_tmp(REGISTER_SIZE-1 downto 0));
 
-  left_result  <= unsigned(left_tmp(REGISTER_SIZE-1 downto 0));
+  left_result <= unsigned(left_tmp(REGISTER_SIZE-1 downto 0));
 
 end architecture rtl;
 
@@ -214,19 +214,20 @@ begin  -- architecture rtl
           data_result := data1 and data2;
         when others => null;
       end case;
-      case OPCODE is
-        when OP     => data_enable <= valid;
-        when OP_IMM => data_enable <= valid;
-        when LUI    => data_enable <= valid;
-        when AUIPC  => data_enable <= valid;
-        when others => data_enable <= '0';
-      end case;
-      if opcode = LUI or opcode = AUIPC then
-        data_out <= std_logic_vector(upper_immediate);
-      else
-        data_out <= std_logic_vector(data_result);
+      if stall = '0' then
+        case OPCODE is
+          when OP     => data_enable <= valid;
+          when OP_IMM => data_enable <= valid;
+          when LUI    => data_enable <= valid;
+          when AUIPC  => data_enable <= valid;
+          when others => data_enable <= '0';
+        end case;
+        if opcode = LUI or opcode = AUIPC then
+          data_out <= std_logic_vector(upper_immediate);
+        else
+          data_out <= std_logic_vector(data_result);
+        end if;
       end if;
-
-    end if;  --clock
-  end process;
+  end if;  --clock
+end process;
 end architecture;

@@ -74,7 +74,7 @@ architecture latch_middle of branch_unit is
   alias opcode : std_logic_vector(6 downto 0) is instr(6 downto 0);
 
   signal opcode_latch       : std_logic_vector(6 downto 0);
-  signal valid_latch        : std_logic;
+  signal valid_branch_instr : std_logic;
   signal predicted_pc_latch : unsigned(REGISTER_SIZE-1 downto 0);
   signal target_pc_latch    : unsigned(REGISTER_SIZE-1 downto 0);
   signal branch_taken_latch : std_logic;
@@ -115,10 +115,10 @@ begin  -- architecture
   jal_imm <= unsigned(RESIZE(signed(instr(31) & instr(19 downto 12) & instr(20) &
                                     instr(30 downto 21)&"0"),REGISTER_SIZE));
 
-  branch_target      <= b_imm + unsigned(current_pc);
-  nbranch_target     <= to_unsigned(4, REGISTER_SIZE) + unsigned(current_pc);
-  jalr_target        <= jalr_imm + unsigned(rs1_data);
-  jal_target         <= jal_imm + unsigned(current_pc);
+  branch_target  <= b_imm + unsigned(current_pc);
+  nbranch_target <= to_unsigned(4, REGISTER_SIZE) + unsigned(current_pc);
+  jalr_target    <= jalr_imm + unsigned(rs1_data);
+  jal_target     <= jal_imm + unsigned(current_pc);
 
   with branch_taken & opcode select
     target_pc <=
@@ -134,13 +134,13 @@ begin  -- architecture
   begin
     if rising_edge(clk) then
       if reset = '1' then
-        valid_latch <= '0';
+        valid_branch_instr <= '0';
 
       else
+        valid_branch_instr <= valid and not stall;
         if stall = '0' then
-          valid_latch        <= valid;
           predicted_pc_latch <= unsigned(predicted_pc);
-          target_pc_latch <= target_pc;
+          target_pc_latch    <= target_pc;
           if opcode = JAL or opcode = JALR then
             data_en_latch <= valid;
           else
@@ -154,7 +154,7 @@ begin  -- architecture
 
 
   data_out_en <= data_en_latch;
-  bad_predict <= valid_latch when target_pc_latch /= predicted_pc_latch or data_en_latch = '1' else '0';
+  bad_predict <= valid_branch_instr when target_pc_latch /= predicted_pc_latch or data_en_latch = '1' else '0';
   --data_out    <= std_logic_vector(nbranch_target);
   new_pc      <= std_logic_vector(target_pc_latch);
 
