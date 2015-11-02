@@ -174,7 +174,7 @@ begin
       elsif stall_pipeline = '0' then
         if current_alu and rd = ni_rs1 and rd /= ZERO and valid_input = '1' then
           rs1_mux <= "00";
-        elsif ld_data_en='1' and rd_latch = ni_rs1 and rd_latch /= ZERO then
+        elsif ld_data_en = '1' and rd_latch = ni_rs1 and rd_latch /= ZERO then
           rs1_mux <= "01";
         else
           rs1_mux <= "11";
@@ -186,7 +186,7 @@ begin
       elsif stall_pipeline = '0' then
         if current_alu and rd = ni_rs2 and rd /= ZERO and valid_input = '1' then
           rs2_mux <= "00";
-        elsif ld_data_en='1' and rd_latch = ni_rs2 and rd_latch /= ZERO then
+        elsif ld_data_en = '1' and rd_latch = ni_rs2 and rd_latch /= ZERO then
           rs2_mux <= "01";
         else
           rs2_mux <= "11";
@@ -304,6 +304,7 @@ begin
       from_host      => from_host,
 
       current_pc    => pc_current,
+      next_pc       => pc_next,
       pc_correction => syscall_target,
       pc_corr_en    => syscall_en,
 

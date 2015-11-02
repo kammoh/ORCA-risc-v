@@ -110,6 +110,7 @@ architecture rtl of system_calls is
   constant CSR_MTOHOST   : csr_t := X"780";
   constant CSR_MFROMHOST : csr_t := X"781";
 
+  constant FENCE_I       : std_logic_vector(31 downto 0) := x"0000100F";
   --EXECPTION CODES
   constant MMODE_ECALL : std_logic_vector(3 downto 0) := x"B";
   constant BREAKPOINT  : std_logic_vector(3 downto 0) := x"3";
@@ -294,7 +295,7 @@ begin  -- architecture rtl
       if valid = '1' then
         if opcode = "11100" then        --SYSTEM OP CODE
           if func3 /= "000" and func3 /= "100" then
-            wb_en <= valid;
+            wb_en <= '1';
           end if;
 
           if zimm & func3 = "00000"&"000" then
@@ -325,12 +326,14 @@ begin  -- architecture rtl
               when others =>
                 null;
             end case;
+          end if;
+        elsif instruction(31 downto 2) = FENCE_I(31 downto 2) then
+          pc_correction <= next_pc;
+          pc_corr_en    <= '1';
 
-          end if;  --system_calls
+        end if;  --opcode
 
-        end if;
-
-      end if;  --opcode
+      end if;  --valid
       if reset = '1' then
         mtohost <= (others => '0');
       end if;  --reset

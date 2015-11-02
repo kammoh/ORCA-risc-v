@@ -458,12 +458,13 @@ package rv_components is
       from_host : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
 
       current_pc    : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
+      next_pc       : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
       pc_correction : out std_logic_vector(REGISTER_SIZE -1 downto 0);
       pc_corr_en    : out std_logic;
 
-    use_after_load_stall : in std_logic;
-    predict_corr         : in std_logic;
-    load_stall           : in std_logic);
+      use_after_load_stall : in std_logic;
+      predict_corr         : in std_logic;
+      load_stall           : in std_logic);
   end component system_calls;
 
 end package rv_components;
