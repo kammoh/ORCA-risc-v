@@ -150,7 +150,7 @@ begin
 
   use_after_load_stall1 <= ld_data_en when rd_latch = rs1 else '0';
   use_after_load_stall2 <= ld_data_en when rd_latch = rs2 else '0';
-  use_after_load_stall  <= use_after_load_stall1 or use_after_load_stall1;
+  use_after_load_stall  <= use_after_load_stall1 or use_after_load_stall2;
 
   stall_pipeline <= ls_unit_waiting or use_after_load_stall;
 
@@ -161,11 +161,6 @@ begin
     alias ni_rs2         : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0) is subseq_instr(24 downto 20);
   begin
     if rising_edge(clk) then
-      --if stall_pipeline = '1' then
-      --  next_instr := instruction;
-      --else
-      --  next_instr := subseq_instr;
-      --end if;
 
       current_alu := (opcode = LUI_OP or
                       opcode = AUIPC_OP or
