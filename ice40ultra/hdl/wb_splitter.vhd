@@ -52,7 +52,7 @@ entity wb_splitter is
     master0_CTI_O   : out std_logic_vector(2 downto 0);
     master0_BTE_O   : out std_logic_vector(1 downto 0);
     master0_LOCK_O  : out std_logic;
-    master0_STALL_I : in  std_logic                               := '0';
+    master0_STALL_I : in  std_logic                               := '1';
     master0_DAT_I   : in  std_logic_vector(DATA_WIDTH-1 downto 0) := (others => '0');
     master0_ACK_I   : in  std_logic                               := '0';
     master0_ERR_I   : in  std_logic                               := '0';
@@ -67,7 +67,7 @@ entity wb_splitter is
     master1_CTI_O   : out std_logic_vector(2 downto 0);
     master1_BTE_O   : out std_logic_vector(1 downto 0);
     master1_LOCK_O  : out std_logic;
-    master1_STALL_I : in  std_logic                               := '0';
+    master1_STALL_I : in  std_logic                               := '1';
     master1_DAT_I   : in  std_logic_vector(DATA_WIDTH-1 downto 0) := (others => '0');
     master1_ACK_I   : in  std_logic                               := '0';
     master1_ERR_I   : in  std_logic                               := '0';
@@ -82,7 +82,7 @@ entity wb_splitter is
     master2_CTI_O   : out std_logic_vector(2 downto 0);
     master2_BTE_O   : out std_logic_vector(1 downto 0);
     master2_LOCK_O  : out std_logic;
-    master2_STALL_I : in  std_logic                               := '0';
+    master2_STALL_I : in  std_logic                               := '1';
     master2_DAT_I   : in  std_logic_vector(DATA_WIDTH-1 downto 0) := (others => '0');
     master2_ACK_I   : in  std_logic                               := '0';
     master2_ERR_I   : in  std_logic                               := '0';
@@ -97,7 +97,7 @@ entity wb_splitter is
     master3_CTI_O   : out std_logic_vector(2 downto 0);
     master3_BTE_O   : out std_logic_vector(1 downto 0);
     master3_LOCK_O  : out std_logic;
-    master3_STALL_I : in  std_logic                               := '0';
+    master3_STALL_I : in  std_logic                               := '1';
     master3_DAT_I   : in  std_logic_vector(DATA_WIDTH-1 downto 0) := (others => '0');
     master3_ACK_I   : in  std_logic                               := '0';
     master3_ERR_I   : in  std_logic                               := '0';
@@ -112,7 +112,7 @@ entity wb_splitter is
     master4_CTI_O   : out std_logic_vector(2 downto 0);
     master4_BTE_O   : out std_logic_vector(1 downto 0);
     master4_LOCK_O  : out std_logic;
-    master4_STALL_I : in  std_logic                               := '0';
+    master4_STALL_I : in  std_logic                               := '1';
     master4_DAT_I   : in  std_logic_vector(DATA_WIDTH-1 downto 0) := (others => '0');
     master4_ACK_I   : in  std_logic                               := '0';
     master4_ERR_I   : in  std_logic                               := '0';

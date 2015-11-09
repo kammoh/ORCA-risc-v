@@ -20,11 +20,14 @@ entity top is
     --uart_pmod : inout std_logic_vector(3 downto 0);
     --pmodmic0
     mic0_pmod : inout std_logic_vector(3 downto 0);
+    mic1_pmod : inout std_logic_vector(3 downto 0);
+
     R_LED  : out std_logic;
     G_LED  : out std_logic;
     B_LED  : out std_logic;
-    HP_LED : out std_logic
+    HP_LED : out std_logic;
 
+    led_out : out std_logic_vector(2 downto 0)
     );
 end entity;
 
@@ -187,6 +190,9 @@ architecture rtl of top is
   signal mem_instr_ack           : std_logic;
 
   signal rgb_led     : std_logic_vector(2 downto 0);
+  signal red_led     : std_logic;
+  signal green_led   : std_logic;
+  signal blue_led    : std_logic;
   signal coe_to_host : std_logic_vector(31 downto 0);
   signal hp_pwm      : std_logic;
 
@@ -194,7 +200,7 @@ architecture rtl of top is
   constant HEARTBEAT_COUNTER_BITS : positive                                    := log2(SYSCLK_FREQ_HZ);  -- ~1 second to roll over
   signal heartbeat_counter        : unsigned(HEARTBEAT_COUNTER_BITS-1 downto 0) := (others => '0');
 
-  constant MICS    : natural := 1;
+  constant MICS    : natural := 2;
   signal mic_sdata : std_logic_vector(MICS-1 downto 0);
   signal mic_sclk  : std_logic_vector(MICS-1 downto 0);
   signal mic_cs_n  : std_logic_vector(MICS-1 downto 0);
@@ -204,6 +210,11 @@ architecture rtl of top is
   alias mic0_nc    : std_logic is mic0_pmod(1);  --not connected
   alias mic0_sdata : std_logic is mic0_pmod(2);  --pmod(2)
   alias mic0_sclk  : std_logic is mic0_pmod(3);  --pmod(3)
+
+  alias mic1_cs_n  : std_logic is mic1_pmod(0);  --pmod(0)
+  alias mic1_nc    : std_logic is mic1_pmod(1);  --not connected
+  alias mic1_sdata : std_logic is mic1_pmod(2);  --pmod(2)
+  alias mic1_sclk  : std_logic is mic1_pmod(3);  --pmod(3)
 
 
 begin
@@ -330,10 +341,10 @@ begin
 
   split_wb_data : component wb_splitter
     generic map(
-      master0_address => (16#00000000#, RAM_SIZE),
-      master1_address => (16#00010000#, 4*1024),
-      master2_address => (16#00020000#, 4*1024),
-      master3_address => (16#00030000#, 4*1024))
+      master0_address => (16#00000000#, RAM_SIZE),  --RAM
+      master1_address => (16#00010000#, 4*1024),    --led
+      master2_address => (16#00020000#, 4*1024),    --uart
+      master3_address => (16#00030000#, 4*1024))    --pmod
     port map(
       clk_i => clk,
       rst_i => reset,
@@ -379,10 +390,10 @@ begin
       master1_LOCK_O  => led_LOCK_I,
       master1_STALL_I => led_STALL_O,
 
-      master1_DAT_I   => led_DAT_O,
-      master1_ACK_I   => led_ACK_O,
-      master1_ERR_I   => led_ERR_O,
-      master1_RTY_I   => led_RTY_O,
+      master1_DAT_I => led_DAT_O,
+      master1_ACK_I => led_ACK_O,
+      master1_ERR_I => led_ERR_O,
+      master1_RTY_I => led_RTY_O,
 
 
       master2_ADR_O   => data_uart_ADR_I,
@@ -442,7 +453,7 @@ begin
 
   pmod_mic : component pmod_mic_wb
     generic map(
-      PORTS          => 1,
+      PORTS          => MICS,
       CLK_FREQ_HZ    => SYSCLK_FREQ_HZ,
       SAMPLE_RATE_HZ => 44100           --44.1kHz
       )
@@ -464,11 +475,18 @@ begin
       pmodmic_ack_o => pmod_mic_ACK_O);
   pmod_mic_STALL_O <= not pmod_mic_ACK_O;
 
-  mic0_pmod(0)  <= mic_cs_n(0);
-  mic0_pmod(1)  <= 'Z';
-  mic0_pmod(2)  <= 'Z';
+  mic0_pmod(0) <= mic_cs_n(0);
+  mic0_pmod(1) <= 'Z';
+  mic0_pmod(2) <= 'Z';
   mic_sdata(0) <= mic0_pmod(2);
-  mic0_pmod(3)  <= mic_sclk(0);
+  mic0_pmod(3) <= mic_sclk(0);
+
+  mic1_pmod(0) <= mic_cs_n(1);
+  mic1_pmod(1) <= 'Z';
+  mic1_pmod(2) <= 'Z';
+  mic_sdata(1) <= mic1_pmod(2);
+  mic1_pmod(3) <= mic_sclk(1);
+
 
 -----------------------------------------------------------------------------
 -- Debugging logic (PC over UART)
@@ -672,9 +690,14 @@ begin
 -------------------------------------------------------------------------------
 
   rgb_led <=
-    "000" when heartbeat_counter(6 downto 0) /= "0000001" else
-    "111" when reset = '1' else
-    led_pio_out(2 downto 0);
+    "111" when reset = '1' and heartbeat_counter(6 downto 0) = "0000001" else
+    red_led & green_led & blue_led;
+
+  red_led   <= '1' when unsigned(led_pio_out(23 downto 16)) > heartbeat_counter(7 downto 0) else '0';
+  green_led <= '1' when unsigned(led_pio_out(15 downto 8)) > heartbeat_counter(7 downto 0)  else '0';
+  blue_led  <= '1' when unsigned(led_pio_out(7 downto 0)) > heartbeat_counter(7 downto 0)   else '0';
+
+  led_out <= led_pio_out(26 downto 24);
 
   led : component my_led
     port map(

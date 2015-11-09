@@ -7,7 +7,6 @@ end entity;
 
 architecture rtl of top_tb is
   component top is
-
     port(
       clk       : in std_logic;
       reset_btn : in std_logic;
@@ -17,12 +16,15 @@ architecture rtl of top_tb is
       txd       : out   std_logic;
       cts       : in    std_logic;
       rts       : out   std_logic;
+      --uart_pmod : inout std_logic_vector(3 downto 0);
       --pmodmic0
       mic0_pmod : inout std_logic_vector(3 downto 0);
-      R_LED     : out   std_logic;
-      G_LED     : out   std_logic;
-      B_LED     : out   std_logic;
-      HP_LED    : out   std_logic
+      mic1_pmod : inout std_logic_vector(3 downto 0);
+
+      R_LED  : out std_logic;
+      G_LED  : out std_logic;
+      B_LED  : out std_logic;
+      HP_LED : out std_logic
 
       );
   end component;
@@ -36,8 +38,12 @@ architecture rtl of top_tb is
   signal rts       : std_logic;
 
   signal mic0_pmod      : std_logic_vector(3 downto 0);
+  signal mic1_pmod      : std_logic_vector(3 downto 0);
   constant CLOCK_PERIOD : time := 83.33 ns;
 begin
+
+  mic0_pmod(2) <= '0';
+  mic1_pmod(2) <= '0';
   dut : component top
     port map(
       clk       => clk,
@@ -48,6 +54,7 @@ begin
       rts       => rts,
 
       --pmodmic0
+      mic1_pmod => mic1_pmod,
       mic0_pmod => mic0_pmod);
   cts <= '0';
   process
