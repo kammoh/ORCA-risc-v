@@ -24,6 +24,7 @@ entity system_calls is
     to_host       : out    std_logic_vector(REGISTER_SIZE-1 downto 0);
     from_host     : in     std_logic_vector(REGISTER_SIZE-1 downto 0);
     current_pc    : in     std_logic_vector(REGISTER_SIZE-1 downto 0);
+    next_pc       : in     std_logic_vector(REGISTER_SIZE-1 downto 0);
     pc_correction : out    std_logic_vector(REGISTER_SIZE -1 downto 0);
     pc_corr_en    : buffer std_logic;
 
@@ -110,10 +111,10 @@ architecture rtl of system_calls is
   constant CSR_MTOHOST   : csr_t := X"780";
   constant CSR_MFROMHOST : csr_t := X"781";
 
-  constant FENCE_I       : std_logic_vector(31 downto 0) := x"0000100F";
+  constant FENCE_I     : std_logic_vector(31 downto 0) := x"0000100F";
   --EXECPTION CODES
-  constant MMODE_ECALL : std_logic_vector(3 downto 0) := x"B";
-  constant BREAKPOINT  : std_logic_vector(3 downto 0) := x"3";
+  constant MMODE_ECALL : std_logic_vector(3 downto 0)  := x"B";
+  constant BREAKPOINT  : std_logic_vector(3 downto 0)  := x"3";
 
   --RESSET VECTORS
   constant SYSTEM_RESET :
