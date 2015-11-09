@@ -8,8 +8,9 @@ use work.utils.all;
 entity riscV is
 
   generic (
-    REGISTER_SIZE : integer := 32;
-    RESET_VECTOR  : natural := 16#00000200#);
+    REGISTER_SIZE   : integer := 32;
+    RESET_VECTOR    : natural := 16#00000200#;
+    MULTIPLY_ENABLE : boolean := false);
 
   port(clk   : in std_logic;
        reset : in std_logic;
@@ -171,7 +172,8 @@ begin  -- architecture rtl
       REGISTER_NAME_SIZE  => REGISTER_NAME_SIZE,
       INSTRUCTION_SIZE    => INSTRUCTION_SIZE,
       SIGN_EXTENSION_SIZE => SIGN_EXTENSION_SIZE,
-      RESET_VECTOR        => RESET_VECTOR)
+      RESET_VECTOR        => RESET_VECTOR,
+      MULTIPLY_ENABLE     => MULTIPLY_ENABLE)
     port map (
       clk             => clk,
       reset           => reset,

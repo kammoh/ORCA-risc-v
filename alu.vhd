@@ -8,7 +8,8 @@ use work.utils.all;
 entity shifter is
 
   generic (
-    REGISTER_SIZE : natural);
+    REGISTER_SIZE : natural
+    );
   port(
     shift_amt     : in  unsigned(log2(REGISTER_SIZE)-1 downto 0);
     shifted_value : in  signed(REGISTER_SIZE downto 0);
@@ -80,7 +81,8 @@ entity arithmetic_unit is
   generic (
     INSTRUCTION_SIZE    : integer;
     REGISTER_SIZE       : integer;
-    SIGN_EXTENSION_SIZE : integer);
+    SIGN_EXTENSION_SIZE : integer;
+    MULTIPLY_ENABLE     : boolean);
 
   port (
     clk             : in  std_logic;
@@ -106,6 +108,14 @@ architecture rtl of arithmetic_unit is
   constant AUIPC  : std_logic_vector(6 downto 0) := "0010111";
 
 
+  constant MUL_OP    : std_logic_vector(2 downto 0) := "000";
+  constant MULH_OP   : std_logic_vector(2 downto 0) := "001";
+  constant MULHSU_OP : std_logic_vector(2 downto 0) := "010";
+  constant MULHU_OP  : std_logic_vector(2 downto 0) := "011";
+  constant DIV_OP    : std_logic_vector(2 downto 0) := "100";
+  constant DIVU_OP   : std_logic_vector(2 downto 0) := "101";
+  constant REM_OP    : std_logic_vector(2 downto 0) := "110";
+  constant REMU_OP   : std_logic_vector(2 downto 0) := "111";
 
   constant ADD_OP  : std_logic_vector(2 downto 0) := "000";
   constant SLL_OP  : std_logic_vector(2 downto 0) := "001";
@@ -115,11 +125,13 @@ architecture rtl of arithmetic_unit is
   constant SR_OP   : std_logic_vector(2 downto 0) := "101";
   constant OR_OP   : std_logic_vector(2 downto 0) := "110";
   constant AND_OP  : std_logic_vector(2 downto 0) := "111";
+  constant MUL_F7  : std_logic_vector(6 downto 0) := "0000001";
 
   constant OP_IMM_IMMEDIATE_SIZE : integer := 12;
   constant UP_IMM_IMMEDIATE_SIZE : integer := 20;
 
   alias func3  : std_logic_vector(2 downto 0) is instruction(14 downto 12);
+  alias func7  : std_logic_vector(6 downto 0) is instruction(31 downto 25);
   alias opcode : std_logic_vector(6 downto 0) is instruction(6 downto 0);
 
   signal is_immediate    : std_logic;
@@ -127,6 +139,9 @@ architecture rtl of arithmetic_unit is
   signal data2           : unsigned(REGISTER_SIZE-1 downto 0);
   signal data_result     : unsigned(REGISTER_SIZE-1 downto 0);
   signal immediate_value : unsigned(REGISTER_SIZE-1 downto 0);
+
+  signal shifter_multiply : signed(REGISTER_SIZE-1 downto 0);
+
 
   signal shift_amt       : unsigned(log2(REGISTER_SIZE)-1 downto 0);
   signal shifted_value   : signed(REGISTER_SIZE downto 0);
@@ -140,6 +155,18 @@ architecture rtl of arithmetic_unit is
   signal upp_imm_sel      : std_logic;
   signal upper_immediate1 : signed(REGISTER_SIZE-1 downto 0);
   signal upper_immediate  : signed(REGISTER_SIZE-1 downto 0);
+
+
+  signal m_op1_msk : std_logic;
+  signal m_op2_msk : std_logic;
+  signal m_op1     : signed(REGISTER_SIZE downto 0);
+  signal m_op2     : signed(REGISTER_SIZE downto 0);
+  signal mult_srca : signed(REGISTER_SIZE downto 0);
+  signal mult_srcb : signed(REGISTER_SIZE downto 0);
+  signal mult_dest : signed((REGISTER_SIZE+1)*2-1 downto 0);
+
+
+
   component shifter is
 
     generic (
@@ -183,9 +210,49 @@ begin  -- architecture rtl
   upper_immediate1(11 downto 0)  <= (others => '0');
   upper_immediate                <= upper_immediate1 when instruction(5) = '1' else upper_immediate1 + signed(program_counter);
 
+
+  shifter_multiply <=
+    x"00000001" when shift_amt = x"00"else
+    x"00000002" when shift_amt = x"01"else
+    x"00000004" when shift_amt = x"02"else
+    x"00000008" when shift_amt = x"03"else
+    x"00000010" when shift_amt = x"04"else
+    x"00000020" when shift_amt = x"05"else
+    x"00000040" when shift_amt = x"06"else
+    x"00000080" when shift_amt = x"07"else
+    x"00000100" when shift_amt = x"08"else
+    x"00000200" when shift_amt = x"09"else
+    x"00000400" when shift_amt = x"0A"else
+    x"00000800" when shift_amt = x"0B"else
+    x"00001000" when shift_amt = x"0C"else
+    x"00002000" when shift_amt = x"0D"else
+    x"00004000" when shift_amt = x"0E"else
+    x"00008000" when shift_amt = x"0F"else
+    x"00010000" when shift_amt = x"10"else
+    x"00020000" when shift_amt = x"11"else
+    x"00040000" when shift_amt = x"12"else
+    x"00080000" when shift_amt = x"13"else
+    x"00100000" when shift_amt = x"14"else
+    x"00200000" when shift_amt = x"15"else
+    x"00400000" when shift_amt = x"16"else
+    x"00800000" when shift_amt = x"17"else
+    x"01000000" when shift_amt = x"18"else
+    x"02000000" when shift_amt = x"19"else
+    x"04000000" when shift_amt = x"1A"else
+    x"08000000" when shift_amt = x"1B"else
+    x"10000000" when shift_amt = x"1C"else
+    x"20000000" when shift_amt = x"1D"else
+    x"40000000" when shift_amt = x"1E"else
+    x"80000000";
+
+
+
+
+
   alu_proc : process(clk) is
     variable func        : std_logic_vector(2 downto 0);
-    variable data_result : unsigned(REGISTER_SIZE-1 downto 0);
+    variable mul_result  : unsigned(REGISTER_SIZE-1 downto 0);
+    variable base_result : unsigned(REGISTER_SIZE-1 downto 0);
     variable subtract    : std_logic;
   begin
     if rising_edge(clk) then
@@ -194,26 +261,46 @@ begin  -- architecture rtl
       case func is
         when ADD_OP =>
           if subtract = '1' then
-            data_result := unsigned(sub(REGISTER_SIZE-1 downto 0));
+            base_result := unsigned(sub(REGISTER_SIZE-1 downto 0));
           else
-            data_result := data1 + data2;
+            base_result := data1 + data2;
           end if;
         when SLL_OP =>
-          data_result := lshifted_result;
+          base_result := lshifted_result;
+        -- data_result := unsigned(mult_dest(REGISTER_SIZE-1 downto 0));
         when SLT_OP =>
-          data_result := slt_val;
+          base_result := slt_val;
         when SLTU_OP =>
-          data_result := slt_val;
+          base_result := slt_val;
         when XOR_OP =>
-          data_result := data1 xor data2;
+          base_result := data1 xor data2;
         when SR_OP =>
-          data_result := rshifted_result;
+          base_result := rshifted_result;
         when OR_OP =>
-          data_result := data1 or data2;
+          base_result := data1 or data2;
         when AND_OP =>
-          data_result := data1 and data2;
+          base_result := data1 and data2;
         when others => null;
       end case;
+      case func is
+        when MUL_OP =>
+          mul_result := unsigned(mult_dest(REGISTER_SIZE-1 downto 0));
+        when MULH_OP=>
+          mul_result := unsigned(mult_dest(REGISTER_SIZE*2-1 downto REGISTER_SIZE));
+        when MULHSU_OP =>
+          mul_result := unsigned(mult_dest(REGISTER_SIZE*2-1 downto REGISTER_SIZE));
+        when MULHU_OP =>
+          mul_result := unsigned(mult_dest(REGISTER_SIZE*2-1 downto REGISTER_SIZE));
+        when DIV_OP =>
+          mul_result := to_unsigned(0, REGISTER_SIZE);
+        when DIVU_OP =>
+          mul_result := to_unsigned(0, REGISTER_SIZE);
+        when REM_OP =>
+          mul_result := to_unsigned(0, REGISTER_SIZE);
+        when others =>
+          mul_result := to_unsigned(0, REGISTER_SIZE);
+      end case;
+
       if stall = '0' then
         case OPCODE is
           when OP     => data_enable <= valid;
@@ -224,10 +311,23 @@ begin  -- architecture rtl
         end case;
         if opcode = LUI or opcode = AUIPC then
           data_out <= std_logic_vector(upper_immediate);
+        elsif func7 = mul_f7 and not is_immediate = '1' and MULTIPLY_ENABLE then
+          data_out <= std_logic_vector(mul_result);
         else
-          data_out <= std_logic_vector(data_result);
+          data_out <= std_logic_vector(base_result);
         end if;
       end if;
-  end if;  --clock
-end process;
+    end if;  --clock
+  end process;
+
+  m_op1_msk <= '0' when instruction(13 downto 12) = "11" else '1';
+  m_op2_msk <= not instruction(13);
+  m_op1     <= signed((m_op1_msk and rs1_data(data1'left)) & data1);
+  m_op2     <= signed((m_op2_msk and rs2_data(data2'left)) & data2);
+  mult_srca <= signed(m_op1);
+  mult_srcb <= signed(m_op2);
+  mult_dest <= mult_srca * mult_srcb;
+
+
+
 end architecture;

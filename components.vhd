@@ -9,7 +9,8 @@ package rv_components is
   component riscV is
     generic (
       REGISTER_SIZE : integer := 32;
-      RESET_VECTOR  : natural := 16#00000200#);
+      RESET_VECTOR  : natural := 16#00000200#;
+      MULTIPLY_ENABLE : boolean);
     port(
       clk   : in std_logic;
       reset : in std_logic;
@@ -84,7 +85,8 @@ package rv_components is
       REGISTER_NAME_SIZE  : positive;
       INSTRUCTION_SIZE    : positive;
       SIGN_EXTENSION_SIZE : positive;
-      RESET_VECTOR        : natural);
+      RESET_VECTOR        : natural;
+      MULTIPLY_ENABLE : boolean);
     port(
       clk         : in std_logic;
       reset       : in std_logic;
@@ -150,7 +152,8 @@ package rv_components is
     generic (
       INSTRUCTION_SIZE    : integer;
       REGISTER_SIZE       : integer;
-      SIGN_EXTENSION_SIZE : integer);
+      SIGN_EXTENSION_SIZE : integer;
+      MULTIPLY_ENABLE             : boolean);
     port (
       clk             : in  std_logic;
       stall           : in  std_logic;

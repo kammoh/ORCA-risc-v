@@ -7,8 +7,9 @@ use work.rv_components.all;
 entity riscV_wishbone is
 
   generic (
-    REGISTER_SIZE : integer := 32;
-    RESET_VECTOR  : natural := 16#00000200#);
+    REGISTER_SIZE   : integer := 32;
+    RESET_VECTOR    : natural := 16#00000200#;
+    MULTIPLY_ENABLE : boolean := false);
 
   port(clk   : in std_logic;
        reset : in std_logic;
@@ -95,8 +96,9 @@ begin  -- architecture rtl
 
   rv : component riscV
     generic map (
-      REGISTER_SIZE => REGISTER_SIZE,
-      RESET_VECTOR  => RESET_VECTOR)
+      REGISTER_SIZE   => REGISTER_SIZE,
+      RESET_VECTOR    => RESET_VECTOR,
+      MULTIPLY_ENABLE => MULTIPLY_ENABLE)
     port map(
       clk   => clk,
       reset => reset,
@@ -138,7 +140,7 @@ begin  -- architecture rtl
   data_SEL_O             <= avm_data_byteenable;
   data_STB_O             <= (avm_data_write or avm_data_read) and not data_suppress_valid;
   data_CYC_O             <= (avm_data_write or avm_data_read) and not data_suppress_valid;
-    data_CTI_O                   <= CLASSIC_CYC;
+  data_CTI_O             <= CLASSIC_CYC;
   --input
   avm_data_readdata      <= data_saved_data when data_delayed_valid = '1' else data_DAT_I;
   data_waitrequest       <= data_STALL_I;

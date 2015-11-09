@@ -14,7 +14,8 @@ entity execute is
     REGISTER_NAME_SIZE  : positive;
     INSTRUCTION_SIZE    : positive;
     SIGN_EXTENSION_SIZE : positive;
-    RESET_VECTOR        : natural);
+    RESET_VECTOR        : natural;
+    MULTIPLY_ENABLE     : boolean);
   port(
     clk         : in std_logic;
     reset       : in std_logic;
@@ -221,7 +222,8 @@ begin
     generic map (
       INSTRUCTION_SIZE    => INSTRUCTION_SIZE,
       REGISTER_SIZE       => REGISTER_SIZE,
-      SIGN_EXTENSION_SIZE => SIGN_EXTENSION_SIZE)
+      SIGN_EXTENSION_SIZE => SIGN_EXTENSION_SIZE,
+      MULTIPLY_ENABLE     => MULTIPLY_ENABLE)
     port map (
       clk             => clk,
       stall           => stall_pipeline,
