@@ -23,43 +23,7 @@ architecture rtl of shifter is
   signal left_tmp         : signed(REGISTER_SIZE downto 0);
   signal right_tmp        : signed(REGISTER_SIZE downto 0);
 
---  signal multiply_val : signed(REGISTER_SIZE downto 0);
 begin  -- architecture rtl
-  --with shift_amt select
-  --  multiply_val <=
-  --  SHIFT_LEFT(to_signed(1,REGISTER_SIZE+1) ,0 ) when to_signed(0, shift_amt'length),
-  --  SHIFT_LEFT(to_signed(1,REGISTER_SIZE+1) ,1 ) when to_signed(1, shift_amt'length),
-  --  SHIFT_LEFT(to_signed(1,REGISTER_SIZE+1) ,2 ) when to_signed(2, shift_amt'length),
-  --  SHIFT_LEFT(to_signed(1,REGISTER_SIZE+1) ,3 ) when to_signed(3, shift_amt'length),
-  --  SHIFT_LEFT(to_signed(1,REGISTER_SIZE+1) ,4 ) when to_signed(4, shift_amt'length),
-  --  SHIFT_LEFT(to_signed(1,REGISTER_SIZE+1) ,5 ) when to_signed(5, shift_amt'length),
-  --  SHIFT_LEFT(to_signed(1,REGISTER_SIZE+1) ,6 ) when to_signed(6, shift_amt'length),
-  --  SHIFT_LEFT(to_signed(1,REGISTER_SIZE+1) ,7 ) when to_signed(7, shift_amt'length),
-  --  SHIFT_LEFT(to_signed(1,REGISTER_SIZE+1) ,8 ) when to_signed(8, shift_amt'length),
-  --  SHIFT_LEFT(to_signed(1,REGISTER_SIZE+1) ,9 ) when to_signed(9, shift_amt'length),
-  --  SHIFT_LEFT(to_signed(1, REGISTER_SIZE+1),10) when to_signed(10, shift_amt'length),
-  --  SHIFT_LEFT(to_signed(1, REGISTER_SIZE+1),11) when to_signed(11, shift_amt'length),
-  --  SHIFT_LEFT(to_signed(1, REGISTER_SIZE+1),12) when to_signed(12, shift_amt'length),
-  --  SHIFT_LEFT(to_signed(1, REGISTER_SIZE+1),13) when to_signed(13, shift_amt'length),
-  --  SHIFT_LEFT(to_signed(1, REGISTER_SIZE+1),14) when to_signed(14, shift_amt'length),
-  --  SHIFT_LEFT(to_signed(1, REGISTER_SIZE+1),15) when to_signed(15, shift_amt'length),
-  --  SHIFT_LEFT(to_signed(1, REGISTER_SIZE+1),16) when to_signed(16, shift_amt'length),
-  --  SHIFT_LEFT(to_signed(1, REGISTER_SIZE+1),17) when to_signed(17, shift_amt'length),
-  --  SHIFT_LEFT(to_signed(1, REGISTER_SIZE+1),18) when to_signed(18, shift_amt'length),
-  --  SHIFT_LEFT(to_signed(1, REGISTER_SIZE+1),19) when to_signed(19, shift_amt'length),
-  --  SHIFT_LEFT(to_signed(1, REGISTER_SIZE+1),20) when to_signed(20, shift_amt'length),
-  --  SHIFT_LEFT(to_signed(1, REGISTER_SIZE+1),21) when to_signed(21, shift_amt'length),
-  --  SHIFT_LEFT(to_signed(1, REGISTER_SIZE+1),22) when to_signed(22, shift_amt'length),
-  --  SHIFT_LEFT(to_signed(1, REGISTER_SIZE+1),23) when to_signed(23, shift_amt'length),
-  --  SHIFT_LEFT(to_signed(1, REGISTER_SIZE+1),24) when to_signed(24, shift_amt'length),
-  --  SHIFT_LEFT(to_signed(1, REGISTER_SIZE+1),25) when to_signed(25, shift_amt'length),
-  --  SHIFT_LEFT(to_signed(1, REGISTER_SIZE+1),26) when to_signed(26, shift_amt'length),
-  --  SHIFT_LEFT(to_signed(1, REGISTER_SIZE+1),27) when to_signed(27, shift_amt'length),
-  --  SHIFT_LEFT(to_signed(1, REGISTER_SIZE+1),28) when to_signed(28, shift_amt'length),
-  --  SHIFT_LEFT(to_signed(1, REGISTER_SIZE+1),29) when to_signed(29, shift_amt'length),
-  --  SHIFT_LEFT(to_signed(1, REGISTER_SIZE+1),30) when to_signed(30, shift_amt'length),
-  --  SHIFT_LEFT(to_signed(1, REGISTER_SIZE+1),31) when others;
---  left_tmp     <= RESIZE(shifted_value*multiply_val,REGISTER_SIZE+1);
 
   left_tmp     <= SHIFT_LEFT(shifted_value, to_integer(shift_amt));
   right_tmp    <= SHIFT_RIGHT(shifted_value, to_integer(shift_amt));
@@ -67,6 +31,45 @@ begin  -- architecture rtl
 
   left_result <= unsigned(left_tmp(REGISTER_SIZE-1 downto 0));
 
+end architecture rtl;
+
+
+library ieee;
+use ieee.std_logic_1164.all;
+use IEEE.NUMERIC_STD.all;
+library work;
+use work.utils.all;
+
+
+entity divider is
+  generic (
+    REGISTER_SIZE : natural
+    );
+  port(
+    enable      : in  boolean;
+    numerator   : in  unsigned(REGISTER_SIZE-1 downto 0);
+    denominator : in  unsigned(REGISTER_SIZE-1 downto 0);
+    quotient    : out unsigned(REGISTER_SIZE-1 downto 0);
+    remainder   : out unsigned(REGISTER_SIZE-1 downto 0);
+    done        : out std_logic
+    );
+end entity;
+
+architecture rtl of divider is
+
+begin  -- architecture rtl
+
+  div_proc : process(enable, numerator, denominator)
+  begin
+    if enable then
+      quotient  <= numerator / denominator;
+      remainder <= numerator mod denominator;
+    else
+      quotient  <= (others => '0');
+      remainder <= (others => '0');
+    end if;
+  end process;
+  done <= '1';
 end architecture rtl;
 
 library ieee;
@@ -165,10 +168,30 @@ architecture rtl of arithmetic_unit is
   signal mult_srcb : signed(REGISTER_SIZE downto 0);
   signal mult_dest : signed((REGISTER_SIZE+1)*2-1 downto 0);
 
+  signal unsigned_div : std_logic;
+  signal div_op1      : unsigned(REGISTER_SIZE-1 downto 0);
+  signal div_op2      : unsigned(REGISTER_SIZE-1 downto 0);
+  signal div_result   : signed(REGISTER_SIZE-1 downto 0);
+  signal rem_result   : signed(REGISTER_SIZE-1 downto 0);
+  signal quotient     : unsigned(REGISTER_SIZE-1 downto 0);
+  signal remainder    : unsigned(REGISTER_SIZE-1 downto 0);
+
+  --min signed value
+  signal min_s : std_logic_vector(REGISTER_SIZE-1 downto 0);
+
+  signal zero : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal neg1 : std_logic_vector(REGISTER_SIZE-1 downto 0);
+
+  signal neg_op1 : std_logic;
+  signal neg_op2 : std_logic;
+  signal div_neg : std_logic;
+
+  signal div_en       : boolean;
+  signal div_zero     : boolean;
+  signal div_overflow : boolean;
 
 
   component shifter is
-
     generic (
       REGISTER_SIZE : natural);
     port(
@@ -177,6 +200,20 @@ architecture rtl of arithmetic_unit is
       left_result   : out unsigned(REGISTER_SIZE-1 downto 0);
       right_result  : out unsigned(REGISTER_SIZE-1 downto 0));
   end component shifter;
+  component divider is
+    generic (
+      REGISTER_SIZE : natural
+      );
+    port(
+      enable      : in boolean;
+      numerator   : in unsigned(REGISTER_SIZE-1 downto 0);
+      denominator : in unsigned(REGISTER_SIZE-1 downto 0);
+
+      quotient  : out unsigned(REGISTER_SIZE-1 downto 0);
+      remainder : out unsigned(REGISTER_SIZE-1 downto 0);
+      done      : out std_logic
+      );
+  end component;
 
 begin  -- architecture rtl
 
@@ -267,7 +304,7 @@ begin  -- architecture rtl
           end if;
         when SLL_OP =>
           base_result := lshifted_result;
-        -- data_result := unsigned(mult_dest(REGISTER_SIZE-1 downto 0));
+                                        -- data_result := unsigned(mult_dest(REGISTER_SIZE-1 downto 0));
         when SLT_OP =>
           base_result := slt_val;
         when SLTU_OP =>
@@ -292,13 +329,34 @@ begin  -- architecture rtl
         when MULHU_OP =>
           mul_result := unsigned(mult_dest(REGISTER_SIZE*2-1 downto REGISTER_SIZE));
         when DIV_OP =>
-          mul_result := to_unsigned(0, REGISTER_SIZE);
+          if div_zero then
+            mul_result := unsigned(neg1);
+          elsif div_overflow then
+            mul_result := unsigned(min_s);
+          else
+            mul_result := unsigned(div_result);
+          end if;
         when DIVU_OP =>
-          mul_result := to_unsigned(0, REGISTER_SIZE);
+          if div_zero then
+          --this conforms with test, not standard
+            mul_result := unsigned(neg1);
+          else
+            mul_result := unsigned(div_result);
+          end if;
         when REM_OP =>
-          mul_result := to_unsigned(0, REGISTER_SIZE);
+          if div_zero then
+            mul_result := unsigned(rs1_data);
+          elsif div_overflow then
+            mul_result := unsigned(zero);
+          else
+            mul_result := unsigned(rem_result);
+          end if;
         when others =>
-          mul_result := to_unsigned(0, REGISTER_SIZE);
+          if div_zero then
+            mul_result := unsigned(rs1_data);
+          else
+            mul_result := unsigned(rem_result);
+          end if;
       end case;
 
       if stall = '0' then
@@ -328,6 +386,34 @@ begin  -- architecture rtl
   mult_srcb <= signed(m_op2);
   mult_dest <= mult_srca * mult_srcb;
 
+  unsigned_div <= instruction(12);
+  neg_op1      <= not unsigned_div when signed(rs1_data) < 0 else '0';
+  neg_op2      <= not unsigned_div when signed(rs2_data) < 0 else '0';
+  div_neg      <= neg_op1 xor neg_op2;
 
+  div_op1 <= unsigned(rs1_data) when neg_op1 = '0' else unsigned(-signed(rs1_data));
+  div_op2 <= unsigned(rs2_data) when neg_op2 = '0' else unsigned(-signed(rs2_data));
+
+                                        --min signed value
+  min_s(min_s'left)            <= '1';
+  min_s(min_s'left-1 downto 0) <= (others => '0');
+  zero                         <= (others => '0');
+  neg1                         <= (others => '1');
+
+
+  div_zero     <= rs2_data = zero;
+  div_overflow <= rs1_data = min_s and rs2_data = neg1;
+  div_en       <= (func7 = mul_f7 and opcode = OP and instruction(14) = '1')and not div_zero;
+  div : component divider
+    generic map (
+      REGISTER_SIZE => REGISTER_SIZE)
+    port map (
+      enable      => div_en,
+      numerator   => div_op1,
+      denominator => div_op2,
+      quotient    => quotient,
+      remainder   => remainder);
+  div_result <= signed(quotient)  when div_neg = '0' else -signed(quotient);
+  rem_result <= signed(remainder) when neg_op1 = '0' else -signed(remainder);
 
 end architecture;
