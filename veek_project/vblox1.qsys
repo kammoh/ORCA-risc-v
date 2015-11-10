@@ -363,7 +363,7 @@
   <parameter name="resetValue" value="0" />
   <parameter name="simDoTestBenchWiring" value="false" />
   <parameter name="simDrivenValue" value="0" />
-  <parameter name="width" value="31" />
+  <parameter name="width" value="32" />
  </module>
  <module name="ledr" kind="altera_avalon_pio" version="15.0" enabled="1">
   <parameter name="bitClearingEdgeCapReg" value="false" />
@@ -377,7 +377,7 @@
   <parameter name="resetValue" value="0" />
   <parameter name="simDoTestBenchWiring" value="false" />
   <parameter name="simDrivenValue" value="0" />
-  <parameter name="width" value="31" />
+  <parameter name="width" value="32" />
  </module>
  <module
    name="onchip_memory2_0"
@@ -409,6 +409,7 @@
   <parameter name="writable" value="true" />
  </module>
  <module name="riscv_0" kind="riscv" version="1.0" enabled="1">
+  <parameter name="MULTIPLY_ENABLE" value="false" />
   <parameter name="REGISTER_SIZE" value="32" />
   <parameter name="RESET_VECTOR" value="512" />
  </module>
