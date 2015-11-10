@@ -240,11 +240,11 @@ begin  -- architecture rtl
     with csr select
       csr_read_val <=
       mtime           when CSR_TIME,
-      --mtime           when CSR_CYCLE,
-      --mtimeh          when CSR_TIMEH,
-      --mtimeh          when CSR_CYCLEH,
-      --instret         when CSR_INSTRET,
-      --instreth        when CSR_INSTRETH,
+      mtime           when CSR_CYCLE,
+      mtimeh          when CSR_TIMEH,
+      mtimeh          when CSR_CYCLEH,
+      instret         when CSR_INSTRET,
+      instreth        when CSR_INSTRETH,
       mstatus         when CSR_MSTATUS,
       mtvec           when CSR_MTVEC,
       mepc            when CSR_MEPC,

@@ -46,6 +46,7 @@ entity divider is
     REGISTER_SIZE : natural
     );
   port(
+    clk         : in  std_logic;
     enable      : in  boolean;
     numerator   : in  unsigned(REGISTER_SIZE-1 downto 0);
     denominator : in  unsigned(REGISTER_SIZE-1 downto 0);
@@ -56,20 +57,68 @@ entity divider is
 end entity;
 
 architecture rtl of divider is
-
+  type FSM_state is (START, DIVIDING, FINISH);
+  signal state : FSM_state := FINISH;
+  signal count : natural range REGISTER_SIZE-1 downto 0;
 begin  -- architecture rtl
 
-  div_proc : process(enable, numerator, denominator)
+  --P := N
+  --D := D << n              * P and D need twice the word width of N and Q
+  --for i = n-1..0 do        * for example 31..0 for 32 bits
+  --  if P >= 0 then
+  --    q[i] := +1
+  --    P := 2*P - D
+  --  else
+  --    q[i] := -1
+  --    P := 2*P + D
+  --  end if
+  --end
+
+-- Where: N = Numerator, D = Denominator, n = #bits, P = Partial remainder, q(i) = bit #i of quotient
+  div_proc : process(clk)
+    variable R : unsigned(REGISTER_SIZE -1 downto 0);
+    variable Q : unsigned(REGISTER_SIZE-1 downto 0);
+    alias D    : unsigned(REGISTER_SIZE-1 downto 0) is denominator;
+    alias N    : unsigned(REGISTER_SIZE-1 downto 0) is numerator;
   begin
-    if enable then
-      quotient  <= numerator / denominator;
-      remainder <= numerator mod denominator;
-    else
-      quotient  <= (others => '0');
-      remainder <= (others => '0');
-    end if;
+    if RISING_EDGE(clk) then
+      case state is
+        when START =>
+          Q    := (others => '0');
+          R    := (others => '0');
+          R(0) := N(N'left);
+          if R >= D then
+            R         := R - D;
+            Q(Q'left) := '1';
+          end if;
+          if enable then
+            state <= DIVIDING;
+            count <= Q'left - 1;
+          end if;
+        when DIVIDING =>
+          assert enable report "enable went low during divide" severity error;
+          R(REGISTER_SIZE-1 downto 1) := R(REGISTER_SIZE-2 downto 0);
+          R(0)                        := N(count);
+          if R >= D then
+            R        := R - D;
+            Q(count) := '1';
+          end if;
+          if count /= 0 then
+            count <= count - 1;
+          else
+            done  <= '1';
+            state <= FINISH;
+          end if;
+        when FINISH =>
+          done  <= '0';
+          state <= START;
+      end case;
+      remainder <= R;
+      quotient  <= Q;
+
+    end if;  -- clk
   end process;
-  done <= '1';
+
 end architecture rtl;
 
 library ieee;
@@ -89,7 +138,7 @@ entity arithmetic_unit is
 
   port (
     clk             : in  std_logic;
-    stall           : in  std_logic;
+    stall_in        : in  std_logic;
     valid           : in  std_logic;
     rs1_data        : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
     rs2_data        : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
@@ -97,13 +146,16 @@ entity arithmetic_unit is
     sign_extension  : in  std_logic_vector(SIGN_EXTENSION_SIZE-1 downto 0);
     program_counter : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
     data_out        : out std_logic_vector(REGISTER_SIZE-1 downto 0);
-    data_enable     : out std_logic
+    data_enable     : out std_logic;
+    stall_out       : out std_logic
     );
 
 end entity arithmetic_unit;
 
 architecture rtl of arithmetic_unit is
 
+  constant SHIFTER_USE_MULTIPLIER : boolean := MULTIPLY_ENABLE;
+  --constant SHIFTER_USE_MULTIPLIER : boolean := false;
   --op codes
   constant OP     : std_logic_vector(6 downto 0) := "0110011";
   constant OP_IMM : std_logic_vector(6 downto 0) := "0010011";
@@ -143,7 +195,7 @@ architecture rtl of arithmetic_unit is
   signal data_result     : unsigned(REGISTER_SIZE-1 downto 0);
   signal immediate_value : unsigned(REGISTER_SIZE-1 downto 0);
 
-  signal shifter_multiply : signed(REGISTER_SIZE-1 downto 0);
+  signal shifter_multiply : signed(REGISTER_SIZE downto 0);
 
 
   signal shift_amt       : unsigned(log2(REGISTER_SIZE)-1 downto 0);
@@ -182,9 +234,11 @@ architecture rtl of arithmetic_unit is
   signal zero : std_logic_vector(REGISTER_SIZE-1 downto 0);
   signal neg1 : std_logic_vector(REGISTER_SIZE-1 downto 0);
 
-  signal neg_op1 : std_logic;
-  signal neg_op2 : std_logic;
-  signal div_neg : std_logic;
+  signal neg_op1   : std_logic;
+  signal neg_op2   : std_logic;
+  signal div_neg   : std_logic;
+  signal div_done  : std_logic;
+  signal div_stall : std_logic;
 
   signal div_en       : boolean;
   signal div_zero     : boolean;
@@ -205,6 +259,7 @@ architecture rtl of arithmetic_unit is
       REGISTER_SIZE : natural
       );
     port(
+      clk         : in std_logic;
       enable      : in boolean;
       numerator   : in unsigned(REGISTER_SIZE-1 downto 0);
       denominator : in unsigned(REGISTER_SIZE-1 downto 0);
@@ -222,8 +277,15 @@ begin  -- architecture rtl
                               instruction(31 downto 20));
   data1 <= unsigned(rs1_data);
   data2 <= unsigned(rs2_data) when is_immediate = '0' else immediate_value;
+  shift_amt_mul_gen : if SHIFTER_USE_MULTIPLIER generate
+    shift_amt <= unsigned(data2(log2(REGISTER_SIZE)-1 downto 0)) when instruction(14) = '0'else
+                 32-unsigned(data2(log2(REGISTER_SIZE)-1 downto 0));
 
-  shift_amt     <= unsigned(data2(log2(REGISTER_SIZE)-1 downto 0));
+  end generate shift_amt_mul_gen;
+  shift_amt_gen : if not SHIFTER_USE_MULTIPLIER generate
+    shift_amt <= unsigned(data2(log2(REGISTER_SIZE)-1 downto 0));
+  end generate shift_amt_gen;
+
   shifted_value <= signed((instruction(30) and rs1_data(rs1_data'left)) & rs1_data);
 
   sh : component shifter
@@ -249,38 +311,39 @@ begin  -- architecture rtl
 
 
   shifter_multiply <=
-    x"00000001" when shift_amt = x"00"else
-    x"00000002" when shift_amt = x"01"else
-    x"00000004" when shift_amt = x"02"else
-    x"00000008" when shift_amt = x"03"else
-    x"00000010" when shift_amt = x"04"else
-    x"00000020" when shift_amt = x"05"else
-    x"00000040" when shift_amt = x"06"else
-    x"00000080" when shift_amt = x"07"else
-    x"00000100" when shift_amt = x"08"else
-    x"00000200" when shift_amt = x"09"else
-    x"00000400" when shift_amt = x"0A"else
-    x"00000800" when shift_amt = x"0B"else
-    x"00001000" when shift_amt = x"0C"else
-    x"00002000" when shift_amt = x"0D"else
-    x"00004000" when shift_amt = x"0E"else
-    x"00008000" when shift_amt = x"0F"else
-    x"00010000" when shift_amt = x"10"else
-    x"00020000" when shift_amt = x"11"else
-    x"00040000" when shift_amt = x"12"else
-    x"00080000" when shift_amt = x"13"else
-    x"00100000" when shift_amt = x"14"else
-    x"00200000" when shift_amt = x"15"else
-    x"00400000" when shift_amt = x"16"else
-    x"00800000" when shift_amt = x"17"else
-    x"01000000" when shift_amt = x"18"else
-    x"02000000" when shift_amt = x"19"else
-    x"04000000" when shift_amt = x"1A"else
-    x"08000000" when shift_amt = x"1B"else
-    x"10000000" when shift_amt = x"1C"else
-    x"20000000" when shift_amt = x"1D"else
-    x"40000000" when shift_amt = x"1E"else
-    x"80000000";
+    "0"&x"00000001" when shift_amt = x"00"else
+    "0"&x"00000002" when shift_amt = x"01"else
+    "0"&x"00000004" when shift_amt = x"02"else
+    "0"&x"00000008" when shift_amt = x"03"else
+    "0"&x"00000010" when shift_amt = x"04"else
+    "0"&x"00000020" when shift_amt = x"05"else
+    "0"&x"00000040" when shift_amt = x"06"else
+    "0"&x"00000080" when shift_amt = x"07"else
+    "0"&x"00000100" when shift_amt = x"08"else
+    "0"&x"00000200" when shift_amt = x"09"else
+    "0"&x"00000400" when shift_amt = x"0A"else
+    "0"&x"00000800" when shift_amt = x"0B"else
+    "0"&x"00001000" when shift_amt = x"0C"else
+    "0"&x"00002000" when shift_amt = x"0D"else
+    "0"&x"00004000" when shift_amt = x"0E"else
+    "0"&x"00008000" when shift_amt = x"0F"else
+    "0"&x"00010000" when shift_amt = x"10"else
+    "0"&x"00020000" when shift_amt = x"11"else
+    "0"&x"00040000" when shift_amt = x"12"else
+    "0"&x"00080000" when shift_amt = x"13"else
+    "0"&x"00100000" when shift_amt = x"14"else
+    "0"&x"00200000" when shift_amt = x"15"else
+    "0"&x"00400000" when shift_amt = x"16"else
+    "0"&x"00800000" when shift_amt = x"17"else
+    "0"&x"01000000" when shift_amt = x"18"else
+    "0"&x"02000000" when shift_amt = x"19"else
+    "0"&x"04000000" when shift_amt = x"1A"else
+    "0"&x"08000000" when shift_amt = x"1B"else
+    "0"&x"10000000" when shift_amt = x"1C"else
+    "0"&x"20000000" when shift_amt = x"1D"else
+    "0"&x"40000000" when shift_amt = x"1E"else
+    "0"&x"80000000";
+
 
 
 
@@ -303,8 +366,12 @@ begin  -- architecture rtl
             base_result := data1 + data2;
           end if;
         when SLL_OP =>
-          base_result := lshifted_result;
-                                        -- data_result := unsigned(mult_dest(REGISTER_SIZE-1 downto 0));
+          if SHIFTER_USE_MULTIPLIER then
+            base_result := unsigned(mult_dest(REGISTER_SIZE-1 downto 0));
+          else
+            base_result := lshifted_result;
+          end if;
+
         when SLT_OP =>
           base_result := slt_val;
         when SLTU_OP =>
@@ -312,7 +379,15 @@ begin  -- architecture rtl
         when XOR_OP =>
           base_result := data1 xor data2;
         when SR_OP =>
-          base_result := rshifted_result;
+          if SHIFTER_USE_MULTIPLIER then
+            if shift_amt = x"00" then
+              base_result := unsigned(shifted_value(REGISTER_SIZE-1 downto 0));
+            else
+              base_result := unsigned(mult_dest(REGISTER_SIZE*2-1 downto REGISTER_SIZE));
+            end if;
+          else
+            base_result := rshifted_result;
+          end if;
         when OR_OP =>
           base_result := data1 or data2;
         when AND_OP =>
@@ -338,7 +413,7 @@ begin  -- architecture rtl
           end if;
         when DIVU_OP =>
           if div_zero then
-          --this conforms with test, not standard
+            --this conforms with test, not standard
             mul_result := unsigned(neg1);
           else
             mul_result := unsigned(div_result);
@@ -359,7 +434,7 @@ begin  -- architecture rtl
           end if;
       end case;
 
-      if stall = '0' then
+      if stall_in = '0' then
         case OPCODE is
           when OP     => data_enable <= valid;
           when OP_IMM => data_enable <= valid;
@@ -382,8 +457,10 @@ begin  -- architecture rtl
   m_op2_msk <= not instruction(13);
   m_op1     <= signed((m_op1_msk and rs1_data(data1'left)) & data1);
   m_op2     <= signed((m_op2_msk and rs2_data(data2'left)) & data2);
-  mult_srca <= signed(m_op1);
-  mult_srcb <= signed(m_op2);
+
+  mult_srca <= signed(m_op1) when func7 = mul_f7  or not SHIFTER_USE_MULTIPLIER else shifter_multiply;
+  mult_srcb <= signed(m_op2) when func7 = mul_f7  or not SHIFTER_USE_MULTIPLIER else shifted_value;
+
   mult_dest <= mult_srca * mult_srcb;
 
   unsigned_div <= instruction(12);
@@ -408,12 +485,16 @@ begin  -- architecture rtl
     generic map (
       REGISTER_SIZE => REGISTER_SIZE)
     port map (
+      clk         => clk,
       enable      => div_en,
       numerator   => div_op1,
       denominator => div_op2,
       quotient    => quotient,
-      remainder   => remainder);
+      remainder   => remainder,
+      done        => div_done);
   div_result <= signed(quotient)  when div_neg = '0' else -signed(quotient);
   rem_result <= signed(remainder) when neg_op1 = '0' else -signed(remainder);
 
+  div_stall <= not div_done when div_en else '0';
+  stall_out <= div_stall when MULTIPLY_ENABLE else '0';
 end architecture;

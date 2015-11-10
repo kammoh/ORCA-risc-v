@@ -8,8 +8,8 @@ use work.utils.all;
 package rv_components is
   component riscV is
     generic (
-      REGISTER_SIZE : integer := 32;
-      RESET_VECTOR  : natural := 16#00000200#;
+      REGISTER_SIZE   : integer := 32;
+      RESET_VECTOR    : natural := 16#00000200#;
       MULTIPLY_ENABLE : boolean);
     port(
       clk   : in std_logic;
@@ -86,7 +86,7 @@ package rv_components is
       INSTRUCTION_SIZE    : positive;
       SIGN_EXTENSION_SIZE : positive;
       RESET_VECTOR        : natural;
-      MULTIPLY_ENABLE : boolean);
+      MULTIPLY_ENABLE     : boolean);
     port(
       clk         : in std_logic;
       reset       : in std_logic;
@@ -153,10 +153,10 @@ package rv_components is
       INSTRUCTION_SIZE    : integer;
       REGISTER_SIZE       : integer;
       SIGN_EXTENSION_SIZE : integer;
-      MULTIPLY_ENABLE             : boolean);
+      MULTIPLY_ENABLE     : boolean);
     port (
       clk             : in  std_logic;
-      stall           : in  std_logic;
+      stall_in        : in  std_logic;
       valid           : in  std_logic;
       rs1_data        : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
       rs2_data        : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
@@ -164,7 +164,8 @@ package rv_components is
       sign_extension  : in  std_logic_vector(SIGN_EXTENSION_SIZE-1 downto 0);
       program_counter : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
       data_out        : out std_logic_vector(REGISTER_SIZE-1 downto 0);
-      data_enable     : out std_logic);
+      data_enable     : out std_logic;
+      stall_out       : out std_logic);
   end component arithmetic_unit;
 
   component branch_unit is

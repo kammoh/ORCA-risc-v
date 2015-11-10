@@ -77,6 +77,8 @@ architecture behavioural of execute is
 
   signal wb_mux : std_logic_vector(1 downto 0);
 
+  signal alu_stall_in : std_logic;
+  signal alu_stall    : std_logic;
 
   signal br_bad_predict : std_logic;
   signal br_new_pc      : std_logic_vector(REGISTER_SIZE-1 downto 0);
@@ -153,7 +155,7 @@ begin
   use_after_load_stall2 <= ld_data_en when rd_latch = rs2 else '0';
   use_after_load_stall  <= use_after_load_stall1 or use_after_load_stall2;
 
-  stall_pipeline <= ls_unit_waiting or use_after_load_stall;
+  stall_pipeline <= ls_unit_waiting or use_after_load_stall or alu_stall;
 
   process(clk)
     variable next_instr  : std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
@@ -218,6 +220,7 @@ begin
     end if;
   end process;
 
+  alu_stall_in <= stall_pipeline;
   alu : component arithmetic_unit
     generic map (
       INSTRUCTION_SIZE    => INSTRUCTION_SIZE,
@@ -226,7 +229,7 @@ begin
       MULTIPLY_ENABLE     => MULTIPLY_ENABLE)
     port map (
       clk             => clk,
-      stall           => stall_pipeline,
+      stall_in        => alu_stall_in,
       valid           => valid_input,
       rs1_data        => rs1_data_fwd,
       rs2_data        => rs2_data_fwd,
@@ -234,7 +237,8 @@ begin
       sign_extension  => sign_extension,
       program_counter => pc_current,
       data_out        => alu_data_out,
-      data_enable     => alu_data_en);
+      data_enable     => alu_data_en,
+      stall_out       => alu_stall);
 
 
   branch : entity work.branch_unit(latch_middle)
