@@ -35,14 +35,17 @@ entity system_calls is
 end entity system_calls;
 
 architecture rtl of system_calls is
+
   alias csr    : std_logic_vector(11 downto 0) is instruction(31 downto 20);
   alias source : std_logic_vector(4 downto 0) is instruction(19 downto 15);
   alias zimm   : std_logic_vector(4 downto 0) is instruction(19 downto 15);
   alias func3  : std_logic_vector(2 downto 0) is instruction(14 downto 12);
   alias dest   : std_logic_vector(4 downto 0) is instruction(11 downto 7);
   alias opcode : std_logic_vector(4 downto 0) is instruction(6 downto 2);
+  alias opcode7 : std_logic_vector(6 downto 0) is instruction(6 downto 0);
+  alias func7  : std_logic_vector(6 downto 0) is instruction(31 downto 25);
 
-  signal bad_instruction : std_logic;
+  signal legal_instruction : std_logic;
 
   signal cycles        : unsigned(63 downto 0);
   signal instr_retired : unsigned(63 downto 0);
@@ -52,6 +55,7 @@ architecture rtl of system_calls is
   constant INCLUDE_TIMERS         : boolean := true;
   constant INCLUDE_EXTRA_COUNTERS : boolean := false;
 
+  constant CHECK_LEGAL_INSTRUCTIONS : boolean := true;
   signal use_after_load_stalls : unsigned(31 downto 0);
   signal jal_instructions      : unsigned(31 downto 0);
   signal jalr_instructions     : unsigned(31 downto 0);
@@ -71,20 +75,19 @@ architecture rtl of system_calls is
   signal mcause_i  : std_logic;
   signal mcause_ex : std_logic_vector(3 downto 0);
   signal mtohost   : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal mfromhost : std_logic_vector(REGISTER_SIZE-1 downto 0);
 
   signal mstatus : std_logic_vector(REGISTER_SIZE-1 downto 0);
 
   subtype csr_t is std_logic_vector(11 downto 0);
-  --CSR constants
-  --USER
+                                        --CSR constants
+                                        --USER
   constant CSR_CYCLE     : csr_t := x"C00";
   constant CSR_TIME      : csr_t := x"C01";
   constant CSR_INSTRET   : csr_t := x"C02";
   constant CSR_CYCLEH    : csr_t := x"C80";
   constant CSR_TIMEH     : csr_t := x"C81";
   constant CSR_INSTRETH  : csr_t := x"C82";
-  --MACHINE
+                                        --MACHINE
   constant CSR_MCPUID    : csr_t := X"F00";
   constant CSR_MIMPID    : csr_t := X"F01";
   constant CSR_MHARTID   : csr_t := X"F10";
@@ -112,17 +115,18 @@ architecture rtl of system_calls is
   constant CSR_MFROMHOST : csr_t := X"781";
 
   constant FENCE_I     : std_logic_vector(31 downto 0) := x"0000100F";
-  --EXECPTION CODES
+  -- EXECPTION CODES
+  constant ILLEGAL_I   : std_logic_vector(3 downto 0)  := x"2";
   constant MMODE_ECALL : std_logic_vector(3 downto 0)  := x"B";
   constant BREAKPOINT  : std_logic_vector(3 downto 0)  := x"3";
 
-  --RESSET VECTORS
+                                        --RESSET VECTORS
   constant SYSTEM_RESET :
     std_logic_vector(REGISTER_SIZE-1 downto 0) := std_logic_vector(to_unsigned(RESET_VECTOR - 16#00#, REGISTER_SIZE));
   constant MACHINE_MODE_TRAP :
     std_logic_vector(REGISTER_SIZE-1 downto 0) := std_logic_vector(to_unsigned(RESET_VECTOR - 16#40#, REGISTER_SIZE));
 
-  --func3 constants
+                                        --func3 constants
   constant CSRRW  : std_logic_vector(2 downto 0) := "001";
   constant CSRRS  : std_logic_vector(2 downto 0) := "010";
   constant CSRRC  : std_logic_vector(2 downto 0) := "011";
@@ -137,7 +141,6 @@ architecture rtl of system_calls is
   signal bit_sel       : std_logic_vector(REGISTER_SIZE-1 downto 0);
   signal ibit_sel      : std_logic_vector(REGISTER_SIZE-1 downto 0);
   signal resized_zimm  : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal instr         : std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
 
 begin  -- architecture rtl
   timers_if_gen : if INCLUDE_TIMERS generate
@@ -148,7 +151,6 @@ begin  -- architecture rtl
         instr_retired <= (others => '0');
 
       elsif rising_edge(clk) then
-        instr  <= instruction;
         cycles <= cycles +1;
         if finished_instr = '1' then
           instr_retired <= instr_retired +1;
@@ -168,16 +170,15 @@ begin  -- architecture rtl
         load_stalls           <= (others => '0');
 
       elsif rising_edge(clk) then
-        instr <= instruction;
         if finished_instr = '1' then
           instr_retired <= instr_retired +1;
         end if;
         if predict_corr = '1' then
-          if instr(6 downto 0) = "1101111" then
+          if opcode = "11011" then
             jal_instructions <= jal_instructions + 1;
-          elsif instr(6 downto 0) = "1100111" then
+          elsif opcode = "11001" then
             jalr_instructions <= jalr_instructions +1;
-          elsif instr(6 downto 0) = "1100011" then
+          elsif opcode = "11000" then
             branch_mispredicts <= branch_mispredicts +1;
           else
             other_flush <= other_flush +1;
@@ -194,7 +195,6 @@ begin  -- architecture rtl
   end generate EXTRA_COUNTERS_GEN;
 
 
-  mfromhost                      <= from_host;
   mtime                          <= std_logic_vector(cycles(REGISTER_SIZE-1 downto 0));
   mtimeh                         <= std_logic_vector(cycles(63 downto 64-REGISTER_SIZE));
   mstatus(mstatus'left downto 1) <= (others => '0');
@@ -220,11 +220,9 @@ begin  -- architecture rtl
       mtimeh                                  when CSR_CYCLEH,
       mtimeh                                  when CSR_TIMEH,
       mstatus                                 when CSR_MSTATUS,
-      mtvec                                   when CSR_MTVEC,
+--      mtvec                                   when CSR_MTVEC,
       mepc                                    when CSR_MEPC,
       mcause                                  when CSR_MCAUSE,
-      mtohost                                 when CSR_MTOHOST,
-      mfromhost                               when CSR_MFROMHOST,
       instret                                 when CSR_INSTRET,
       instreth                                when CSR_INSTRETH,
       std_logic_vector(jal_instructions)      when CSR_MBASE,
@@ -246,11 +244,9 @@ begin  -- architecture rtl
       instret         when CSR_INSTRET,
       instreth        when CSR_INSTRETH,
       mstatus         when CSR_MSTATUS,
-      mtvec           when CSR_MTVEC,
+--      mtvec           when CSR_MTVEC,
       mepc            when CSR_MEPC,
       mcause          when CSR_MCAUSE,
-      mtohost         when CSR_MTOHOST,
-      mfromhost       when CSR_MFROMHOST,
       (others => '0') when others;
   end generate read_mux_timers;
 
@@ -258,11 +254,9 @@ begin  -- architecture rtl
     with csr select
       csr_read_val <=
       mstatus         when CSR_MSTATUS,
-      mtvec           when CSR_MTVEC,
+--      mtvec           when CSR_MTVEC,
       mepc            when CSR_MEPC,
       mcause          when CSR_MCAUSE,
-      mtohost         when CSR_MTOHOST,
-      mfromhost       when CSR_MFROMHOST,
       (others => '0') when others;
   end generate read_mux_notimer;
 
@@ -289,12 +283,19 @@ begin  -- architecture rtl
   output_proc : process(clk) is
   begin
     if rising_edge(clk) then
-      --writeback to register file
+                                        --writeback to register file
       wb_data    <= csr_read_val;
       pc_corr_en <= '0';
       wb_en      <= '0';
       if valid = '1' then
-        if opcode = "11100" then        --SYSTEM OP CODE
+        if legal_instruction = '0' then
+          mcause_i      <= '0';
+          mcause_ex     <= ILLEGAL_I;
+          pc_corr_en    <= '1';
+          pc_correction <= MACHINE_MODE_TRAP;
+          mepc          <= current_pc;
+
+        elsif opcode = "11100" then     --SYSTEM OP CODE
           if func3 /= "000" and func3 /= "100" then
             wb_en <= '1';
           end if;
@@ -317,11 +318,11 @@ begin  -- architecture rtl
               pc_correction <= mepc;
             end if;
           else
-            --writeback to CSR
+                                        --writeback to CSR
             case CSR is
-              --read-write registers
+                                        --read-write registers
               when CSR_MTOHOST =>
-                mtohost <= csr_write_val;
+                mtohost <= csr_write_val;  --write only register
               when CSR_MEPC =>
                 mepc <= csr_write_val;
               when others =>
@@ -331,7 +332,6 @@ begin  -- architecture rtl
         elsif instruction(31 downto 2) = FENCE_I(31 downto 2) then
           pc_correction <= next_pc;
           pc_corr_en    <= '1';
-
         end if;  --opcode
 
       end if;  --valid
@@ -342,4 +342,22 @@ begin  -- architecture rtl
   end process;
 
   to_host <= mtohost;
+
+
+
+  legal_instruction <=
+    '1' when (CHECK_LEGAL_INSTRUCTIONS = FALSE or
+              opcode7 = "0110111" or
+              opcode7 = "0010111" or
+              opcode7 = "1101111" or
+              (opcode7 = "1100111" and func3 = "000") or
+              (opcode7 = "1100011" and func3 /= "010" and func3 /= "011") or
+              (opcode7 = "0000011" and func3 /= "011" and func3 /= "110" and func3 /= "111") or
+              (opcode7 = "0100011" and (func3 = "000" or func3 = "001" or func3 = "010")) or
+              opcode7 = "0010011" or
+              opcode7 = "0110011" or
+              (opcode7 = "0001111" and instruction(31 downto 28)& instruction(19 downto 13) &instruction(11 downto 7) = x"0000") or
+              opcode7 = "1110011") else '0';
+
+
 end architecture rtl;
