@@ -123,17 +123,8 @@ begin
   latched_inputs : process(clk, reset)
   begin
     if rising_edge(clk) then
-      if reset = '1' then
-        read_in_progress <= '0';
-      else
-        alignment    <= address_unaligned(1 downto 0);
-        latched_fun3 <= fun3;
-        if re = '1' and valid = '1' then
-          read_in_progress <= '1';
-        elsif readvalid = '1' then
-          read_in_progress <= '0';
-        end if;
-      end if;
+      alignment    <= address_unaligned(1 downto 0);
+      latched_fun3 <= fun3;
     end if;
   end process;
 
