@@ -77,7 +77,6 @@ architecture behavioural of execute is
 
   signal wb_mux : std_logic_vector(1 downto 0);
 
-  signal alu_stall_in : std_logic;
   signal alu_stall    : std_logic;
 
   signal br_bad_predict : std_logic;
@@ -120,6 +119,22 @@ architecture behavioural of execute is
   constant CSR_OP   : std_logic_vector(4 downto 0) := "11100";
 begin
 
+  -----------------------------------------------------------------------------
+  -- REGISTER FORWADING
+  -- Knowing the next instruction coming downt the pipeline, we can
+  -- generate the mux select bits for the next cycle.
+  -- there are several functional units that could generate a writeback. ALU,
+  -- JAL, Syscalls,load_stare. the syscall and alu forward directly to the next
+  -- instruction. on a load instruction, we don't have enogh time to forward it
+  -- directly so we save it into a temporary register.  JAL and JALR always
+  -- result in a pipeline flush so we don't have to worry about forwarding the
+  -- writeback register. This means that the source register can come either
+  -- from the register file if there is no forwarding, the saved register from
+  -- a load instruction or from forwarding the csr read or alu instruction.
+  --
+  -- Note that because the load instruction doesn't directly forward into the
+  -- next instruction, we have to watch out for use after load hazards.
+  -----------------------------------------------------------------------------
 
   with rs1_mux select
     rs1_data_fwd <=
@@ -147,8 +162,6 @@ begin
   wb_en  <= sys_data_en or ld_data_en or br_data_en or alu_data_en when wb_sel /= ZERO else '0';
   wb_sel <= rd_latch;
 
-  --never forward from jal (always flush pipe)
-  --never forward directly from ld_data (use register)
   fwd_data <= sys_data_out when sys_data_en = '1' else alu_data_out;
 
   use_after_load_stall1 <= ld_data_en when rd_latch = rs1 else '0';
@@ -220,7 +233,6 @@ begin
     end if;
   end process;
 
-  alu_stall_in <= stall_pipeline;
   alu : component arithmetic_unit
     generic map (
       INSTRUCTION_SIZE    => INSTRUCTION_SIZE,
@@ -229,7 +241,7 @@ begin
       MULTIPLY_ENABLE     => MULTIPLY_ENABLE)
     port map (
       clk             => clk,
-      stall_in        => alu_stall_in,
+      stall_in        => stall_pipeline,
       valid           => valid_input,
       rs1_data        => rs1_data_fwd,
       rs2_data        => rs2_data_fwd,
