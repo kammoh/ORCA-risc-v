@@ -77,7 +77,7 @@ architecture behavioural of execute is
 
   signal wb_mux : std_logic_vector(1 downto 0);
 
-  signal alu_stall    : std_logic;
+  signal alu_stall : std_logic;
 
   signal br_bad_predict : std_logic;
   signal br_new_pc      : std_logic_vector(REGISTER_SIZE-1 downto 0);
@@ -111,6 +111,8 @@ architecture behavioural of execute is
   signal rs2_mux : std_logic_vector(1 downto 0);
 
   signal finished_instr : std_logic;
+
+  signal illegal_alu_instr : std_logic;
 
   constant LUI_OP   : std_logic_vector(4 downto 0) := "01101";
   constant AUIPC_OP : std_logic_vector(4 downto 0) := "00101";
@@ -240,17 +242,18 @@ begin
       SIGN_EXTENSION_SIZE => SIGN_EXTENSION_SIZE,
       MULTIPLY_ENABLE     => MULTIPLY_ENABLE)
     port map (
-      clk             => clk,
-      stall_in        => stall_pipeline,
-      valid           => valid_input,
-      rs1_data        => rs1_data_fwd,
-      rs2_data        => rs2_data_fwd,
-      instruction     => instruction,
-      sign_extension  => sign_extension,
-      program_counter => pc_current,
-      data_out        => alu_data_out,
-      data_enable     => alu_data_en,
-      stall_out       => alu_stall);
+      clk               => clk,
+      stall_in          => stall_pipeline,
+      valid             => valid_input,
+      rs1_data          => rs1_data_fwd,
+      rs2_data          => rs2_data_fwd,
+      instruction       => instruction,
+      sign_extension    => sign_extension,
+      program_counter   => pc_current,
+      data_out          => alu_data_out,
+      data_enable       => alu_data_en,
+      illegal_alu_instr => illegal_alu_instr,
+      stall_out         => alu_stall);
 
 
   branch : entity work.branch_unit(latch_middle)
@@ -321,11 +324,11 @@ begin
       to_host        => to_host,
       from_host      => from_host,
 
-      current_pc    => pc_current,
-      next_pc       => pc_next,
-      pc_correction => syscall_target,
-      pc_corr_en    => syscall_en,
-
+      current_pc           => pc_current,
+      next_pc              => pc_next,
+      pc_correction        => syscall_target,
+      pc_corr_en           => syscall_en,
+      illegal_alu_instr    => illegal_alu_instr,
       use_after_load_stall => use_after_load_stall,
       load_stall           => ls_unit_waiting,
       predict_corr         => predict_corr_en

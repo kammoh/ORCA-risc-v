@@ -155,17 +155,18 @@ package rv_components is
       SIGN_EXTENSION_SIZE : integer;
       MULTIPLY_ENABLE     : boolean);
     port (
-      clk             : in  std_logic;
-      stall_in        : in  std_logic;
-      valid           : in  std_logic;
-      rs1_data        : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
-      rs2_data        : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
-      instruction     : in  std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
-      sign_extension  : in  std_logic_vector(SIGN_EXTENSION_SIZE-1 downto 0);
-      program_counter : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
-      data_out        : out std_logic_vector(REGISTER_SIZE-1 downto 0);
-      data_enable     : out std_logic;
-      stall_out       : out std_logic);
+      clk               : in  std_logic;
+      stall_in          : in  std_logic;
+      valid             : in  std_logic;
+      rs1_data          : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
+      rs2_data          : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
+      instruction       : in  std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
+      sign_extension    : in  std_logic_vector(SIGN_EXTENSION_SIZE-1 downto 0);
+      program_counter   : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
+      data_out          : out std_logic_vector(REGISTER_SIZE-1 downto 0);
+      data_enable       : out std_logic;
+      illegal_alu_instr : out std_logic;
+      stall_out         : out std_logic);
   end component arithmetic_unit;
 
   component branch_unit is
@@ -465,6 +466,8 @@ package rv_components is
       next_pc       : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
       pc_correction : out std_logic_vector(REGISTER_SIZE -1 downto 0);
       pc_corr_en    : out std_logic;
+
+      illegal_alu_instr : in std_logic;
 
       use_after_load_stall : in std_logic;
       predict_corr         : in std_logic;

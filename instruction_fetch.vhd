@@ -1,6 +1,9 @@
+
+
 library IEEE;
 use IEEE.STD_LOGIC_1164.all;
 use IEEE.NUMERIC_STD.all;
+
 
 library work;
 use work.rv_components.all;
@@ -97,11 +100,11 @@ begin  -- architecture rtl
       next_pc     => generated_pc);
 
 
-  instr_out   <=  instr;
-  pc_out      <=  program_counter;
-  next_pc_out <=  generated_pc;
+  instr_out   <= instr;
+  pc_out      <= program_counter;
+  next_pc_out <= generated_pc;
 
-  valid_instr_out <= saved_valid_instr_out when stall = '1' else valid_instr;
+  valid_instr_out <=  valid_instr;
 
   read_address <= address;
 

@@ -124,30 +124,31 @@ entity arithmetic_unit is
     MULTIPLY_ENABLE     : boolean);
 
   port (
-    clk             : in  std_logic;
-    stall_in        : in  std_logic;
-    valid           : in  std_logic;
-    rs1_data        : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
-    rs2_data        : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
-    instruction     : in  std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
-    sign_extension  : in  std_logic_vector(SIGN_EXTENSION_SIZE-1 downto 0);
-    program_counter : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
-    data_out        : out std_logic_vector(REGISTER_SIZE-1 downto 0);
-    data_enable     : out std_logic;
-    stall_out       : out std_logic
+    clk               : in  std_logic;
+    stall_in          : in  std_logic;
+    valid             : in  std_logic;
+    rs1_data          : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
+    rs2_data          : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
+    instruction       : in  std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
+    sign_extension    : in  std_logic_vector(SIGN_EXTENSION_SIZE-1 downto 0);
+    program_counter   : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
+    data_out          : out std_logic_vector(REGISTER_SIZE-1 downto 0);
+    data_enable       : out std_logic;
+    illegal_alu_instr : out std_logic;
+    stall_out         : out std_logic
     );
 
 end entity arithmetic_unit;
 
 architecture rtl of arithmetic_unit is
 
-  constant SHIFTER_USE_MULTIPLIER : boolean := MULTIPLY_ENABLE;
+  constant SHIFTER_USE_MULTIPLIER : boolean                      := MULTIPLY_ENABLE;
   --constant SHIFTER_USE_MULTIPLIER : boolean := false;
   --op codes
-  constant OP     : std_logic_vector(6 downto 0) := "0110011";
-  constant OP_IMM : std_logic_vector(6 downto 0) := "0010011";
-  constant LUI    : std_logic_vector(6 downto 0) := "0110111";
-  constant AUIPC  : std_logic_vector(6 downto 0) := "0010111";
+  constant OP                     : std_logic_vector(6 downto 0) := "0110011";
+  constant OP_IMM                 : std_logic_vector(6 downto 0) := "0010011";
+  constant LUI                    : std_logic_vector(6 downto 0) := "0110111";
+  constant AUIPC                  : std_logic_vector(6 downto 0) := "0010111";
 
 
   constant MUL_OP    : std_logic_vector(2 downto 0) := "000";
@@ -445,8 +446,8 @@ begin  -- architecture rtl
   m_op1     <= signed((m_op1_msk and rs1_data(data1'left)) & data1);
   m_op2     <= signed((m_op2_msk and rs2_data(data2'left)) & data2);
 
-  mult_srca <= signed(m_op1) when func7 = mul_f7  or not SHIFTER_USE_MULTIPLIER else shifter_multiply;
-  mult_srcb <= signed(m_op2) when func7 = mul_f7  or not SHIFTER_USE_MULTIPLIER else shifted_value;
+  mult_srca <= signed(m_op1) when func7 = mul_f7 or not SHIFTER_USE_MULTIPLIER else shifter_multiply;
+  mult_srcb <= signed(m_op2) when func7 = mul_f7 or not SHIFTER_USE_MULTIPLIER else shifted_value;
 
   mult_dest <= mult_srca * mult_srcb;
 
@@ -482,6 +483,10 @@ begin  -- architecture rtl
   div_result <= signed(quotient)  when div_neg = '0' else -signed(quotient);
   rem_result <= signed(remainder) when neg_op1 = '0' else -signed(remainder);
 
-  div_stall <= not div_done when div_en else '0';
-  stall_out <= div_stall when MULTIPLY_ENABLE else '0';
+  div_stall <= not div_done when div_en          else '0';
+  stall_out <= div_stall    when MULTIPLY_ENABLE else '0';
+  illegal_alu_instr <= '0' when (instruction(31 downto 25) = "0000000" or
+                                  (instruction(31 downto 25) = "0100000" and (instruction(14 downto 12) = "101" or
+                                                                              instruction(14 downto 12) = "000"))or
+                                  (instruction(31 downto 25) = "0000001" and MULTIPLY_ENABLE)) else '1';
 end architecture;

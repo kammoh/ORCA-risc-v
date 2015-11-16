@@ -1,3 +1,37 @@
+library IEEE;
+use IEEE.STD_LOGIC_1164.all;
+use IEEE.NUMERIC_STD.all;
+entity instruction_legal is
+  generic (
+    INSTRUCTION_SIZE         : positive;
+    CHECK_LEGAL_INSTRUCTIONS : boolean);
+  port (
+    instruction       : in  std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
+    illegal_alu_instr : in  std_logic;
+    legal             : out std_logic);
+end entity;
+
+architecture rtl of instruction_legal is
+  alias opcode7 is instruction(6 downto 0);
+  alias func3 is instruction(14 downto 12);
+begin
+
+  legal <=
+    '1' when (CHECK_LEGAL_INSTRUCTIONS = false or
+              opcode7 = "0110111" or
+              opcode7 = "0010111" or
+              opcode7 = "1101111" or
+              (opcode7 = "1100111" and func3 = "000") or
+              (opcode7 = "1100011" and func3 /= "010" and func3 /= "011") or
+              (opcode7 = "0000011" and func3 /= "011" and func3 /= "110" and func3 /= "111") or
+              (opcode7 = "0100011" and (func3 = "000" or func3 = "001" or func3 = "010")) or
+              opcode7 = "0010011" or
+              (opcode7 = "0110011" and not illegal_alu_instr = '1') or
+              (opcode7 = "0001111" and instruction(31 downto 28)& instruction(19 downto 13) &instruction(11 downto 7) = x"0000") or
+              opcode7 = "1110011") else '0';
+
+end architecture;
+
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
@@ -28,6 +62,8 @@ entity system_calls is
     pc_correction : out    std_logic_vector(REGISTER_SIZE -1 downto 0);
     pc_corr_en    : buffer std_logic;
 
+    illegal_alu_instr : in std_logic;
+
     use_after_load_stall : in std_logic;
     predict_corr         : in std_logic;
     load_stall           : in std_logic);
@@ -36,14 +72,14 @@ end entity system_calls;
 
 architecture rtl of system_calls is
 
-  alias csr    : std_logic_vector(11 downto 0) is instruction(31 downto 20);
-  alias source : std_logic_vector(4 downto 0) is instruction(19 downto 15);
-  alias zimm   : std_logic_vector(4 downto 0) is instruction(19 downto 15);
-  alias func3  : std_logic_vector(2 downto 0) is instruction(14 downto 12);
-  alias dest   : std_logic_vector(4 downto 0) is instruction(11 downto 7);
-  alias opcode : std_logic_vector(4 downto 0) is instruction(6 downto 2);
+  alias csr     : std_logic_vector(11 downto 0) is instruction(31 downto 20);
+  alias source  : std_logic_vector(4 downto 0) is instruction(19 downto 15);
+  alias zimm    : std_logic_vector(4 downto 0) is instruction(19 downto 15);
+  alias func3   : std_logic_vector(2 downto 0) is instruction(14 downto 12);
+  alias dest    : std_logic_vector(4 downto 0) is instruction(11 downto 7);
+  alias opcode  : std_logic_vector(4 downto 0) is instruction(6 downto 2);
   alias opcode7 : std_logic_vector(6 downto 0) is instruction(6 downto 0);
-  alias func7  : std_logic_vector(6 downto 0) is instruction(31 downto 25);
+  alias func7   : std_logic_vector(6 downto 0) is instruction(31 downto 25);
 
   signal legal_instruction : std_logic;
 
@@ -56,12 +92,12 @@ architecture rtl of system_calls is
   constant INCLUDE_EXTRA_COUNTERS : boolean := false;
 
   constant CHECK_LEGAL_INSTRUCTIONS : boolean := true;
-  signal use_after_load_stalls : unsigned(31 downto 0);
-  signal jal_instructions      : unsigned(31 downto 0);
-  signal jalr_instructions     : unsigned(31 downto 0);
-  signal branch_mispredicts    : unsigned(31 downto 0);
-  signal other_flush           : unsigned(31 downto 0);
-  signal load_stalls           : unsigned(31 downto 0);
+  signal use_after_load_stalls      : unsigned(31 downto 0);
+  signal jal_instructions           : unsigned(31 downto 0);
+  signal jalr_instructions          : unsigned(31 downto 0);
+  signal branch_mispredicts         : unsigned(31 downto 0);
+  signal other_flush                : unsigned(31 downto 0);
+  signal load_stalls                : unsigned(31 downto 0);
 
   signal mstatus_ie : std_logic;
   constant mtvec    : std_logic_vector(REGISTER_SIZE-1 downto 0) := x"00000200";
@@ -141,6 +177,17 @@ architecture rtl of system_calls is
   signal bit_sel       : std_logic_vector(REGISTER_SIZE-1 downto 0);
   signal ibit_sel      : std_logic_vector(REGISTER_SIZE-1 downto 0);
   signal resized_zimm  : std_logic_vector(REGISTER_SIZE-1 downto 0);
+
+  component instruction_legal is
+    generic (
+      INSTRUCTION_SIZE         : positive;
+      CHECK_LEGAL_INSTRUCTIONS : boolean);
+    port (
+      instruction       : in  std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
+      illegal_alu_instr : in  std_logic;
+      legal             : out std_logic);
+  end component;
+
 
 begin  -- architecture rtl
   timers_if_gen : if INCLUDE_TIMERS generate
@@ -301,26 +348,26 @@ begin  -- architecture rtl
           end if;
 
           if zimm & func3 = "00000"&"000" then
-            if CSR = x"000" then        --ECALL
+            if CSR = x"000" then           --ECALL
               mcause_i      <= '0';
               mcause_ex     <= MMODE_ECALL;
               pc_corr_en    <= '1';
               pc_correction <= MACHINE_MODE_TRAP;
               mepc          <= current_pc;
-            elsif CSR = x"001" then     --EBREAK
+            elsif CSR = x"001" then        --EBREAK
               mcause_i      <= '0';
               mcause_ex     <= BREAKPOINT;
               pc_corr_en    <= '1';
               pc_correction <= MACHINE_MODE_TRAP;
               mepc          <= current_pc;
-            elsif CSR = x"100" then     --ERET
+            elsif CSR = x"100" then        --ERET
               pc_corr_en    <= '1';
               pc_correction <= mepc;
             end if;
           else
-                                        --writeback to CSR
+                                           --writeback to CSR
             case CSR is
-                                        --read-write registers
+                                           --read-write registers
               when CSR_MTOHOST =>
                 mtohost <= csr_write_val;  --write only register
               when CSR_MEPC =>
@@ -345,19 +392,12 @@ begin  -- architecture rtl
 
 
 
-  legal_instruction <=
-    '1' when (CHECK_LEGAL_INSTRUCTIONS = FALSE or
-              opcode7 = "0110111" or
-              opcode7 = "0010111" or
-              opcode7 = "1101111" or
-              (opcode7 = "1100111" and func3 = "000") or
-              (opcode7 = "1100011" and func3 /= "010" and func3 /= "011") or
-              (opcode7 = "0000011" and func3 /= "011" and func3 /= "110" and func3 /= "111") or
-              (opcode7 = "0100011" and (func3 = "000" or func3 = "001" or func3 = "010")) or
-              opcode7 = "0010011" or
-              opcode7 = "0110011" or
-              (opcode7 = "0001111" and instruction(31 downto 28)& instruction(19 downto 13) &instruction(11 downto 7) = x"0000") or
-              opcode7 = "1110011") else '0';
+  li : component instruction_legal
+    generic map(INSTRUCTION_SIZE         => INSTRUCTION_SIZE,
+                CHECK_LEGAL_INSTRUCTIONS => CHECK_LEGAL_INSTRUCTIONS)
+    port map(instruction       => instruction,
+             illegal_alu_instr => illegal_alu_instr,
+             legal             => legal_instruction);
 
 
 end architecture rtl;
