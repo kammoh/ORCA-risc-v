@@ -11,9 +11,7 @@ proc com {} {
 							../instruction_fetch.vhd\
 							../instructions.vhd	  \
 							../load_store_unit.vhd \
-							../lui.vhd 				  \
 							../memory_system.vhd   \
-							../pc_incr.vhd			  \
 							../register_file.vhd   \
 							../riscv.vhd 			  \
 							../sys_call.vhd 		  \

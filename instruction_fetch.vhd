@@ -52,7 +52,7 @@ architecture rtl of instruction_fetch is
   signal saved_next_pc_out     : std_logic_vector(REGISTER_SIZE-1 downto 0);
   signal saved_valid_instr_out : std_logic;
 
-
+  constant USE_BRANCH_PREDICT : boolean := false;
 begin  -- architecture rtl
 
 
@@ -89,22 +89,22 @@ begin  -- architecture rtl
 
   valid_instr <= read_datavalid and not correction_en and not stall;
 
-  pc_logic : component pc_incr
-    generic map (
-      REGISTER_SIZE    => REGISTER_SIZE,
-      INSTRUCTION_SIZE => INSTRUCTION_SIZE)
-    port map (
-      pc          => program_counter,
-      instr       => instr,
-      valid_instr => valid_instr,
-      next_pc     => generated_pc);
+
+
+
+  nuse_BP : if not USE_BRANCH_PREDICT generate
+    --No branch prediction
+    generated_pc <= program_counter when valid_instr = '0' else
+                    std_logic_vector(signed(program_counter) + 4);
+  end generate nuse_BP;
+
 
 
   instr_out   <= instr;
   pc_out      <= program_counter;
   next_pc_out <= generated_pc;
 
-  valid_instr_out <=  valid_instr;
+  valid_instr_out <= valid_instr;
 
   read_address <= address;
 

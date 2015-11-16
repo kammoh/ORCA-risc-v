@@ -1,6 +1,7 @@
 TEST_DIR=/nfs/scratch/riscv-tools/riscv-tests/isa
-FILES=$(ls $TEST_DIR/rv32ui-p-* | grep -v hex | grep -v dump)
-
+UFILES=$(ls $TEST_DIR/rv32ui-p-* | grep -v hex | grep -v dump)
+#MFILES=$(ls $TEST_DIR/rv32mi-p-* | grep -v hex | grep -v dump)
+FILES="$UFILES $MFILES"
 
 #echo \$# = $#
 if [ $# -eq 1 ]
@@ -36,9 +37,6 @@ do
 	 mif2hex $MIF_FILE $GEX_FILE >/dev/null 2>&1 || exit -1
 	 sed -e 's/://' -e 's/\(..\)/\1 /g'  $GEX_FILE >$SPLIT_FILE
 	 awk '{if (NF == 9) print $5$6$7$8}' $SPLIT_FILE > $MEM_FILE
-	 sed -e 's/://' -e 's/\(.\)/\1 /g'  $MEM_FILE >$SPLIT_FILE
-
-	 i=0;
 	 rm -f $MIF_FILE $SPLIT_FILE
 
 done

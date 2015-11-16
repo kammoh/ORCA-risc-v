@@ -16,11 +16,7 @@ VHDL_FILES=$(wildcard ../*.vhd)
 VHDL_SUBMODULE_FILES=$(addprefix vblox1/synthesis/submodules/,$(notdir $(VHDL_FILES)))
 TOP_LEVEL_FILES=$(wildcard *.vhd)
 $(QIP_FILE):$(QSYS_FILE)
-	 ip-generate --project-directory=./ --output-directory=vblox1/synthesis/\
-	 --file-set=QUARTUS_SYNTH --report-file=bsf:./vblox1.bsf\
-	 --report-file=sopcinfo:./vblox1.sopcinfo --report-file=html:./vblox1.html \
-	 --report-file=qip:vblox1/synthesis/vblox1.qip --system-info=DEVICE_FAMILY=$(DEVICE_FILE)\
-	 --component-file=vblox1.qsys 2>&1 | tee ./vblox1.qsys.log
+	qsys-generate --synthesis=VHDL vblox1.qsys 2>&1 | tee ./vblox1.qsys.log
 
 $(VHDL_SUBMODULE_FILES): vblox1/synthesis/submodules/% : ../%
 	cp $^ $@

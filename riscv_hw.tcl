@@ -3,21 +3,21 @@
 # DO NOT MODIFY
 
 
-# 
+#
 # riscv "riscv" v1.0
 #  2015.11.09.13:16:38
-# 
-# 
+#
+#
 
-# 
+#
 # request TCL package from ACDS 15.0
-# 
+#
 package require -exact qsys 15.0
 
 
-# 
+#
 # module riscv
-# 
+#
 set_module_property DESCRIPTION ""
 set_module_property NAME riscv
 set_module_property VERSION 1.0
@@ -32,9 +32,9 @@ set_module_property ALLOW_GREYBOX_GENERATION false
 set_module_property REPORT_HIERARCHY false
 
 
-# 
+#
 # file sets
-# 
+#
 add_fileset QUARTUS_SYNTH QUARTUS_SYNTH "" ""
 set_fileset_property QUARTUS_SYNTH TOP_LEVEL riscV
 set_fileset_property QUARTUS_SYNTH ENABLE_RELATIVE_INCLUDE_PATHS false
@@ -49,11 +49,9 @@ add_fileset_file execute.vhd VHDL PATH ../execute.vhd
 add_fileset_file instruction_fetch.vhd VHDL PATH ../instruction_fetch.vhd
 add_fileset_file load_store_unit.vhd VHDL PATH ../load_store_unit.vhd
 add_fileset_file memory_system.vhd VHDL PATH ../memory_system.vhd
-add_fileset_file pc_incr.vhd VHDL PATH ../pc_incr.vhd
 add_fileset_file register_file.vhd VHDL PATH ../register_file.vhd
 add_fileset_file riscv.vhd VHDL PATH ../riscv.vhd TOP_LEVEL_FILE
 add_fileset_file sys_call.vhd VHDL PATH ../sys_call.vhd
-add_fileset_file lui.vhd VHDL PATH ../lui.vhd
 
 add_fileset SIM_VHDL SIM_VHDL "" ""
 set_fileset_property SIM_VHDL TOP_LEVEL riscV
@@ -69,16 +67,15 @@ add_fileset_file execute.vhd VHDL PATH ../execute.vhd
 add_fileset_file instruction_fetch.vhd VHDL PATH ../instruction_fetch.vhd
 add_fileset_file load_store_unit.vhd VHDL PATH ../load_store_unit.vhd
 add_fileset_file memory_system.vhd VHDL PATH ../memory_system.vhd
-add_fileset_file pc_incr.vhd VHDL PATH ../pc_incr.vhd
 add_fileset_file register_file.vhd VHDL PATH ../register_file.vhd
 add_fileset_file riscv.vhd VHDL PATH ../riscv.vhd
 add_fileset_file sys_call.vhd VHDL PATH ../sys_call.vhd
-add_fileset_file lui.vhd VHDL PATH ../lui.vhd
 
 
-# 
+
+#
 # parameters
-# 
+#
 add_parameter REGISTER_SIZE INTEGER 32
 set_parameter_property REGISTER_SIZE DEFAULT_VALUE 32
 set_parameter_property REGISTER_SIZE DISPLAY_NAME REGISTER_SIZE
@@ -101,14 +98,14 @@ set_parameter_property MULTIPLY_ENABLE UNITS None
 set_parameter_property MULTIPLY_ENABLE HDL_PARAMETER true
 
 
-# 
+#
 # display items
-# 
+#
 
 
-# 
+#
 # connection point clock
-# 
+#
 add_interface clock clock end
 set_interface_property clock clockRate 0
 set_interface_property clock ENABLED true
@@ -120,9 +117,9 @@ set_interface_property clock SVD_ADDRESS_GROUP ""
 add_interface_port clock clk clk Input 1
 
 
-# 
+#
 # connection point reset
-# 
+#
 add_interface reset reset end
 set_interface_property reset associatedClock clock
 set_interface_property reset synchronousEdges DEASSERT
@@ -135,9 +132,9 @@ set_interface_property reset SVD_ADDRESS_GROUP ""
 add_interface_port reset reset reset Input 1
 
 
-# 
+#
 # connection point data
-# 
+#
 add_interface data avalon start
 set_interface_property data addressUnits SYMBOLS
 set_interface_property data associatedClock clock
@@ -174,9 +171,9 @@ add_interface_port data avm_data_waitrequest waitrequest Input 1
 add_interface_port data avm_data_readdatavalid readdatavalid Input 1
 
 
-# 
+#
 # connection point instruction
-# 
+#
 add_interface instruction avalon start
 set_interface_property instruction addressUnits SYMBOLS
 set_interface_property instruction associatedClock clock
@@ -213,9 +210,9 @@ add_interface_port instruction avm_instruction_waitrequest waitrequest Input 1
 add_interface_port instruction avm_instruction_readdatavalid readdatavalid Input 1
 
 
-# 
+#
 # connection point program_counter
-# 
+#
 add_interface program_counter conduit end
 set_interface_property program_counter associatedClock ""
 set_interface_property program_counter associatedReset ""
@@ -228,9 +225,9 @@ set_interface_property program_counter SVD_ADDRESS_GROUP ""
 add_interface_port program_counter coe_program_counter export Output register_size
 
 
-# 
+#
 # connection point to_host
-# 
+#
 add_interface to_host conduit end
 set_interface_property to_host associatedClock ""
 set_interface_property to_host associatedReset ""
@@ -243,9 +240,9 @@ set_interface_property to_host SVD_ADDRESS_GROUP ""
 add_interface_port to_host coe_to_host export Output register_size
 
 
-# 
+#
 # connection point from_host
-# 
+#
 add_interface from_host conduit end
 set_interface_property from_host associatedClock ""
 set_interface_property from_host associatedReset ""
@@ -256,4 +253,3 @@ set_interface_property from_host CMSIS_SVD_VARIABLES ""
 set_interface_property from_host SVD_ADDRESS_GROUP ""
 
 add_interface_port from_host coe_from_host export Input register_size
-
