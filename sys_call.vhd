@@ -206,9 +206,14 @@ begin  -- architecture rtl
     end process;
   end generate timers_if_gen;
   EXTRA_COUNTERS_GEN : if INCLUDE_EXTRA_COUNTERS generate
+    signal saved_opcode :std_logic_vector(4 downto 0);
+
     extra_counter_incr : process(clk)
     begin
       if reset = '1' then
+        cycles        <= (others => '0');
+        instr_retired <= (others => '0');
+
         use_after_load_stalls <= (others => '0');
         jal_instructions      <= (others => '0');
         jalr_instructions     <= (others => '0');
@@ -217,15 +222,17 @@ begin  -- architecture rtl
         load_stalls           <= (others => '0');
 
       elsif rising_edge(clk) then
+        saved_opcode <= opcode;
+        cycles <= cycles +1;
         if finished_instr = '1' then
           instr_retired <= instr_retired +1;
         end if;
         if predict_corr = '1' then
-          if opcode = "11011" then
+          if saved_opcode = "11011" then
             jal_instructions <= jal_instructions + 1;
-          elsif opcode = "11001" then
+          elsif saved_opcode = "11001" then
             jalr_instructions <= jalr_instructions +1;
-          elsif opcode = "11000" then
+          elsif saved_opcode = "11000" then
             branch_mispredicts <= branch_mispredicts +1;
           else
             other_flush <= other_flush +1;
@@ -297,7 +304,7 @@ begin  -- architecture rtl
       (others => '0') when others;
   end generate read_mux_timers;
 
-  read_mux_notimer : if not INCLUDE_TIMERS generate
+  read_mux_notimer : if not INCLUDE_TIMERS and not INCLUDE_EXTRA_COUNTERS generate
     with csr select
       csr_read_val <=
       mstatus         when CSR_MSTATUS,
@@ -383,7 +390,10 @@ begin  -- architecture rtl
 
       end if;  --valid
       if reset = '1' then
-        mtohost <= (others => '0');
+        mtohost    <= (others => '0');
+        mstatus_ie <= '0';
+        mcause_i   <= '0';
+        mcause_ex  <= (others => '0');
       end if;  --reset
     end if;  --clk
   end process;

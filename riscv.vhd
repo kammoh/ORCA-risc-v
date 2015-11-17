@@ -31,7 +31,6 @@ entity riscV is
        avm_data_lock          : out std_logic;
        avm_data_waitrequest   : in  std_logic                                  := '0';
        avm_data_readdatavalid : in  std_logic                                  := '0';
-
        --avalon master bus
        avm_instruction_address       : out std_logic_vector(REGISTER_SIZE-1 downto 0);
        avm_instruction_byteenable    : out std_logic_vector(REGISTER_SIZE/8 -1 downto 0);
@@ -56,8 +55,6 @@ architecture rtl of riscV is
 
   --signals going int fetch
 
-  signal pc_corr_en   : std_logic;
-  signal pc_corr      : std_logic_vector(REGISTER_SIZE-1 downto 0);
   signal if_stall_in  : std_logic;
   signal if_valid_out : std_logic;
 
@@ -105,9 +102,9 @@ architecture rtl of riscV is
   signal instr_read_en   : std_logic;
   signal instr_readvalid : std_logic;
 
-
+  signal branch_pred : std_logic_vector(REGISTER_SIZE*2 + 3-1 downto 0);
 begin  -- architecture rtl
-  pipeline_flush      <= pc_corr_en;
+  pipeline_flush      <= branch_get_flush(branch_pred);
   coe_program_counter <= d_pc;
 
   if_stall_in <= execute_stalled;
@@ -120,8 +117,7 @@ begin  -- architecture rtl
       clk        => clk,
       reset      => reset,
       stall      => if_stall_in,
-      pc_corr    => pc_corr,
-      pc_corr_en => pc_corr_en,
+      branch_pred => branch_pred,
 
       instr_out       => d_instr,
       pc_out          => d_pc,
@@ -188,8 +184,8 @@ begin  -- architecture rtl
       wb_sel          => wb_sel,
       wb_data         => wb_data,
       wb_en           => wb_en,
-      predict_corr    => pc_corr,
-      predict_corr_en => pc_corr_en,
+      branch_pred => branch_pred,
+
       stall_pipeline  => execute_stalled,
       from_host       => coe_from_host,
       to_host         => coe_to_host,

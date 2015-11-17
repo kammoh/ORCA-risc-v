@@ -6,9 +6,33 @@ package utils is
   function log2 (
     i : natural)
     return integer;
+
+  function branch_pack_signal (
+    pc     : std_logic_vector;
+    target : std_logic_vector;
+    taken  : std_logic;
+    flush  : std_logic;
+    enable : std_logic)
+    return std_logic_vector;
+  function branch_get_pc (
+    sig : std_logic_vector)
+    return std_logic_vector;
+  function branch_get_tgt (
+    sig : std_logic_vector)
+    return std_logic_vector;
+  function branch_get_taken (
+    sig : std_logic_vector)
+    return std_logic;
+  function branch_get_flush (
+    sig : std_logic_vector)
+    return std_logic;
+  function branch_get_enable (
+    sig : std_logic_vector)
+    return std_logic;
+
 end utils;
 package body utils is
-function log2( i : natural) return integer is
+  function log2(i : natural) return integer is
     variable temp    : integer := i;
     variable ret_val : integer := 0;
   begin
@@ -18,5 +42,47 @@ function log2( i : natural) return integer is
     end loop;
     return ret_val;
   end function;
+
+  function branch_pack_signal (
+    pc     : std_logic_vector;
+    target : std_logic_vector;
+    taken  : std_logic;
+    flush  : std_logic;
+    enable : std_logic)
+    return std_logic_vector is
+  begin
+    return pc & target & taken & flush & enable;
+  end function;
+
+  function branch_get_pc (
+    sig : std_logic_vector)
+    return std_logic_vector is
+  begin
+    return sig(sig'left downto sig'left-((sig'length-3)/2)+1);
+  end function;
+  function branch_get_tgt (
+    sig : std_logic_vector)
+    return std_logic_vector is
+  begin
+    return sig(sig'left-(sig'length-3)/2 downto 3);
+  end function;
+  function branch_get_taken (
+    sig : std_logic_vector) return std_logic is
+  begin
+    return sig(2);
+  end function;
+  function branch_get_flush (
+    sig : std_logic_vector) return std_logic is
+  begin
+    return sig(1);
+  end function;
+
+  function branch_get_enable (
+    sig : std_logic_vector)
+    return std_logic is
+  begin
+    return sig(0);
+  end function;
+
 
 end utils;

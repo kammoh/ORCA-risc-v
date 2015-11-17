@@ -5,8 +5,11 @@ use IEEE.std_logic_textio.all;          -- I/O for logic types
 
 library work;
 use work.rv_components.all;
+use work.utils.all;
+
 library STD;
 use STD.textio.all;                     -- basic I/O
+
 
 entity execute is
   generic(
@@ -37,18 +40,18 @@ entity execute is
     to_host   : out std_logic_vector(REGISTER_SIZE-1 downto 0);
     from_host : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
 
-    predict_corr    : out    std_logic_vector(REGISTER_SIZE-1 downto 0);
-    predict_corr_en : buffer std_logic;
-    stall_pipeline  : buffer std_logic;
+    branch_pred : out std_logic_vector(REGISTER_SIZE*2+3 -1 downto 0);
+
+    stall_pipeline : buffer std_logic;
 --memory-bus
-    address         : out    std_logic_vector(REGISTER_SIZE-1 downto 0);
-    byte_en         : out    std_logic_vector(REGISTER_SIZE/8 -1 downto 0);
-    write_en        : out    std_logic;
-    read_en         : out    std_logic;
-    write_data      : out    std_logic_vector(REGISTER_SIZE-1 downto 0);
-    read_data       : in     std_logic_vector(REGISTER_SIZE-1 downto 0);
-    waitrequest     : in     std_logic;
-    datavalid       : in     std_logic);
+    address        : out    std_logic_vector(REGISTER_SIZE-1 downto 0);
+    byte_en        : out    std_logic_vector(REGISTER_SIZE/8 -1 downto 0);
+    write_en       : out    std_logic;
+    read_en        : out    std_logic;
+    write_data     : out    std_logic_vector(REGISTER_SIZE-1 downto 0);
+    read_data      : in     std_logic_vector(REGISTER_SIZE-1 downto 0);
+    waitrequest    : in     std_logic;
+    datavalid      : in     std_logic);
 end;
 
 architecture behavioural of execute is
@@ -61,6 +64,10 @@ architecture behavioural of execute is
     instruction(24 downto 20);
   alias opcode : std_logic_vector(4 downto 0) is
     instruction(6 downto 2);
+
+  signal predict_corr    : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal predict_corr_en : std_logic;
+
 
   -- various writeback sources
   signal br_data_out  : std_logic_vector(REGISTER_SIZE-1 downto 0);
@@ -81,7 +88,7 @@ architecture behavioural of execute is
 
   signal br_bad_predict : std_logic;
   signal br_new_pc      : std_logic_vector(REGISTER_SIZE-1 downto 0);
-
+  signal predict_pc     : std_logic_vector(REGISTER_SIZE-1 downto 0);
   signal syscall_en     : std_logic;
   signal syscall_target : std_logic_vector(REGISTER_SIZE-1 downto 0);
 
@@ -114,6 +121,8 @@ architecture behavioural of execute is
 
   signal illegal_alu_instr : std_logic;
 
+  constant JAL_OP  : std_logic_vector(4 downto 0) := "11011";
+  constant JALR_OP : std_logic_vector(4 downto 0) := "11001";
   constant LUI_OP   : std_logic_vector(4 downto 0) := "01101";
   constant AUIPC_OP : std_logic_vector(4 downto 0) := "00101";
   constant ALU_OP   : std_logic_vector(4 downto 0) := "01100";
@@ -164,7 +173,9 @@ begin
   wb_en  <= sys_data_en or ld_data_en or br_data_en or alu_data_en when wb_sel /= ZERO else '0';
   wb_sel <= rd_latch;
 
-  fwd_data <= sys_data_out when sys_data_en = '1' else alu_data_out;
+  fwd_data <= sys_data_out when sys_data_en = '1' else
+              alu_data_out when alu_data_en = '1' else
+              br_data_out;
 
   use_after_load_stall1 <= ld_data_en when rd_latch = rs1 else '0';
   use_after_load_stall2 <= ld_data_en when rd_latch = rs2 else '0';
@@ -184,6 +195,8 @@ begin
                       opcode = AUIPC_OP or
                       opcode = ALU_OP or
                       opcode = ALUI_OP or
+                      opcode = JAL_OP or
+                      opcode = JALR_OP or
                       opcode = CSR_OP) ;
 
       --calculate where the next forward data will go
@@ -338,8 +351,14 @@ begin
   finished_instr <= valid_input and not stall_pipeline;
 
   predict_corr_en <= syscall_en or br_bad_predict;
-  predict_corr    <= br_new_pc when br_bad_predict = '1' else syscall_target;
+  predict_corr    <= br_new_pc  when br_bad_predict = '1' else syscall_target;
+  predict_pc      <= pc_current when rising_edge(clk);
 
+  branch_pred <= branch_pack_signal(predict_pc,
+                                    predict_corr,
+                                    '1',
+                                    predict_corr_en,
+                                    predict_corr_en);
 --my_print : process(clk)
 --  variable my_line : line;            -- type 'line' comes from textio
 --begin

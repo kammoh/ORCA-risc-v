@@ -108,18 +108,17 @@ package rv_components is
       to_host   : out std_logic_vector(REGISTER_SIZE-1 downto 0);
       from_host : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
 
-      predict_corr    : out    std_logic_vector(REGISTER_SIZE-1 downto 0);
-      predict_corr_en : out    std_logic;
-      stall_pipeline  : buffer std_logic;
+      branch_pred    : out    std_logic_vector(REGISTER_SIZE*2+3-1 downto 0);
+      stall_pipeline : buffer std_logic;
 --memory-bus
-      address         : out    std_logic_vector(REGISTER_SIZE-1 downto 0);
-      byte_en         : out    std_logic_vector(REGISTER_SIZE/8 -1 downto 0);
-      write_en        : out    std_logic;
-      read_en         : out    std_logic;
-      write_data      : out    std_logic_vector(REGISTER_SIZE-1 downto 0);
-      read_data       : in     std_logic_vector(REGISTER_SIZE-1 downto 0);
-      waitrequest     : in     std_logic;
-      datavalid       : in     std_logic);
+      address        : out    std_logic_vector(REGISTER_SIZE-1 downto 0);
+      byte_en        : out    std_logic_vector(REGISTER_SIZE/8 -1 downto 0);
+      write_en       : out    std_logic;
+      read_en        : out    std_logic;
+      write_data     : out    std_logic_vector(REGISTER_SIZE-1 downto 0);
+      read_data      : in     std_logic_vector(REGISTER_SIZE-1 downto 0);
+      waitrequest    : in     std_logic;
+      datavalid      : in     std_logic);
   end component execute;
 
   component instruction_fetch is
@@ -132,8 +131,7 @@ package rv_components is
       reset : in std_logic;
       stall : in std_logic;
 
-      pc_corr    : in std_logic_vector(REGISTER_SIZE-1 downto 0);
-      pc_corr_en : in std_logic;
+      branch_pred : in std_logic_vector(REGISTER_SIZE*2+3-1 downto 0);
 
       instr_out       : out std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
       pc_out          : out std_logic_vector(REGISTER_SIZE-1 downto 0);
