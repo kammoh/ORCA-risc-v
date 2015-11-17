@@ -58,7 +58,6 @@ entity system_calls is
     to_host       : out    std_logic_vector(REGISTER_SIZE-1 downto 0);
     from_host     : in     std_logic_vector(REGISTER_SIZE-1 downto 0);
     current_pc    : in     std_logic_vector(REGISTER_SIZE-1 downto 0);
-    next_pc       : in     std_logic_vector(REGISTER_SIZE-1 downto 0);
     pc_correction : out    std_logic_vector(REGISTER_SIZE -1 downto 0);
     pc_corr_en    : buffer std_logic;
 
@@ -88,8 +87,8 @@ architecture rtl of system_calls is
 
   --if INCLUDE_EXTRA_COUNTERS is enabled, then
   --INCLUDE_TIMERS must be enabled
-  constant INCLUDE_TIMERS         : boolean := true;
-  constant INCLUDE_EXTRA_COUNTERS : boolean := false;
+  constant INCLUDE_TIMERS         : boolean := false;
+  constant INCLUDE_EXTRA_COUNTERS : boolean := true;
 
   constant CHECK_LEGAL_INSTRUCTIONS : boolean := true;
   signal use_after_load_stalls      : unsigned(31 downto 0);
@@ -206,8 +205,8 @@ begin  -- architecture rtl
     end process;
   end generate timers_if_gen;
   EXTRA_COUNTERS_GEN : if INCLUDE_EXTRA_COUNTERS generate
-    signal saved_opcode :std_logic_vector(4 downto 0);
-
+    signal saved_opcode : std_logic_vector(4 downto 0);
+  begin
     extra_counter_incr : process(clk)
     begin
       if reset = '1' then
@@ -223,7 +222,7 @@ begin  -- architecture rtl
 
       elsif rising_edge(clk) then
         saved_opcode <= opcode;
-        cycles <= cycles +1;
+        cycles       <= cycles +1;
         if finished_instr = '1' then
           instr_retired <= instr_retired +1;
         end if;
@@ -384,7 +383,7 @@ begin  -- architecture rtl
             end case;
           end if;
         elsif instruction(31 downto 2) = FENCE_I(31 downto 2) then
-          pc_correction <= next_pc;
+          pc_correction <= std_logic_vector(unsigned(current_pc) + 4);
           pc_corr_en    <= '1';
         end if;  --opcode
 

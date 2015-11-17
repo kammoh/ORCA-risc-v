@@ -28,9 +28,9 @@ entity decode is
     rs2_data       : out std_logic_vector(REGISTER_SIZE -1 downto 0);
     sign_extension : out std_logic_vector(SIGN_EXTENSION_SIZE -1 downto 0);
     --inputs just for carrying to next pipeline stage
-    pc_next_in     : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
+    br_taken_in    : in  std_logic;
     pc_curr_in     : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
-    pc_next_out    : out std_logic_vector(REGISTER_SIZE-1 downto 0);
+    br_taken_out   : out std_logic;
     pc_curr_out    : out std_logic_vector(REGISTER_SIZE-1 downto 0);
     instr_out      : out std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
     subseq_instr   : out std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
@@ -44,6 +44,7 @@ architecture behavioural of decode is
   signal rs1 : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0);
   signal rs2 : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0);
 
+  signal br_taken_latch : std_logic;
   signal pc_next_latch : std_logic_vector(REGISTER_SIZE-1 downto 0);
   signal pc_curr_latch : std_logic_vector(REGISTER_SIZE-1 downto 0);
   signal instr_latch   : std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
@@ -81,12 +82,12 @@ begin
                    SIGN_EXTENSION_SIZE));
 
 
-          PC_next_latch <= PC_next_in;
+          br_taken_latch <= br_taken_in;
           PC_curr_latch <= PC_curr_in;
           instr_latch   <= instruction;
           valid_latch   <= valid_input;
 
-          pc_next_out  <= PC_next_latch;
+          br_taken_out  <= br_taken_latch;
           pc_curr_out  <= PC_curr_latch;
           instr_out    <= instr_latch;
           valid_output <= valid_latch;

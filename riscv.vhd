@@ -21,16 +21,16 @@ entity riscV is
        coe_program_counter : out std_logic_vector(REGISTER_SIZE -1 downto 0);
 
 --avalon master bus
-       avm_data_address       : out std_logic_vector(REGISTER_SIZE-1 downto 0);
-       avm_data_byteenable    : out std_logic_vector(REGISTER_SIZE/8 -1 downto 0);
-       avm_data_read          : out std_logic;
-       avm_data_readdata      : in  std_logic_vector(REGISTER_SIZE-1 downto 0) := (others => 'X');
-       avm_data_response      : in  std_logic_vector(1 downto 0)               := (others => 'X');
-       avm_data_write         : out std_logic;
-       avm_data_writedata     : out std_logic_vector(REGISTER_SIZE-1 downto 0);
-       avm_data_lock          : out std_logic;
-       avm_data_waitrequest   : in  std_logic                                  := '0';
-       avm_data_readdatavalid : in  std_logic                                  := '0';
+       avm_data_address              : out std_logic_vector(REGISTER_SIZE-1 downto 0);
+       avm_data_byteenable           : out std_logic_vector(REGISTER_SIZE/8 -1 downto 0);
+       avm_data_read                 : out std_logic;
+       avm_data_readdata             : in  std_logic_vector(REGISTER_SIZE-1 downto 0) := (others => 'X');
+       avm_data_response             : in  std_logic_vector(1 downto 0)               := (others => 'X');
+       avm_data_write                : out std_logic;
+       avm_data_writedata            : out std_logic_vector(REGISTER_SIZE-1 downto 0);
+       avm_data_lock                 : out std_logic;
+       avm_data_waitrequest          : in  std_logic                                  := '0';
+       avm_data_readdatavalid        : in  std_logic                                  := '0';
        --avalon master bus
        avm_instruction_address       : out std_logic_vector(REGISTER_SIZE-1 downto 0);
        avm_instruction_byteenable    : out std_logic_vector(REGISTER_SIZE/8 -1 downto 0);
@@ -62,7 +62,7 @@ architecture rtl of riscV is
   --signals going into decode
   signal d_instr        : std_logic_vector(INSTRUCTION_SIZE -1 downto 0);
   signal d_pc           : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal d_next_pc      : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal d_br_taken     : std_logic;
   signal d_valid        : std_logic;
   signal d_valid_out    : std_logic;
   signal decode_stalled : std_logic;
@@ -75,7 +75,7 @@ architecture rtl of riscV is
   signal e_instr        : std_logic_vector(INSTRUCTION_SIZE -1 downto 0);
   signal e_subseq_instr : std_logic_vector(INSTRUCTION_SIZE -1 downto 0);
   signal e_pc           : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal e_next_pc      : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal e_br_taken     : std_logic;
   signal e_valid        : std_logic;
   signal e_readvalid    : std_logic;
 
@@ -114,14 +114,14 @@ begin  -- architecture rtl
       INSTRUCTION_SIZE => INSTRUCTION_SIZE,
       RESET_VECTOR     => RESET_VECTOR)
     port map (
-      clk        => clk,
-      reset      => reset,
-      stall      => if_stall_in,
+      clk         => clk,
+      reset       => reset,
+      stall       => if_stall_in,
       branch_pred => branch_pred,
 
       instr_out       => d_instr,
       pc_out          => d_pc,
-      next_pc_out     => d_next_pc,
+      br_taken        => d_br_taken,
       valid_instr_out => if_valid_out,
       read_address    => instr_address,
       read_en         => instr_read_en,
@@ -153,9 +153,9 @@ begin  -- architecture rtl
       rs2_data       => rs2_data,
       sign_extension => sign_extension,
       --inputs jus,t for carrying to next pipeline stage
-      pc_next_in     => d_next_pc,
+      br_taken_in    => d_br_taken,
       pc_curr_in     => d_pc,
-      pc_next_out    => e_next_pc,
+      br_taken_out   => e_br_taken,
       pc_curr_out    => e_pc,
       instr_out      => e_instr,
       subseq_instr   => e_subseq_instr,
@@ -171,33 +171,33 @@ begin  -- architecture rtl
       RESET_VECTOR        => RESET_VECTOR,
       MULTIPLY_ENABLE     => MULTIPLY_ENABLE)
     port map (
-      clk             => clk,
-      reset           => reset,
-      valid_input     => e_valid,
-      pc_next         => e_next_pc,
-      pc_current      => e_pc,
-      instruction     => e_instr,
-      subseq_instr    => e_subseq_instr,
-      rs1_data        => rs1_data,
-      rs2_data        => rs2_data,
-      sign_extension  => sign_extension,
-      wb_sel          => wb_sel,
-      wb_data         => wb_data,
-      wb_en           => wb_en,
-      branch_pred => branch_pred,
+      clk            => clk,
+      reset          => reset,
+      valid_input    => e_valid,
+      br_taken_in    => e_br_taken,
+      pc_current     => e_pc,
+      instruction    => e_instr,
+      subseq_instr   => e_subseq_instr,
+      rs1_data       => rs1_data,
+      rs2_data       => rs2_data,
+      sign_extension => sign_extension,
+      wb_sel         => wb_sel,
+      wb_data        => wb_data,
+      wb_en          => wb_en,
+      branch_pred    => branch_pred,
 
-      stall_pipeline  => execute_stalled,
-      from_host       => coe_from_host,
-      to_host         => coe_to_host,
+      stall_pipeline => execute_stalled,
+      from_host      => coe_from_host,
+      to_host        => coe_to_host,
       --memory lines
-      address         => data_address,
-      byte_en         => data_byte_en,
-      write_en        => data_write_en,
-      read_en         => data_read_en,
-      write_data      => data_write_data,
-      read_data       => data_read_data,
-      waitrequest     => data_wait,
-      datavalid       => e_readvalid);
+      address        => data_address,
+      byte_en        => data_byte_en,
+      write_en       => data_write_en,
+      read_en        => data_read_en,
+      write_data     => data_write_data,
+      read_data      => data_read_data,
+      waitrequest    => data_wait,
+      datavalid      => e_readvalid);
 
 
   MEM : component memory_system

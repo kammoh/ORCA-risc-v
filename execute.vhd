@@ -24,7 +24,7 @@ entity execute is
     reset       : in std_logic;
     valid_input : in std_logic;
 
-    pc_next      : in std_logic_vector(REGISTER_SIZE-1 downto 0);
+    br_taken_in  : in std_logic;
     pc_current   : in std_logic_vector(REGISTER_SIZE-1 downto 0);
     instruction  : in std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
     subseq_instr : in std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
@@ -121,8 +121,11 @@ architecture behavioural of execute is
 
   signal illegal_alu_instr : std_logic;
 
-  constant JAL_OP  : std_logic_vector(4 downto 0) := "11011";
-  constant JALR_OP : std_logic_vector(4 downto 0) := "11001";
+  signal is_branch    : std_logic;
+  signal br_taken_out : std_logic;
+
+  constant JAL_OP   : std_logic_vector(4 downto 0) := "11011";
+  constant JALR_OP  : std_logic_vector(4 downto 0) := "11001";
   constant LUI_OP   : std_logic_vector(4 downto 0) := "01101";
   constant AUIPC_OP : std_logic_vector(4 downto 0) := "00101";
   constant ALU_OP   : std_logic_vector(4 downto 0) := "01100";
@@ -282,12 +285,14 @@ begin
       rs1_data       => rs1_data_fwd,
       rs2_data       => rs2_data_fwd,
       current_pc     => pc_current,
-      predicted_pc   => pc_next,
+      br_taken_in    => br_taken_in,
       instr          => instruction,
       sign_extension => sign_extension,
       data_out       => br_data_out,
       data_out_en    => br_data_en,
       new_pc         => br_new_pc,
+      is_branch      => is_branch,
+      br_taken_out   => br_taken_out,
       bad_predict    => br_bad_predict);
   ls_valid_in <= valid_input and not use_after_load_stall;
   ls_unit : component load_store_unit
@@ -338,7 +343,6 @@ begin
       from_host      => from_host,
 
       current_pc           => pc_current,
-      next_pc              => pc_next,
       pc_correction        => syscall_target,
       pc_corr_en           => syscall_en,
       illegal_alu_instr    => illegal_alu_instr,
@@ -351,14 +355,14 @@ begin
   finished_instr <= valid_input and not stall_pipeline;
 
   predict_corr_en <= syscall_en or br_bad_predict;
-  predict_corr    <= br_new_pc  when br_bad_predict = '1' else syscall_target;
+  predict_corr    <= br_new_pc  when syscall_en = '0' else syscall_target;
   predict_pc      <= pc_current when rising_edge(clk);
 
-  branch_pred <= branch_pack_signal(predict_pc,
-                                    predict_corr,
-                                    '1',
-                                    predict_corr_en,
-                                    predict_corr_en);
+  branch_pred <= branch_pack_signal(predict_pc,       --this pc
+                                    predict_corr,     --branch target
+                                    br_taken_out,     --taken
+                                    predict_corr_en,  --flush
+                                    is_branch);       --is_branch
 --my_print : process(clk)
 --  variable my_line : line;            -- type 'line' comes from textio
 --begin

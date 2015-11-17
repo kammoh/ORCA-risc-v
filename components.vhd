@@ -70,9 +70,9 @@ package rv_components is
       rs2_data       : out std_logic_vector(REGISTER_SIZE -1 downto 0);
       sign_extension : out std_logic_vector(SIGN_EXTENSION_SIZE -1 downto 0);
       --inputs just for carrying to next pipeline stage
-      pc_next_in     : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
+      br_taken_in    : in  std_logic;
       pc_curr_in     : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
-      pc_next_out    : out std_logic_vector(REGISTER_SIZE-1 downto 0);
+      br_taken_out   : out std_logic;
       pc_curr_out    : out std_logic_vector(REGISTER_SIZE-1 downto 0);
       instr_out      : out std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
       subseq_instr   : out std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
@@ -92,7 +92,7 @@ package rv_components is
       reset       : in std_logic;
       valid_input : in std_logic;
 
-      pc_next      : in std_logic_vector(REGISTER_SIZE-1 downto 0);
+      br_taken_in  : in std_logic;
       pc_current   : in std_logic_vector(REGISTER_SIZE-1 downto 0);
       instruction  : in std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
       subseq_instr : in std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
@@ -135,7 +135,7 @@ package rv_components is
 
       instr_out       : out std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
       pc_out          : out std_logic_vector(REGISTER_SIZE-1 downto 0);
-      next_pc_out     : out std_logic_vector(REGISTER_SIZE-1 downto 0);
+      br_taken        : out std_logic;
       valid_instr_out : out std_logic;
 
       read_address   : out std_logic_vector(REGISTER_SIZE-1 downto 0);
@@ -180,11 +180,13 @@ package rv_components is
       rs1_data       : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
       rs2_data       : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
       current_pc     : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
-      predicted_pc   : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
+      br_taken_in    : in  std_logic;
       instr          : in  std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
       sign_extension : in  std_logic_vector(SIGN_EXTENSION_SIZE-1 downto 0);
       data_out       : out std_logic_vector(REGISTER_SIZE-1 downto 0);
       data_out_en    : out std_logic;
+      is_branch      : out std_logic;
+      br_taken_out   : out std_logic;
       new_pc         : out std_logic_vector(REGISTER_SIZE-1 downto 0);  --next pc
       bad_predict    : out std_logic
       );
@@ -461,7 +463,6 @@ package rv_components is
       from_host : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
 
       current_pc    : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
-      next_pc       : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
       pc_correction : out std_logic_vector(REGISTER_SIZE -1 downto 0);
       pc_corr_en    : out std_logic;
 

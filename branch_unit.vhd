@@ -19,7 +19,7 @@ entity branch_unit is
     rs1_data       : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
     rs2_data       : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
     current_pc     : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
-    predicted_pc   : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
+    br_taken_in    : in  std_logic;
     instr          : in  std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
     sign_extension : in  std_logic_vector(SIGN_EXTENSION_SIZE-1 downto 0);
     --unconditional jumps store return address in rd, output return address
@@ -27,6 +27,8 @@ entity branch_unit is
     data_out       : out std_logic_vector(REGISTER_SIZE-1 downto 0);
     data_out_en    : out std_logic;
     new_pc         : out std_logic_vector(REGISTER_SIZE-1 downto 0);  --next pc
+    is_branch      : out std_logic;
+    br_taken_out   : out std_logic;
     bad_predict    : out std_logic
     );
 end entity branch_unit;
@@ -75,10 +77,16 @@ architecture latch_middle of branch_unit is
 
   signal opcode_latch       : std_logic_vector(6 downto 0);
   signal valid_branch_instr : std_logic;
-  signal predicted_pc_latch : unsigned(REGISTER_SIZE-1 downto 0);
+  signal br_taken_latch     : std_logic;
   signal target_pc_latch    : unsigned(REGISTER_SIZE-1 downto 0);
+  signal nbranch_latch      : unsigned(REGISTER_SIZE-1 downto 0);
   signal branch_taken_latch : std_logic;
   signal data_en_latch      : std_logic;
+
+  signal branch_taken_or_jump : std_logic;
+  signal jal_op               : std_logic;
+  signal jalr_op              : std_logic;
+  signal br_op                : std_logic;
 begin  -- architecture
 
 
@@ -120,13 +128,11 @@ begin  -- architecture
   jalr_target    <= jalr_imm + unsigned(rs1_data);
   jal_target     <= jal_imm + unsigned(current_pc);
 
-  with branch_taken & opcode select
+  with opcode select
     target_pc <=
-    jalr_target    when "0" & JALR,
-    jalr_target    when "1" & JALR,
-    jal_target     when "0" & JAL,
-    jal_target     when "1" & JAL,
-    branch_target  when "1" & BRANCH,
+    jalr_target    when JALR,
+    jal_target     when JAL,
+    branch_target  when BRANCH,
     nbranch_target when others;
 
 
@@ -135,28 +141,34 @@ begin  -- architecture
     if rising_edge(clk) then
       if reset = '1' then
         valid_branch_instr <= '0';
-
+        br_taken_latch     <= '0';
       else
         valid_branch_instr <= valid and not stall;
         if stall = '0' then
-          predicted_pc_latch <= unsigned(predicted_pc);
+          br_taken_latch     <= br_taken_in;
           target_pc_latch    <= target_pc;
-          if opcode = JAL or opcode = JALR then
-            data_en_latch <= valid;
-          else
-            data_en_latch <= '0';
-          end if;
-          data_out <= std_logic_vector(nbranch_target);
+          branch_taken_latch <= branch_taken;
+          opcode_latch       <= opcode;
+
+          nbranch_latch <= nbranch_target;
         end if;
       end if;
     end if;
   end process;
 
 
-  data_out_en <= data_en_latch;
-  bad_predict <= valid_branch_instr when target_pc_latch /= predicted_pc_latch  else '0';
-  --data_out    <= std_logic_vector(nbranch_target);
-  new_pc      <= std_logic_vector(target_pc_latch);
+  jal_op      <= '1' when opcode_latch = JAL    else '0';
+  jalr_op     <= '1' when opcode_latch = JALR   else '0';
+  br_op       <= '1' when opcode_latch = BRANCH else '0';
+  data_out_en <= jal_op or jalr_op;
+
+  branch_taken_or_jump <= (branch_taken_latch and br_op) or jal_op or jalr_op;
+  br_taken_out         <= valid_branch_instr and branch_taken_or_jump;
+  bad_predict          <= valid_branch_instr when br_taken_latch /= branch_taken_or_jump or jalr_op = '1' else '0';
+  is_branch            <= valid_branch_instr when jal_op = '1' or br_op = '1' else '0';
+
+  new_pc   <= std_logic_vector(target_pc_latch) when branch_taken_or_jump = '1' else std_logic_vector(nbranch_latch);
+  data_out <= std_logic_vector(nbranch_latch);
 
 
 end architecture;
