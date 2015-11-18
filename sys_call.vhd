@@ -87,8 +87,8 @@ architecture rtl of system_calls is
 
   --if INCLUDE_EXTRA_COUNTERS is enabled, then
   --INCLUDE_TIMERS must be enabled
-  constant INCLUDE_TIMERS         : boolean := false;
-  constant INCLUDE_EXTRA_COUNTERS : boolean := true;
+  constant INCLUDE_TIMERS         : boolean := true;
+  constant INCLUDE_EXTRA_COUNTERS : boolean := false;
 
   constant CHECK_LEGAL_INSTRUCTIONS : boolean := true;
   signal use_after_load_stalls      : unsigned(31 downto 0);
