@@ -75,7 +75,6 @@ architecture latch_middle of branch_unit is
   alias func3  : std_logic_vector(2 downto 0) is instr(14 downto 12);
   alias opcode : std_logic_vector(6 downto 0) is instr(6 downto 0);
 
-  signal opcode_latch       : std_logic_vector(6 downto 0);
   signal valid_branch_instr : std_logic;
   signal br_taken_latch     : std_logic;
   signal target_pc_latch    : unsigned(REGISTER_SIZE-1 downto 0);
@@ -148,7 +147,14 @@ begin  -- architecture
           br_taken_latch     <= br_taken_in;
           target_pc_latch    <= target_pc;
           branch_taken_latch <= branch_taken;
-          opcode_latch       <= opcode;
+
+          jal_op  <= '0';
+          jalr_op <= '0';
+          br_op   <= '0';
+
+          if opcode = JAL then jal_op   <= '1'; end if;
+          if opcode = JALR then jalr_op <= '1'; end if;
+          if opcode = BRANCH then br_op <= '1'; end if;
 
           nbranch_latch <= nbranch_target;
         end if;
@@ -157,15 +163,12 @@ begin  -- architecture
   end process;
 
 
-  jal_op      <= '1' when opcode_latch = JAL    else '0';
-  jalr_op     <= '1' when opcode_latch = JALR   else '0';
-  br_op       <= '1' when opcode_latch = BRANCH else '0';
   data_out_en <= valid_branch_instr and (jal_op or jalr_op);
 
   branch_taken_or_jump <= (branch_taken_latch and br_op) or jal_op or jalr_op;
   br_taken_out         <= valid_branch_instr and branch_taken_or_jump;
   bad_predict          <= valid_branch_instr when br_taken_latch /= branch_taken_or_jump or jalr_op = '1' else '0';
-  is_branch            <= valid_branch_instr when jal_op = '1' or br_op = '1' else '0';
+  is_branch            <= valid_branch_instr when jal_op = '1' or br_op = '1'                             else '0';
 
   new_pc   <= std_logic_vector(target_pc_latch) when branch_taken_or_jump = '1' else std_logic_vector(nbranch_latch);
   data_out <= std_logic_vector(nbranch_latch);
