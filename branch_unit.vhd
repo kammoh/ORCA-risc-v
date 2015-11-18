@@ -160,7 +160,7 @@ begin  -- architecture
   jal_op      <= '1' when opcode_latch = JAL    else '0';
   jalr_op     <= '1' when opcode_latch = JALR   else '0';
   br_op       <= '1' when opcode_latch = BRANCH else '0';
-  data_out_en <= jal_op or jalr_op;
+  data_out_en <= valid_branch_instr and (jal_op or jalr_op);
 
   branch_taken_or_jump <= (branch_taken_latch and br_op) or jal_op or jalr_op;
   br_taken_out         <= valid_branch_instr and branch_taken_or_jump;

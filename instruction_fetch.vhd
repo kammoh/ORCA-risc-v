@@ -52,7 +52,7 @@ architecture rtl of instruction_fetch is
   signal saved_next_pc_out     : std_logic_vector(REGISTER_SIZE-1 downto 0);
   signal saved_valid_instr_out : std_logic;
 
-  constant BRANCH_PREDICTORS : natural := 2**8;
+  constant BRANCH_PREDICTORS : natural := 256;
   signal pc_corr             : std_logic_vector(REGISTER_SIZE-1 downto 0);
   signal pc_corr_en          : std_logic;
 
@@ -121,74 +121,50 @@ begin  -- architecture rtl
     signal branch_en        : std_logic;
     signal tbt_raddr        : integer;
     signal tbt_waddr        : integer;
+    signal add4             : std_logic_vector(REGISTER_SIZE-1 downto 0);
+    signal addr_tag         : std_logic_vector(TAG_SIZE-1 downto 0);
 
+    signal tbt_entry : std_logic_vector(branch_tbt(0)'range);
+    alias tbt_tag    : std_logic_vector(TAG_SIZE-1 downto 0) is tbt_entry(REGISTER_SIZE+TAG_SIZE-1 downto REGISTER_SIZE);
+    alias tbt_taken  : std_logic is tbt_entry(tbt_entry'left);
+    alias tbt_target : std_logic_vector(REGISTER_SIZE-1 downto 0) is tbt_entry(REGISTER_SIZE-1 downto 0);
   begin
     branch_tgt   <= branch_get_tgt(branch_pred);
     branch_pc    <= branch_get_pc(branch_pred);
     branch_taken <= branch_get_taken(branch_pred);
-    branch_flush <= branch_get_flush(branch_pred);
     branch_en    <= branch_get_enable(branch_pred);
-
-    tbt_raddr <= 0 when BRANCH_PREDICTORS = 1 else
-                 to_integer(unsigned(address(INDEX_SIZE+2-1 downto 2)));
+    tbt_raddr    <= 0 when BRANCH_PREDICTORS = 1 else
+                    to_integer(unsigned(address(INDEX_SIZE+2-1 downto 2)));
     tbt_waddr <= 0 when BRANCH_PREDICTORS = 1 else
                  to_integer(unsigned(branch_pc(INDEX_SIZE+2-1 downto 2)));
 
     process(clk)
 
-      variable tbt_entry  : std_logic_vector(branch_tbt(0)'range);
-      variable tbt_tag    : std_logic_vector(TAG_SIZE-1 downto 0);
-      variable tbt_target : std_logic_vector(REGISTER_SIZE -1 downto 0);
-      variable tbt_taken  : std_logic;
-      variable addr_tag   : std_logic_vector(TAG_SIZE-1 downto 0);
     begin
       if rising_edge(clk) then
-        tbt_entry := branch_tbt(tbt_raddr);
+        tbt_entry <= branch_tbt(tbt_raddr);
         if branch_en = '1' then
           branch_tbt(tbt_waddr) <= branch_taken &branch_pc(INDEX_SIZE+2+TAG_SIZE-1 downto INDEX_SIZE+2) & branch_tgt;
         end if;
 
-        tbt_tag    := tbt_entry(REGISTER_SIZE+TAG_SIZE-1 downto REGISTER_SIZE);
-        tbt_target := tbt_entry(REGISTER_SIZE-1 downto 0);
-        tbt_taken  := tbt_entry(tbt_entry'left);
-        addr_tag   := address(INDEX_SIZE+2+TAG_SIZE-1 downto INDEX_SIZE+2);
-
-        prediction_match <= '0';
-        if tbt_tag = addr_tag then
-          prediction_match <= '1';
-        end if;
-
-        if tbt_tag = addr_tag and tbt_taken = '1' then
-          generated_pc <= tbt_target;
-          br_taken     <= '1';
-        else
-          generated_pc <= std_logic_vector(signed(address) + 4);
-          br_taken     <= '0';
-        end if;
-      end if;
-    end process;
-
-  end generate use_BP;
-
-
-
-  instr_out <= instr;
-  pc_out    <= program_counter;
---  next_pc_out <= generated_pc;
-
-  valid_instr_out <= valid_instr;
-
-  read_address <= address;
-
-  process(clk)
-  begin
-    if rising_edge(clk) then
-      if stall = '0' then
-        saved_instr_out       <= instr;
-        saved_pc_out          <= program_counter;
-        saved_next_pc_out     <= generated_pc;
-        saved_valid_instr_out <= valid_instr;
-      end if;
+        addr_tag <= address(INDEX_SIZE+2+TAG_SIZE-1 downto INDEX_SIZE+2);
+        add4     <= std_logic_vector(signed(address) + 4);
     end if;
   end process;
+
+  generated_pc     <= tbt_target when tbt_tag = addr_tag and tbt_taken = '1' else add4;
+  br_taken         <= '1'        when tbt_tag = addr_tag and tbt_taken = '1' else '0';
+  prediction_match <= '1'        when tbt_tag = addr_tag                     else '0';
+end generate use_BP;
+
+
+
+instr_out <= instr;
+pc_out    <= program_counter;
+--  next_pc_out <= generated_pc;
+
+valid_instr_out <= valid_instr;
+
+read_address <= address;
+
 end architecture rtl;
