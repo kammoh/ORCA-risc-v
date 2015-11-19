@@ -107,7 +107,7 @@ begin  -- architecture rtl
   pipeline_flush      <= branch_get_flush(branch_pred);
   coe_program_counter <= d_pc;
 
-  if_stall_in <= execute_stalled;
+  if_stall_in <= execute_stalled or decode_stalled;
   instr_fetch : component instruction_fetch
     generic map (
       REGISTER_SIZE    => REGISTER_SIZE,
@@ -149,6 +149,7 @@ begin  -- architecture rtl
       wb_data        => wb_data,
       wb_enable      => wb_en,
       --output sig,nals
+      stall_out      => decode_stalled,
       rs1_data       => rs1_data,
       rs2_data       => rs2_data,
       sign_extension => sign_extension,

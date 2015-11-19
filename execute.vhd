@@ -95,10 +95,7 @@ architecture behavioural of execute is
   signal rs1_data_fwd : std_logic_vector(REGISTER_SIZE-1 downto 0);
   signal rs2_data_fwd : std_logic_vector(REGISTER_SIZE-1 downto 0);
 
-  signal ls_unit_waiting       : std_logic;
-  signal use_after_load_stall1 : std_logic;
-  signal use_after_load_stall2 : std_logic;
-  signal use_after_load_stall  : std_logic;
+  signal ls_unit_waiting : std_logic;
 
   signal fwd_sel  : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0);
   signal fwd_data : std_logic_vector(REGISTER_SIZE-1 downto 0);
@@ -114,8 +111,8 @@ architecture behavioural of execute is
 
   constant ZERO : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0) := (others => '0');
 
-  signal rs1_mux : std_logic_vector(1 downto 0);
-  signal rs2_mux : std_logic_vector(1 downto 0);
+  signal rs1_mux : std_logic;
+  signal rs2_mux : std_logic;
 
   signal finished_instr : std_logic;
 
@@ -150,16 +147,8 @@ begin
   -- next instruction, we have to watch out for use after load hazards.
   -----------------------------------------------------------------------------
 
-  with rs1_mux select
-    rs1_data_fwd <=
-    fwd_data     when "00",
-    ld_latch_out when "01",
-    rs1_data     when others;
-  with rs2_mux select
-    rs2_data_fwd <=
-    fwd_data     when "00",
-    ld_latch_out when "01",
-    rs2_data     when others;
+  rs1_data_fwd <= fwd_data when rs1_mux = '0' else rs1_data;
+  rs2_data_fwd <= fwd_data when rs2_mux = '0' else rs2_data;
 
 
   wb_mux <= "00" when sys_data_en = '1' else
@@ -180,11 +169,7 @@ begin
               alu_data_out when alu_data_en = '1' else
               br_data_out;
 
-  use_after_load_stall1 <= ld_data_en when rd_latch = rs1 else '0';
-  use_after_load_stall2 <= ld_data_en when rd_latch = rs2 else '0';
-  use_after_load_stall  <= use_after_load_stall1 or use_after_load_stall2;
-
-  stall_pipeline <= ls_unit_waiting or use_after_load_stall or alu_stall;
+  stall_pipeline <= ls_unit_waiting or alu_stall;
 
   process(clk)
     variable next_instr  : std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
@@ -203,27 +188,19 @@ begin
                       opcode = CSR_OP) ;
 
       --calculate where the next forward data will go
-      if use_after_load_stall1 = '1' then
-        rs1_mux <= "01";
-      elsif stall_pipeline = '0' then
+      if stall_pipeline = '0' then
         if current_alu and rd = ni_rs1 and rd /= ZERO and valid_input = '1' then
-          rs1_mux <= "00";
-        elsif ld_data_en = '1' and rd_latch = ni_rs1 and rd_latch /= ZERO then
-          rs1_mux <= "01";
+          rs1_mux <= '0';
         else
-          rs1_mux <= "11";
+          rs1_mux <= '1';
         end if;
       end if;
 
-      if use_after_load_stall2 = '1' then
-        rs2_mux <= "01";
-      elsif stall_pipeline = '0' then
+      if stall_pipeline = '0' then
         if current_alu and rd = ni_rs2 and rd /= ZERO and valid_input = '1' then
-          rs2_mux <= "00";
-        elsif ld_data_en = '1' and rd_latch = ni_rs2 and rd_latch /= ZERO then
-          rs2_mux <= "01";
+          rs2_mux <= '0';
         else
-          rs2_mux <= "11";
+          rs2_mux <= '1';
         end if;
       end if;
 
@@ -294,7 +271,7 @@ begin
       is_branch      => is_branch,
       br_taken_out   => br_taken_out,
       bad_predict    => br_bad_predict);
-  ls_valid_in <= valid_input and not use_after_load_stall;
+  ls_valid_in <= valid_input;
   ls_unit : component load_store_unit
     generic map(
       REGISTER_SIZE       => REGISTER_SIZE,
@@ -346,7 +323,7 @@ begin
       pc_correction        => syscall_target,
       pc_corr_en           => syscall_en,
       illegal_alu_instr    => illegal_alu_instr,
-      use_after_load_stall => use_after_load_stall,
+      use_after_load_stall => '0',
       load_stall           => ls_unit_waiting,
       predict_corr         => predict_corr_en
       );

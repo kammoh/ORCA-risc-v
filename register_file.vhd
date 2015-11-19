@@ -52,7 +52,7 @@ architecture rtl of register_file is
   signal wb_sel_latched  : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0);
   signal wb_en_latched   : std_logic;
 
-
+--These aliases are useful during simulation of software.
   alias ra   : std_logic_vector(REGISTER_SIZE-1 downto 0) is registers(1);
   alias sp   : std_logic_vector(REGISTER_SIZE-1 downto 0) is registers(2);
   alias gp   : std_logic_vector(REGISTER_SIZE-1 downto 0) is registers(3);

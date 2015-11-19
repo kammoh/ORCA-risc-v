@@ -66,6 +66,7 @@ package rv_components is
       wb_enable   : in std_logic;
 
       --output signals
+      stall_out      : out std_logic;
       rs1_data       : out std_logic_vector(REGISTER_SIZE -1 downto 0);
       rs2_data       : out std_logic_vector(REGISTER_SIZE -1 downto 0);
       sign_extension : out std_logic_vector(SIGN_EXTENSION_SIZE -1 downto 0);
