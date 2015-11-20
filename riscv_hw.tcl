@@ -42,13 +42,11 @@ set_fileset_property QUARTUS_SYNTH ENABLE_FILE_OVERWRITE_MODE false
 add_fileset_file utils.vhd VHDL PATH ../utils.vhd
 add_fileset_file components.vhd VHDL PATH ../components.vhd
 add_fileset_file alu.vhd VHDL PATH ../alu.vhd
-add_fileset_file avalon_master.vhd VHDL PATH ../avalon_master.vhd
 add_fileset_file branch_unit.vhd VHDL PATH ../branch_unit.vhd
 add_fileset_file decode.vhd VHDL PATH ../decode.vhd
 add_fileset_file execute.vhd VHDL PATH ../execute.vhd
 add_fileset_file instruction_fetch.vhd VHDL PATH ../instruction_fetch.vhd
 add_fileset_file load_store_unit.vhd VHDL PATH ../load_store_unit.vhd
-add_fileset_file memory_system.vhd VHDL PATH ../memory_system.vhd
 add_fileset_file register_file.vhd VHDL PATH ../register_file.vhd
 add_fileset_file riscv.vhd VHDL PATH ../riscv.vhd TOP_LEVEL_FILE
 add_fileset_file sys_call.vhd VHDL PATH ../sys_call.vhd
@@ -60,13 +58,11 @@ set_fileset_property SIM_VHDL ENABLE_FILE_OVERWRITE_MODE false
 add_fileset_file utils.vhd VHDL PATH ../utils.vhd
 add_fileset_file components.vhd VHDL PATH ../components.vhd
 add_fileset_file alu.vhd VHDL PATH ../alu.vhd
-add_fileset_file avalon_master.vhd VHDL PATH ../avalon_master.vhd
 add_fileset_file branch_unit.vhd VHDL PATH ../branch_unit.vhd
 add_fileset_file decode.vhd VHDL PATH ../decode.vhd
 add_fileset_file execute.vhd VHDL PATH ../execute.vhd
 add_fileset_file instruction_fetch.vhd VHDL PATH ../instruction_fetch.vhd
 add_fileset_file load_store_unit.vhd VHDL PATH ../load_store_unit.vhd
-add_fileset_file memory_system.vhd VHDL PATH ../memory_system.vhd
 add_fileset_file register_file.vhd VHDL PATH ../register_file.vhd
 add_fileset_file riscv.vhd VHDL PATH ../riscv.vhd
 add_fileset_file sys_call.vhd VHDL PATH ../sys_call.vhd

@@ -302,48 +302,6 @@ package rv_components is
       );
   end component dual_port_rom;
 
-  component memory_system is
-    generic (
-      REGISTER_SIZE     : natural;
-      DUAL_PORTED_INSTR : boolean := true);
-    port (
-      clk             : in  std_logic;
-      instr_addr      : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
-      data_addr       : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
-      data_we         : in  std_logic;
-      data_be         : in  std_logic_vector(REGISTER_SIZE/8-1 downto 0);
-      data_wdata      : in  std_logic_vector(REGISTER_SIZE - 1 downto 0);
-      data_read_en    : in  std_logic;
-      instr_read_en   : in  std_logic;
-      data_rdata      : out std_logic_vector(REGISTER_SIZE-1 downto 0);
-      instr_rdata     : out std_logic_vector(REGISTER_SIZE-1 downto 0);
-      instr_wait      : out std_logic;
-      data_wait       : out std_logic;
-      instr_readvalid : out std_logic;
-      data_readvalid  : out std_logic;
-
-      data_av_address       : out std_logic_vector(REGISTER_SIZE-1 downto 0);
-      data_av_byteenable    : out std_logic_vector(REGISTER_SIZE/8 -1 downto 0);
-      data_av_read          : out std_logic;
-      data_av_readdata      : in  std_logic_vector(REGISTER_SIZE-1 downto 0) := (others => 'X');
-      data_av_response      : in  std_logic_vector(1 downto 0)               := (others => 'X');
-      data_av_write         : out std_logic;
-      data_av_writedata     : out std_logic_vector(REGISTER_SIZE-1 downto 0);
-      data_av_lock          : out std_logic;
-      data_av_waitrequest   : in  std_logic                                  := '0';
-      data_av_readdatavalid : in  std_logic                                  := '0';
-
-      instr_av_address       : out std_logic_vector(REGISTER_SIZE-1 downto 0);
-      instr_av_byteenable    : out std_logic_vector(REGISTER_SIZE/8 -1 downto 0);
-      instr_av_read          : out std_logic;
-      instr_av_readdata      : in  std_logic_vector(REGISTER_SIZE-1 downto 0) := (others => 'X');
-      instr_av_response      : in  std_logic_vector(1 downto 0)               := (others => 'X');
-      instr_av_write         : out std_logic;
-      instr_av_writedata     : out std_logic_vector(REGISTER_SIZE-1 downto 0);
-      instr_av_lock          : out std_logic;
-      instr_av_waitrequest   : in  std_logic                                  := '0';
-      instr_av_readdatavalid : in  std_logic                                  := '0');
-  end component memory_system;
 
   component register_file
     generic(
@@ -374,36 +332,6 @@ package rv_components is
       next_pc     : out std_logic_vector(REGISTER_SIZE-1 downto 0));
   end component pc_incr;
 
-  component avalon_master is
-    generic (
-      DATA_WIDTH : natural;
-      ADDR_WIDTH : natural);
-    port (
-      clk : in std_logic;
-
-      --CPU signals
-      read_enable  : in  std_logic;
-      write_enable : in  std_logic;
-      byte_enable  : in  std_logic_vector(DATA_WIDTH/8 -1 downto 0);
-      address      : in  std_logic_vector(ADDR_WIDTH-1 downto 0);
-      write_data   : in  std_logic_vector(DATA_WIDTH-1 downto 0);
-      read_data    : out std_logic_vector(DATA_WIDTH-1 downto 0);
-      wait_request : out std_logic;
-      read_valid   : out std_logic;
-
-
-      --avalon bus signals
-      av_address       : out std_logic_vector(ADDR_WIDTH-1 downto 0);
-      av_byteenable    : out std_logic_vector(DATA_WIDTH/8 -1 downto 0);
-      av_read          : out std_logic;
-      av_readdata      : in  std_logic_vector(DATA_WIDTH-1 downto 0);
-      av_response      : in  std_logic_vector(1 downto 0);
-      av_write         : out std_logic;
-      av_writedata     : out std_logic_vector(DATA_WIDTH-1 downto 0);
-      av_lock          : out std_logic;
-      av_waitrequest   : in  std_logic;
-      av_readdatavalid : in  std_logic);
-  end component avalon_master;
   component wait_cycle_bram is
     generic (
       BYTES       : natural;

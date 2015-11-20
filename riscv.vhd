@@ -201,48 +201,24 @@ begin  -- architecture rtl
       datavalid      => e_readvalid);
 
 
-  MEM : component memory_system
-    generic map (
-      REGISTER_SIZE     => REGISTER_SIZE,
-      DUAL_PORTED_INSTR => false)
-    port map (
-      clk             => clk,
-      instr_addr      => instr_address,
-      data_addr       => data_address,
-      data_we         => data_write_en,
-      data_be         => data_byte_en,
-      data_wdata      => data_write_data,
-      data_rdata      => data_read_data,
-      instr_rdata     => instr_data,
-      data_read_en    => data_read_en,
-      instr_read_en   => instr_read_en,
-      instr_wait      => instr_read_wait,
-      data_wait       => data_wait,
-      instr_readvalid => instr_readvalid,
-      data_readvalid  => e_readvalid,
+  avm_data_address    <= data_address;
+  avm_data_byteenable <= data_byte_en;
+  avm_data_read       <= data_read_en;
+  data_read_data      <= avm_data_readdata;
+  avm_data_write      <= data_write_en;
+  avm_data_writedata  <= data_write_data;
+  avm_data_lock       <= '0';
+  data_wait           <= avm_data_waitrequest;
+  e_readvalid      <= avm_data_readdatavalid;
 
-      --avalon mm bus
-      data_av_address       => avm_data_address,
-      data_av_byteenable    => avm_data_byteenable,
-      data_av_read          => avm_data_read,
-      data_av_readdata      => avm_data_readdata,
-      data_av_response      => avm_data_response,
-      data_av_write         => avm_data_write,
-      data_av_writedata     => avm_data_writedata,
-      data_av_lock          => avm_data_lock,
-      data_av_waitrequest   => avm_data_waitrequest,
-      data_av_readdatavalid => avm_data_readdatavalid,
-
-      --avalon mm bus
-      instr_av_address       => avm_instruction_address,
-      instr_av_byteenable    => avm_instruction_byteenable,
-      instr_av_read          => avm_instruction_read,
-      instr_av_readdata      => avm_instruction_readdata,
-      instr_av_response      => avm_instruction_response,
-      instr_av_write         => avm_instruction_write,
-      instr_av_writedata     => avm_instruction_writedata,
-      instr_av_lock          => avm_instruction_lock,
-      instr_av_waitrequest   => avm_instruction_waitrequest,
-      instr_av_readdatavalid => avm_instruction_readdatavalid);
+  avm_instruction_address    <= instr_address;
+  avm_instruction_byteenable <= "1111";
+  avm_instruction_read       <= instr_read_en;
+  instr_data             <= avm_instruction_readdata;
+  avm_instruction_write      <= '0';
+  avm_instruction_writedata  <= (others => '0');
+  avm_instruction_lock       <= '0';
+  instr_read_wait                  <= avm_instruction_waitrequest;
+  instr_readvalid             <= avm_instruction_readdatavalid;
 
 end architecture rtl;

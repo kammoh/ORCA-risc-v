@@ -4,14 +4,11 @@ proc com {} {
 							../utils.vhd  \
 							../components.vhd 	  \
 							../alu.vhd 				  \
-							../avalon_master.vhd	  \
 							../branch_unit.vhd	  \
 							../decode.vhd 			  \
 							../execute.vhd			  \
 							../instruction_fetch.vhd\
-							../instructions.vhd	  \
 							../load_store_unit.vhd \
-							../memory_system.vhd   \
 							../register_file.vhd   \
 							../riscv.vhd 			  \
 							../sys_call.vhd 		  \
