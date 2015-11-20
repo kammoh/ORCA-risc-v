@@ -40,22 +40,19 @@ architecture rtl of instruction_fetch is
   signal correction      : std_logic_vector(REGISTER_SIZE-1 downto 0);
   signal correction_en   : std_logic;
   signal program_counter : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal generated_pc    : std_logic_vector(REGISTER_SIZE -1 downto 0);
-  signal address         : std_logic_vector(REGISTER_SIZE -1 downto 0);
+  signal next_pc         : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal predicted_pc    : std_logic_vector(REGISTER_SIZE -1 downto 0);
+  signal saved_address   : std_logic_vector(REGISTER_SIZE -1 downto 0);
 
   signal instr : std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
 
   signal valid_instr : std_logic;
 
-  signal saved_instr_out       : std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
-  signal saved_pc_out          : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal saved_next_pc_out     : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal saved_valid_instr_out : std_logic;
+  constant BRANCH_PREDICTORS : natural := 0;
 
-  constant BRANCH_PREDICTORS : natural := 256;
   signal pc_corr             : std_logic_vector(REGISTER_SIZE-1 downto 0);
   signal pc_corr_en          : std_logic;
-
+  signal if_stall            : std_logic;
 begin  -- architecture rtl
   pc_corr    <= branch_get_tgt(branch_pred);
   pc_corr_en <= branch_get_flush(branch_pred);
@@ -64,47 +61,65 @@ begin  -- architecture rtl
 
   read_en <= not reset;
 
-  latch_pc : process(clk)
+  if_stall <= stall or read_wait;
+
+  next_pc <= pc_corr when pc_corr_en = '1' else
+             predicted_pc;
+
+  latch_corr:process(clk)
   begin
     if rising_edge(clk) then
-      if reset = '1' then
-        program_counter <= std_logic_vector(to_signed(RESET_VECTOR, REGISTER_SIZE));
-        correction_en   <= '0';
-      else
-        if pc_corr_en = '1' then
-          correction_en <= '1';
-          correction    <= pc_corr;
-        elsif read_datavalid = '1' then
-          correction_en <= '0';
-        end if;
-        program_counter <= address;
+
+      if pc_corr_en = '1' then
+        correction_en <= '1';
+      elsif read_datavalid = '1' then
+        correction_en <= '0';
       end if;
+      if reset = '1' then
+        correction_en <= '0';
+      end if;
+
     end if;  -- clock
   end process;
 
-  address <= program_counter when read_datavalid = '0' or stall = '1' else
-             correction when correction_en = '1' else
-             generated_pc;
+  latch_pc : process(clk)
+  begin
+    if rising_edge(clk) then
+      if stall = '0' and pc_corr_en = '1'  then
+        program_counter <= next_pc;
+      end if;
+      if stall= '0' then
+        saved_address   <= program_counter;
+      end if;
+      if reset = '1' then
+          program_counter <= std_logic_vector(to_signed(RESET_VECTOR, REGISTER_SIZE));
+      end if;
+    end if;  -- clock
+  end process;
 
 
 --unpack instruction
   instr <= read_data;
 
-  valid_instr <= read_datavalid and not correction_en and not stall;
+  valid_instr <= read_datavalid and not pc_corr_en  and not correction_en ;
 
 
 
 
   nuse_BP : if BRANCH_PREDICTORS = 0 generate
+
     --No branch prediction
     process(clk)
     begin
       if rising_edge(clk) then
-        generated_pc <= std_logic_vector(signed(address) + 4);
+        predicted_pc <= std_logic_vector(signed(next_pc) + 4);
         br_taken     <= '0';
+        if reset = '1' then
+          predicted_pc <= std_logic_vector(to_signed(RESET_VECTOR, REGISTER_SIZE));
+        end if;
       end if;
     end process;
---    generated_pc <= std_logic_vector(signed(program_counter) + 4);
+
   end generate nuse_BP;
 
   use_BP : if BRANCH_PREDICTORS > 0 generate
@@ -134,7 +149,7 @@ begin  -- architecture rtl
     branch_taken <= branch_get_taken(branch_pred);
     branch_en    <= branch_get_enable(branch_pred);
     tbt_raddr    <= 0 when BRANCH_PREDICTORS = 1 else
-                    to_integer(unsigned(address(INDEX_SIZE+2-1 downto 2)));
+                    to_integer(unsigned(next_pc(INDEX_SIZE+2-1 downto 2)));
     tbt_waddr <= 0 when BRANCH_PREDICTORS = 1 else
                  to_integer(unsigned(branch_pc(INDEX_SIZE+2-1 downto 2)));
 
@@ -147,24 +162,23 @@ begin  -- architecture rtl
           branch_tbt(tbt_waddr) <= branch_taken &branch_pc(INDEX_SIZE+2+TAG_SIZE-1 downto INDEX_SIZE+2) & branch_tgt;
         end if;
 
-        addr_tag <= address(INDEX_SIZE+2+TAG_SIZE-1 downto INDEX_SIZE+2);
-        add4     <= std_logic_vector(signed(address) + 4);
-    end if;
-  end process;
+        addr_tag <= next_pc(INDEX_SIZE+2+TAG_SIZE-1 downto INDEX_SIZE+2);
+        add4     <= std_logic_vector(signed(next_pc) + 4);
+      end if;
+    end process;
 
-  generated_pc     <= tbt_target when tbt_tag = addr_tag and tbt_taken = '1' else add4;
-  br_taken         <= '1'        when tbt_tag = addr_tag and tbt_taken = '1' else '0';
-  prediction_match <= '1'        when tbt_tag = addr_tag                     else '0';
-end generate use_BP;
+    predicted_pc     <= tbt_target when tbt_tag = addr_tag and tbt_taken = '1' else add4;
+    br_taken         <= '1'        when tbt_tag = addr_tag and tbt_taken = '1' else '0';
+    prediction_match <= '1'        when tbt_tag = addr_tag                     else '0';
+  end generate use_BP;
 
 
 
-instr_out <= instr;
-pc_out    <= program_counter;
---  next_pc_out <= generated_pc;
+  instr_out <= instr;
+  pc_out    <= saved_address;
 
-valid_instr_out <= valid_instr;
+  valid_instr_out <= valid_instr;
 
-read_address <= address;
+  read_address <= saved_address when if_stall = '1' else program_counter;
 
 end architecture rtl;
