@@ -8,9 +8,10 @@ use work.utils.all;
 entity riscV is
 
   generic (
-    REGISTER_SIZE   : integer := 32;
-    RESET_VECTOR    : natural := 16#00000200#;
-    MULTIPLY_ENABLE : boolean := false);
+    REGISTER_SIZE        : integer := 32;
+    RESET_VECTOR         : natural := 16#00000200#;
+    MULTIPLY_ENABLE      : natural range 0 to 1 := 0;
+    SHIFTER_SINGLE_CYCLE : natural range 0 to 1 := 0);
 
   port(clk   : in std_logic;
        reset : in std_logic;
@@ -165,12 +166,13 @@ begin  -- architecture rtl
   e_valid <= d_valid_out and not pipeline_flush;
   X : component execute
     generic map (
-      REGISTER_SIZE       => REGISTER_SIZE,
-      REGISTER_NAME_SIZE  => REGISTER_NAME_SIZE,
-      INSTRUCTION_SIZE    => INSTRUCTION_SIZE,
-      SIGN_EXTENSION_SIZE => SIGN_EXTENSION_SIZE,
-      RESET_VECTOR        => RESET_VECTOR,
-      MULTIPLY_ENABLE     => MULTIPLY_ENABLE)
+      REGISTER_SIZE        => REGISTER_SIZE,
+      REGISTER_NAME_SIZE   => REGISTER_NAME_SIZE,
+      INSTRUCTION_SIZE     => INSTRUCTION_SIZE,
+      SIGN_EXTENSION_SIZE  => SIGN_EXTENSION_SIZE,
+      RESET_VECTOR         => RESET_VECTOR,
+      MULTIPLY_ENABLE      => MULTIPLY_ENABLE=1,
+      SHIFTER_SINGLE_CYCLE => SHIFTER_SINGLE_CYCLE=1)
     port map (
       clk            => clk,
       reset          => reset,
@@ -209,16 +211,16 @@ begin  -- architecture rtl
   avm_data_writedata  <= data_write_data;
   avm_data_lock       <= '0';
   data_wait           <= avm_data_waitrequest;
-  e_readvalid      <= avm_data_readdatavalid;
+  e_readvalid         <= avm_data_readdatavalid;
 
   avm_instruction_address    <= instr_address;
   avm_instruction_byteenable <= "1111";
   avm_instruction_read       <= instr_read_en;
-  instr_data             <= avm_instruction_readdata;
+  instr_data                 <= avm_instruction_readdata;
   avm_instruction_write      <= '0';
   avm_instruction_writedata  <= (others => '0');
   avm_instruction_lock       <= '0';
-  instr_read_wait                  <= avm_instruction_waitrequest;
-  instr_readvalid             <= avm_instruction_readdatavalid;
+  instr_read_wait            <= avm_instruction_waitrequest;
+  instr_readvalid            <= avm_instruction_readdatavalid;
 
 end architecture rtl;

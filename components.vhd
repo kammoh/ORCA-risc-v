@@ -8,9 +8,10 @@ use work.utils.all;
 package rv_components is
   component riscV is
     generic (
-      REGISTER_SIZE   : integer := 32;
-      RESET_VECTOR    : natural := 16#00000200#;
-      MULTIPLY_ENABLE : boolean);
+      REGISTER_SIZE        : integer              := 32;
+      RESET_VECTOR         : natural              := 16#00000200#;
+      MULTIPLY_ENABLE      : natural range 0 to 1 := 0;
+      SHIFTER_SINGLE_CYCLE : natural range 0 to 1 := 0);
     port(
       clk   : in std_logic;
       reset : in std_logic;
@@ -82,12 +83,13 @@ package rv_components is
 
   component execute is
     generic(
-      REGISTER_SIZE       : positive;
-      REGISTER_NAME_SIZE  : positive;
-      INSTRUCTION_SIZE    : positive;
-      SIGN_EXTENSION_SIZE : positive;
-      RESET_VECTOR        : natural;
-      MULTIPLY_ENABLE     : boolean);
+      REGISTER_SIZE        : positive;
+      REGISTER_NAME_SIZE   : positive;
+      INSTRUCTION_SIZE     : positive;
+      SIGN_EXTENSION_SIZE  : positive;
+      RESET_VECTOR         : natural;
+      MULTIPLY_ENABLE      : boolean;
+      SHIFTER_SINGLE_CYCLE : boolean);
     port(
       clk         : in std_logic;
       reset       : in std_logic;
@@ -149,10 +151,11 @@ package rv_components is
 
   component arithmetic_unit is
     generic (
-      INSTRUCTION_SIZE    : integer;
-      REGISTER_SIZE       : integer;
-      SIGN_EXTENSION_SIZE : integer;
-      MULTIPLY_ENABLE     : boolean);
+      INSTRUCTION_SIZE     : integer;
+      REGISTER_SIZE        : integer;
+      SIGN_EXTENSION_SIZE  : integer;
+      MULTIPLY_ENABLE      : boolean;
+      SHIFTER_SINGLE_CYCLE : boolean);
     port (
       clk               : in  std_logic;
       stall_in          : in  std_logic;

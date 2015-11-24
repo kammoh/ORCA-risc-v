@@ -29,9 +29,9 @@ architecture rtl of shifter is
 
 begin  -- architecture rtl
   cycle1 : if SINGLE_CYCLE generate
-    left_tmp     <= SHIFT_LEFT(shifted_value, to_integer(shift_amt));
-    right_tmp    <= SHIFT_RIGHT(shifted_value, to_integer(shift_amt));
-    done        <= '1';
+    left_tmp  <= SHIFT_LEFT(shifted_value, to_integer(shift_amt));
+    right_tmp <= SHIFT_RIGHT(shifted_value, to_integer(shift_amt));
+    done      <= '1';
   end generate cycle1;
 
   cycleN : if not SINGLE_CYCLE generate
@@ -39,7 +39,7 @@ begin  -- architecture rtl
     signal left_nxt  : signed(REGISTER_SIZE downto 0);
     signal right_nxt : signed(REGISTER_SIZE downto 0);
     signal count     : signed(SHIFT_AMT_SIZE-1 downto 0);
-    type state_t is (start, running,fini);
+    type state_t is (start, running, fini);
     signal state     : state_t;
   begin
     left_nxt  <= SHIFT_LEFT(left_tmp, 1);
@@ -51,14 +51,14 @@ begin  -- architecture rtl
           when start =>
             done <= '0';
             if enable = '1' then
-              left_tmp <= shifted_value;
+              left_tmp  <= shifted_value;
               right_tmp <= shifted_value;
-              count <= signed(shift_amt);
+              count     <= signed(shift_amt);
               if shift_amt /= 0 then
                 state <= running;
               else
                 state <= fini;
-                done <= '1';
+                done  <= '1';
               end if;
             end if;
           when running =>
@@ -66,11 +66,11 @@ begin  -- architecture rtl
             right_tmp <= right_nxt;
             count     <= count -1;
             if count = 1 then
-              done <=  '1';
+              done  <= '1';
               state <= fini;
             end if;
           when fini =>
-            done <= '0';
+            done  <= '0';
             state <= start;
           when others =>
             state <= start;
@@ -81,7 +81,7 @@ begin  -- architecture rtl
   end generate cycleN;
 
   right_result <= unsigned(right_tmp(REGISTER_SIZE-1 downto 0));
-  left_result <= unsigned(left_tmp(REGISTER_SIZE-1 downto 0));
+  left_result  <= unsigned(left_tmp(REGISTER_SIZE-1 downto 0));
 
 end architecture rtl;
 
@@ -170,10 +170,11 @@ use work.utils.all;
 entity arithmetic_unit is
 
   generic (
-    INSTRUCTION_SIZE    : integer;
-    REGISTER_SIZE       : integer;
-    SIGN_EXTENSION_SIZE : integer;
-    MULTIPLY_ENABLE     : boolean);
+    INSTRUCTION_SIZE     : integer;
+    REGISTER_SIZE        : integer;
+    SIGN_EXTENSION_SIZE  : integer;
+    MULTIPLY_ENABLE      : boolean;
+    SHIFTER_SINGLE_CYCLE : boolean);
 
   port (
     clk               : in  std_logic;
@@ -194,13 +195,14 @@ end entity arithmetic_unit;
 
 architecture rtl of arithmetic_unit is
 
-  constant SHIFTER_USE_MULTIPLIER : boolean                      := MULTIPLY_ENABLE;
-                                        --constant SHIFTER_USE_MULTIPLIER : boolean := false;
-                                        --op codes
-  constant OP                     : std_logic_vector(6 downto 0) := "0110011";
-  constant OP_IMM                 : std_logic_vector(6 downto 0) := "0010011";
-  constant LUI                    : std_logic_vector(6 downto 0) := "0110111";
-  constant AUIPC                  : std_logic_vector(6 downto 0) := "0010111";
+  constant SHIFTER_USE_MULTIPLIER : boolean := MULTIPLY_ENABLE;
+  constant SHIFT_SC               : boolean :=
+    SHIFTER_SINGLE_CYCLE or SHIFTER_USE_MULTIPLIER;
+  --op codes
+  constant OP     : std_logic_vector(6 downto 0) := "0110011";
+  constant OP_IMM : std_logic_vector(6 downto 0) := "0010011";
+  constant LUI    : std_logic_vector(6 downto 0) := "0110111";
+  constant AUIPC  : std_logic_vector(6 downto 0) := "0010111";
 
 
   constant MUL_OP    : std_logic_vector(2 downto 0) := "000";
@@ -339,7 +341,7 @@ begin  -- architecture rtl
   sh : component shifter
     generic map (
       REGiSTER_SIZE => REGISTER_SIZE,
-      SINGLE_CYCLE  => false)
+      SINGLE_CYCLE  => SHIFT_SC)
     port map (
       clk           => clk,
       shift_amt     => shift_amt,
@@ -548,7 +550,7 @@ begin  -- architecture rtl
   sh_stall  <= not sh_done  when sh_enable = '1' else '0';
 
   stall_out <= '1' when ((div_stall = '1' and MULTIPLY_ENABLE) or
-                                   (sh_stall = '1' and sh_enable= '1'))
+                         (sh_stall = '1' and sh_enable = '1'))
                else '0';
 
   illegal_alu_instr <= '0' when (instruction(31 downto 25) = "0000000" or

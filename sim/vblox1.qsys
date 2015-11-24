@@ -290,6 +290,7 @@
   <parameter name="MULTIPLY_ENABLE" value="true" />
   <parameter name="REGISTER_SIZE" value="32" />
   <parameter name="RESET_VECTOR" value="512" />
+  <parameter name="SHIFTER_SINGLE_CYCLE" value="false" />
  </module>
  <connection
    kind="avalon"

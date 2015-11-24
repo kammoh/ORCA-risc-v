@@ -29,7 +29,7 @@
    {
       datum _sortIndex
       {
-         value = "7";
+         value = "8";
          type = "int";
       }
    }
@@ -45,7 +45,7 @@
    {
       datum _sortIndex
       {
-         value = "8";
+         value = "9";
          type = "int";
       }
    }
@@ -61,7 +61,7 @@
    {
       datum _sortIndex
       {
-         value = "9";
+         value = "10";
          type = "int";
       }
    }
@@ -77,7 +77,7 @@
    {
       datum _sortIndex
       {
-         value = "10";
+         value = "11";
          type = "int";
       }
    }
@@ -93,7 +93,7 @@
    {
       datum _sortIndex
       {
-         value = "3";
+         value = "4";
          type = "int";
       }
    }
@@ -101,7 +101,7 @@
    {
       datum _sortIndex
       {
-         value = "5";
+         value = "6";
          type = "int";
       }
    }
@@ -117,7 +117,7 @@
    {
       datum _sortIndex
       {
-         value = "6";
+         value = "7";
          type = "int";
       }
    }
@@ -133,7 +133,7 @@
    {
       datum _sortIndex
       {
-         value = "11";
+         value = "12";
          type = "int";
       }
    }
@@ -143,6 +143,14 @@
       {
          value = "0";
          type = "String";
+      }
+   }
+   element mm_bridge_1
+   {
+      datum _sortIndex
+      {
+         value = "3";
+         type = "int";
       }
    }
    element onchip_memory2_0
@@ -181,7 +189,7 @@
    {
       datum _sortIndex
       {
-         value = "4";
+         value = "5";
          type = "int";
       }
    }
@@ -381,12 +389,32 @@
   <parameter name="USE_RESPONSE" value="0" />
  </module>
  <module
+   name="mm_bridge_1"
+   kind="altera_avalon_mm_bridge"
+   version="15.0"
+   enabled="1">
+  <parameter name="ADDRESS_UNITS" value="SYMBOLS" />
+  <parameter name="ADDRESS_WIDTH" value="10" />
+  <parameter name="AUTO_CLK_CLOCK_RATE" value="50000000" />
+  <parameter name="AUTO_DEVICE_FAMILY" value="Cyclone IV E" />
+  <parameter name="DATA_WIDTH" value="32" />
+  <parameter name="LINEWRAPBURSTS" value="0" />
+  <parameter name="MAX_BURST_SIZE" value="1" />
+  <parameter name="MAX_PENDING_RESPONSES" value="4" />
+  <parameter name="PIPELINE_COMMAND" value="1" />
+  <parameter name="PIPELINE_RESPONSE" value="1" />
+  <parameter name="SYMBOL_WIDTH" value="8" />
+  <parameter name="SYSINFO_ADDR_WIDTH" value="25" />
+  <parameter name="USE_AUTO_ADDRESS_WIDTH" value="1" />
+  <parameter name="USE_RESPONSE" value="0" />
+ </module>
+ <module
    name="onchip_memory2_0"
    kind="altera_avalon_onchip_memory2"
    version="15.0"
    enabled="1">
   <parameter name="allowInSystemMemoryContentEditor" value="false" />
-  <parameter name="autoInitializationFileName">vblox1_onchip_memory2_0</parameter>
+  <parameter name="autoInitializationFileName">$${FILENAME}_onchip_memory2_0</parameter>
   <parameter name="blockType" value="AUTO" />
   <parameter name="copyInitFile" value="false" />
   <parameter name="dataWidth" value="32" />
@@ -410,9 +438,10 @@
   <parameter name="writable" value="true" />
  </module>
  <module name="riscv_0" kind="riscv" version="1.0" enabled="1">
-  <parameter name="MULTIPLY_ENABLE" value="false" />
+  <parameter name="MULTIPLY_ENABLE" value="1" />
   <parameter name="REGISTER_SIZE" value="32" />
   <parameter name="RESET_VECTOR" value="512" />
+  <parameter name="SHIFTER_SINGLE_CYCLE" value="1" />
  </module>
  <module name="tohost_pio" kind="altera_avalon_pio" version="15.0" enabled="1">
   <parameter name="bitClearingEdgeCapReg" value="false" />
@@ -432,16 +461,7 @@
    kind="avalon"
    version="15.0"
    start="riscv_0.data"
-   end="mm_bridge_0.s0">
-  <parameter name="arbitrationPriority" value="1" />
-  <parameter name="baseAddress" value="0x00010000" />
-  <parameter name="defaultConnection" value="false" />
- </connection>
- <connection
-   kind="avalon"
-   version="15.0"
-   start="riscv_0.data"
-   end="onchip_memory2_0.s2">
+   end="mm_bridge_1.s0">
   <parameter name="arbitrationPriority" value="1" />
   <parameter name="baseAddress" value="0x0000" />
   <parameter name="defaultConnection" value="false" />
@@ -451,6 +471,15 @@
    version="15.0"
    start="riscv_0.instruction"
    end="onchip_memory2_0.s1">
+  <parameter name="arbitrationPriority" value="1" />
+  <parameter name="baseAddress" value="0x0000" />
+  <parameter name="defaultConnection" value="false" />
+ </connection>
+ <connection
+   kind="avalon"
+   version="15.0"
+   start="mm_bridge_1.m0"
+   end="mm_bridge_0.s0">
   <parameter name="arbitrationPriority" value="1" />
   <parameter name="baseAddress" value="0x0000" />
   <parameter name="defaultConnection" value="false" />
@@ -488,6 +517,15 @@
  <connection
    kind="avalon"
    version="15.0"
+   start="mm_bridge_1.m0"
+   end="onchip_memory2_0.s2">
+  <parameter name="arbitrationPriority" value="1" />
+  <parameter name="baseAddress" value="0x01000000" />
+  <parameter name="defaultConnection" value="false" />
+ </connection>
+ <connection
+   kind="avalon"
+   version="15.0"
    start="jtag_master.master"
    end="tohost_pio.s1">
   <parameter name="arbitrationPriority" value="1" />
@@ -498,7 +536,7 @@
    kind="avalon"
    version="15.0"
    start="jtag_master.master"
-   end="onchip_memory2_0.s1">
+   end="onchip_memory2_0.s2">
   <parameter name="arbitrationPriority" value="1" />
   <parameter name="baseAddress" value="0x01000000" />
   <parameter name="defaultConnection" value="false" />
@@ -512,6 +550,7 @@
  <connection kind="clock" version="15.0" start="clk_0.clk" end="hex_2.clk" />
  <connection kind="clock" version="15.0" start="clk_0.clk" end="hex_3.clk" />
  <connection kind="clock" version="15.0" start="clk_0.clk" end="mm_bridge_0.clk" />
+ <connection kind="clock" version="15.0" start="clk_0.clk" end="mm_bridge_1.clk" />
  <connection
    kind="clock"
    version="15.0"
@@ -560,6 +599,11 @@
    version="15.0"
    start="clk_0.clk_reset"
    end="mm_bridge_0.reset" />
+ <connection
+   kind="reset"
+   version="15.0"
+   start="clk_0.clk_reset"
+   end="mm_bridge_1.reset" />
  <connection
    kind="reset"
    version="15.0"

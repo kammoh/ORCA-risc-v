@@ -30,7 +30,7 @@ set_module_property EDITABLE true
 set_module_property REPORT_TO_TALKBACK false
 set_module_property ALLOW_GREYBOX_GENERATION false
 set_module_property REPORT_HIERARCHY false
-
+set_module_property ELABORATION_CALLBACK elaboration_callback
 
 #
 # file sets
@@ -77,7 +77,7 @@ set_parameter_property REGISTER_SIZE DEFAULT_VALUE 32
 set_parameter_property REGISTER_SIZE DISPLAY_NAME REGISTER_SIZE
 set_parameter_property REGISTER_SIZE TYPE INTEGER
 set_parameter_property REGISTER_SIZE UNITS None
-set_parameter_property REGISTER_SIZE ALLOWED_RANGES -2147483648:2147483647
+set_parameter_property REGISTER_SIZE ALLOWED_RANGES {32}
 set_parameter_property REGISTER_SIZE HDL_PARAMETER true
 add_parameter RESET_VECTOR NATURAL 512
 set_parameter_property RESET_VECTOR DEFAULT_VALUE 512
@@ -86,18 +86,26 @@ set_parameter_property RESET_VECTOR TYPE NATURAL
 set_parameter_property RESET_VECTOR UNITS None
 set_parameter_property RESET_VECTOR ALLOWED_RANGES 0:2147483647
 set_parameter_property RESET_VECTOR HDL_PARAMETER true
-add_parameter MULTIPLY_ENABLE BOOLEAN false
-set_parameter_property MULTIPLY_ENABLE DEFAULT_VALUE false
-set_parameter_property MULTIPLY_ENABLE DISPLAY_NAME MULTIPLY_ENABLE
-set_parameter_property MULTIPLY_ENABLE TYPE BOOLEAN
+set_display_item_property RESET_VECTOR DISPLAY_HINT hexadecimal
+add_parameter MULTIPLY_ENABLE natural 0
+set_parameter_property MULTIPLY_ENABLE DEFAULT_VALUE 0
+set_parameter_property MULTIPLY_ENABLE DISPLAY_NAME "HARDWARE MULTIPLY"
+set_parameter_property MULTIPLY_ENABLE TYPE NATURAL
 set_parameter_property MULTIPLY_ENABLE UNITS None
+set_parameter_property MULTIPLY_ENABLE ALLOWED_RANGES 0:1
 set_parameter_property MULTIPLY_ENABLE HDL_PARAMETER true
-
-
+set_display_item_property MULTIPLY_ENABLE DISPLAY_HINT boolean
+add_parameter SHIFTER_SINGLE_CYCLE natural 0
+set_parameter_property SHIFTER_SINGLE_CYCLE DEFAULT_VALUE 0
+set_parameter_property SHIFTER_SINGLE_CYCLE DISPLAY_NAME "SINGLE CYLCE SHIFTER"
+set_parameter_property SHIFTER_SINGLE_CYCLE TYPE NATURAL
+set_parameter_property SHIFTER_SINGLE_CYCLE UNITS None
+set_parameter_property SHIFTER_SINGLE_CYCLE ALLOWED_RANGES 0:1
+set_parameter_property SHIFTER_SINGLE_CYCLE HDL_PARAMETER true
+set_display_item_property SHIFTER_SINGLE_CYCLE DISPLAY_HINT boolean
 #
 # display items
 #
-
 
 #
 # connection point clock
@@ -249,3 +257,11 @@ set_interface_property from_host CMSIS_SVD_VARIABLES ""
 set_interface_property from_host SVD_ADDRESS_GROUP ""
 
 add_interface_port from_host coe_from_host export Input register_size
+
+proc elaboration_callback {} {
+	 if { [get_parameter_value MULTIPLY_ENABLE] } {
+		  set_display_item_property SHIFTER_SINGLE_CYCLE ENABLED false
+	 } else {
+		  set_display_item_property SHIFTER_SINGLE_CYCLE ENABLED true
+	 }
+}

@@ -13,12 +13,13 @@ use STD.textio.all;                     -- basic I/O
 
 entity execute is
   generic(
-    REGISTER_SIZE       : positive;
-    REGISTER_NAME_SIZE  : positive;
-    INSTRUCTION_SIZE    : positive;
-    SIGN_EXTENSION_SIZE : positive;
-    RESET_VECTOR        : natural;
-    MULTIPLY_ENABLE     : boolean);
+    REGISTER_SIZE        : positive;
+    REGISTER_NAME_SIZE   : positive;
+    INSTRUCTION_SIZE     : positive;
+    SIGN_EXTENSION_SIZE  : positive;
+    RESET_VECTOR         : natural;
+    MULTIPLY_ENABLE      : boolean;
+    SHIFTER_SINGLE_CYCLE : boolean);
   port(
     clk         : in std_logic;
     reset       : in std_logic;
@@ -230,10 +231,11 @@ begin
 
   alu : component arithmetic_unit
     generic map (
-      INSTRUCTION_SIZE    => INSTRUCTION_SIZE,
-      REGISTER_SIZE       => REGISTER_SIZE,
-      SIGN_EXTENSION_SIZE => SIGN_EXTENSION_SIZE,
-      MULTIPLY_ENABLE     => MULTIPLY_ENABLE)
+      INSTRUCTION_SIZE     => INSTRUCTION_SIZE,
+      REGISTER_SIZE        => REGISTER_SIZE,
+      SIGN_EXTENSION_SIZE  => SIGN_EXTENSION_SIZE,
+      MULTIPLY_ENABLE      => MULTIPLY_ENABLE,
+      SHIFTER_SINGLE_CYCLE => SHIFTER_SINGLE_CYCLE)
     port map (
       clk               => clk,
       stall_in          => stall_pipeline,
