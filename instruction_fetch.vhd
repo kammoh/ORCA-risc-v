@@ -50,9 +50,9 @@ architecture rtl of instruction_fetch is
 
   constant BRANCH_PREDICTORS : natural := 0;
 
-  signal pc_corr             : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal pc_corr_en          : std_logic;
-  signal if_stall            : std_logic;
+  signal pc_corr    : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal pc_corr_en : std_logic;
+  signal if_stall   : std_logic;
 begin  -- architecture rtl
   pc_corr    <= branch_get_tgt(branch_pred);
   pc_corr_en <= branch_get_flush(branch_pred);
@@ -66,10 +66,9 @@ begin  -- architecture rtl
   next_pc <= pc_corr when pc_corr_en = '1' else
              predicted_pc;
 
-  latch_corr:process(clk)
+  latch_corr : process(clk)
   begin
     if rising_edge(clk) then
-
       if pc_corr_en = '1' then
         correction_en <= '1';
       elsif read_datavalid = '1' then
@@ -78,30 +77,28 @@ begin  -- architecture rtl
       if reset = '1' then
         correction_en <= '0';
       end if;
-
     end if;  -- clock
   end process;
 
   latch_pc : process(clk)
   begin
     if rising_edge(clk) then
-      if stall = '0' and pc_corr_en = '1'  then
+      if stall = '0' or pc_corr_en = '1' then
         program_counter <= next_pc;
       end if;
-      if stall= '0' then
-        saved_address   <= program_counter;
+      if stall = '0' then
+        saved_address <= program_counter;
       end if;
       if reset = '1' then
-          program_counter <= std_logic_vector(to_signed(RESET_VECTOR, REGISTER_SIZE));
+        program_counter <= std_logic_vector(to_signed(RESET_VECTOR, REGISTER_SIZE));
       end if;
     end if;  -- clock
   end process;
 
 
 --unpack instruction
-  instr <= read_data;
-
-  valid_instr <= read_datavalid and not pc_corr_en  and not correction_en ;
+  instr       <= read_data;
+  valid_instr <= read_datavalid and not pc_corr_en and not correction_en;
 
 
 
@@ -112,8 +109,10 @@ begin  -- architecture rtl
     process(clk)
     begin
       if rising_edge(clk) then
-        predicted_pc <= std_logic_vector(signed(next_pc) + 4);
         br_taken     <= '0';
+        if stall='0'  then
+          predicted_pc <= std_logic_vector(signed(next_pc) + 4);
+        end if;
         if reset = '1' then
           predicted_pc <= std_logic_vector(to_signed(RESET_VECTOR, REGISTER_SIZE));
         end if;
@@ -179,6 +178,6 @@ begin  -- architecture rtl
 
   valid_instr_out <= valid_instr;
 
-  read_address <= saved_address when if_stall = '1' else program_counter;
+  read_address <= saved_address when read_wait = '1' else program_counter;
 
 end architecture rtl;

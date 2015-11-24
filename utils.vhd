@@ -3,8 +3,12 @@ use IEEE.STD_LOGIC_1164.all;
 use IEEE.NUMERIC_STD.all;
 
 package utils is
-  function log2 (
-    i : natural)
+  function log2(
+    N : integer)
+    return integer;
+
+  function log2_f(
+    N : integer)
     return integer;
 
   function branch_pack_signal (
@@ -32,7 +36,29 @@ package utils is
 
 end utils;
 package body utils is
-  function log2(i : natural) return integer is
+    function log2_f(
+     N : integer)
+    return integer is
+    variable i : integer := 0;
+  begin
+    while (2**i <= n) loop
+      i := i + 1;
+    end loop;
+    return i-1;
+  end log2_f;
+
+  function log2(
+    N : integer)
+    return integer is
+    variable i : integer := 0;
+  begin
+    while (2**i < n) loop
+      i := i + 1;
+    end loop;
+    return i;
+  end log2;
+
+  function ceil_log2(i : natural) return integer is
     variable temp    : integer := i;
     variable ret_val : integer := 0;
   begin
