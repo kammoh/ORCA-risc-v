@@ -23,20 +23,21 @@ fi
 
 for f in $FILES
 do
-
 	 echo "$f > test/$(basename $f).gex"
-	 BIN_FILE=test/$(basename $f).bin
-	 GEX_FILE=test/$(basename $f).gex
-	 MEM_FILE=test/$(basename $f).mem
-	 MIF_FILE=test/$(basename $f).mif
-	 SPLIT_FILE=test/$(basename $f).split2
-	 cp $f test/
-	 riscv64-unknown-elf-objcopy  -O binary $f $BIN_FILE
-	 riscv64-unknown-elf-objdump --disassemble-all -Mnumeric,no-aliases $f > test/$(basename $f).dump
-	 python ../tools/bin2mif.py $BIN_FILE 0x100 > $MIF_FILE || exit -1
-	 mif2hex $MIF_FILE $GEX_FILE >/dev/null 2>&1 || exit -1
-	 sed -e 's/://' -e 's/\(..\)/\1 /g'  $GEX_FILE >$SPLIT_FILE
-	 awk '{if (NF == 9) print $5$6$7$8}' $SPLIT_FILE > $MEM_FILE
-	 rm -f $MIF_FILE $SPLIT_FILE
-
+	 (
+		  BIN_FILE=test/$(basename $f).bin
+		  GEX_FILE=test/$(basename $f).gex
+		  MEM_FILE=test/$(basename $f).mem
+		  MIF_FILE=test/$(basename $f).mif
+		  SPLIT_FILE=test/$(basename $f).split2
+		  cp $f test/
+		  riscv64-unknown-elf-objcopy  -O binary $f $BIN_FILE
+		  riscv64-unknown-elf-objdump --disassemble-all -Mnumeric,no-aliases $f > test/$(basename $f).dump
+		  python ../tools/bin2mif.py $BIN_FILE 0x100 > $MIF_FILE || exit -1
+		  mif2hex $MIF_FILE $GEX_FILE >/dev/null 2>&1 || exit -1
+		  sed -e 's/://' -e 's/\(..\)/\1 /g'  $GEX_FILE >$SPLIT_FILE
+		  awk '{if (NF == 9) print $5$6$7$8}' $SPLIT_FILE > $MEM_FILE
+		  rm -f $MIF_FILE $SPLIT_FILE
+	 ) &
 done
+wait
