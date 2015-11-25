@@ -95,7 +95,7 @@ begin
                            else '0';
   use_after_load_stall2 <= '1' when i_rs2 = il_rd and il_opcode = "00000"
                            else '0';
-  use_after_load_stall <= (use_after_load_stall1 or use_after_load_stall2) and valid_latch  ;
+  use_after_load_stall <= (use_after_load_stall1 or use_after_load_stall2) and valid_latch and not flush ;
 
   stall_out <= use_after_load_stall;
 

@@ -44,6 +44,10 @@ architecture rtl of instruction_fetch is
   signal predicted_pc    : std_logic_vector(REGISTER_SIZE -1 downto 0);
   signal saved_address   : std_logic_vector(REGISTER_SIZE -1 downto 0);
 
+  signal saved_instr    : std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
+  signal saved_instr_en : std_logic;
+
+
   signal instr : std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
 
   signal valid_instr : std_logic;
@@ -109,8 +113,8 @@ begin  -- architecture rtl
     process(clk)
     begin
       if rising_edge(clk) then
-        br_taken     <= '0';
-        if stall='0'  then
+        br_taken <= '0';
+        if stall = '0' then
           predicted_pc <= std_logic_vector(signed(next_pc) + 4);
         end if;
         if reset = '1' then
@@ -173,11 +177,25 @@ begin  -- architecture rtl
 
 
 
-  instr_out <= instr;
+  instr_out <= instr when saved_instr_en = '0' else saved_instr;
   pc_out    <= saved_address;
 
-  valid_instr_out <= valid_instr;
+  valid_instr_out <= (valid_instr or saved_instr_en) and not if_stall;
 
   read_address <= saved_address when read_wait = '1' else program_counter;
+
+  process(clk)
+  begin
+    if rising_edge(clk) then
+      if if_stall = '1' and saved_instr_en = '0' then
+        saved_instr    <= instr;
+        saved_instr_en <= valid_instr;
+      elsif if_stall = '0' then
+        saved_instr_en <= '0';
+      end if;
+
+    end if;
+
+  end process;
 
 end architecture rtl;
