@@ -112,8 +112,9 @@ architecture behavioural of execute is
 
   constant ZERO : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0) := (others => '0');
 
-  signal rs1_mux : std_logic;
-  signal rs2_mux : std_logic;
+  type fwd_mux_t is (ALU_FWD, JAL_FWD, SYS_FWD, NO_FWD);
+  signal rs1_mux : fwd_mux_t;
+  signal rs2_mux : fwd_mux_t;
 
   signal finished_instr : std_logic;
 
@@ -154,8 +155,18 @@ begin
   -- next instruction, we have to watch out for use after load hazards.
   -----------------------------------------------------------------------------
 
-  rs1_data_fwd <= fwd_data when rs1_mux = '0' else rs1_data;
-  rs2_data_fwd <= fwd_data when rs2_mux = '0' else rs2_data;
+  with rs1_mux select
+    rs1_data_fwd <=
+    sys_data_out when SYS_FWD,
+    alu_data_out when ALU_FWD,
+    br_data_out  when JAL_FWD,
+    rs1_data     when NO_FWD;
+  with rs2_mux select
+    rs2_data_fwd <=
+    sys_data_out when SYS_FWD,
+    alu_data_out when ALU_FWD,
+    br_data_out  when JAL_FWD,
+    rs2_data     when NO_FWD;
 
 
   wb_mux <= "00" when sys_data_en = '1' else
@@ -185,29 +196,43 @@ begin
   begin
     if rising_edge(clk) then
 
-      current_alu := (opcode = LUI_OP or
-                      opcode = AUIPC_OP or
-                      opcode = ALU_OP or
-                      opcode = ALUI_OP or
-                      opcode = JAL_OP or
-                      opcode = JALR_OP or
-                      opcode = CSR_OP) ;
 
       --calculate where the next forward data will go
       if stall_pipeline = '0' then
-        if current_alu and rd = ni_rs1 and rd /= ZERO and valid_instr = '1' then
-          rs1_mux <= '0';
+        if rd = ni_rs1 and rd /= ZERO and valid_instr = '1' then
+          if (opcode = LUI_OP or
+              opcode = AUIPC_OP or
+              opcode = ALU_OP or
+              opcode = ALUI_OP) then
+            rs1_mux <= ALU_FWD;
+          elsif opcode = JAL_OP or opcode = JALR_OP then
+            rs1_mux <= JAL_FWD;
+          elsif opcode = CSR_OP then
+            rs1_mux <= SYS_FWD;
+          else
+            rs1_mux <= NO_FWD;
+          end if;
         else
-          rs1_mux <= '1';
+          rs1_mux <= NO_FWD;
         end if;
-      end if;
 
-      if stall_pipeline = '0' then
-        if current_alu and rd = ni_rs2 and rd /= ZERO and valid_instr = '1' then
-          rs2_mux <= '0';
+        if rd = ni_rs2 and rd /= ZERO and valid_instr = '1' then
+          if (opcode = LUI_OP or
+              opcode = AUIPC_OP or
+              opcode = ALU_OP or
+              opcode = ALUI_OP) then
+            rs2_mux <= ALU_FWD;
+          elsif opcode = JAL_OP or opcode = JALR_OP then
+            rs2_mux <= JAL_FWD;
+          elsif opcode = CSR_OP then
+            rs2_mux <= SYS_FWD;
+          else
+            rs2_mux <= NO_FWD;
+          end if;
         else
-          rs2_mux <= '1';
+          rs2_mux <= NO_FWD;
         end if;
+
       end if;
 
       --save various flip flops for forwarding
