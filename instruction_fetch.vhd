@@ -193,7 +193,9 @@ begin  -- architecture rtl
       elsif if_stall = '0' then
         saved_instr_en <= '0';
       end if;
-
+      if reset='1' then
+        saved_instr_en <= '0';
+      end if;
     end if;
 
   end process;

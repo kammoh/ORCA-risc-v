@@ -6,7 +6,7 @@
 #**************************************************************
 # Create Clock
 #**************************************************************
-create_clock -period 20 [get_ports CLOCK_50]
+create_clock -period 5 [get_ports CLOCK_50]
 create_clock -period 20 [get_ports CLOCK2_50]
 create_clock -period 20 [get_ports CLOCK3_50]
 create_clock -period 10.416 CAMERA_PIXCLK

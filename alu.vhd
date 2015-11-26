@@ -62,6 +62,7 @@ begin  -- architecture rtl
               end if;
             end if;
           when running =>
+            assert enable = '1' report "enable went low during shift" severity error;
             left_tmp  <= left_nxt;
             right_tmp <= right_nxt;
             count     <= count -1;
@@ -93,6 +94,97 @@ library work;
 use work.utils.all;
 
 
+entity operand_creation is
+  generic (
+    REGISTER_SIZE          : natural;
+    INSTRUCTION_SIZE       : natural;
+    SIGN_EXTENSION_SIZE    : natural;
+    SHIFTER_USE_MULTIPLIER : boolean
+    );
+  port(
+    rs1_data         : in     std_logic_vector(REGISTER_SIZE-1 downto 0);
+    rs2_data         : in     std_logic_vector(REGISTER_SIZE-1 downto 0);
+    instruction      : in     std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
+    sign_extension   : in     std_logic_vector(SIGN_EXTENSION_SIZE-1 downto 0);
+    data1            : buffer unsigned(REGISTER_SIZE-1 downto 0);
+    data2            : buffer unsigned(REGISTER_SIZE-1 downto 0);
+    sub              : out    signed(REGISTER_SIZE downto 0);
+    shifter_multiply : buffer signed(REGISTER_SIZE downto 0);
+    shift_amt        : buffer unsigned(log2(REGISTER_SIZE)-1 downto 0);
+    shifted_value    : buffer signed(REGISTER_SIZE downto 0)
+    );
+end entity;
+
+architecture rtl of operand_creation is
+  signal is_immediate    : std_logic;
+  signal immediate_value : unsigned(REGISTER_SIZE-1 downto 0);
+  signal op1             : signed(REGISTER_SIZE downto 0);
+  signal op2             : signed(REGISTER_SIZE downto 0);
+
+  constant OP_IMM_IMMEDIATE_SIZE : integer := 12;
+
+begin  -- architecture rtl
+  is_immediate <= not instruction(5);
+  immediate_value <= unsigned(sign_extension(REGISTER_SIZE-OP_IMM_IMMEDIATE_SIZE-1 downto 0)&
+                              instruction(31 downto 20));
+  data1     <= unsigned(rs1_data);
+  data2     <= unsigned(rs2_data)                              when is_immediate = '0' else immediate_value;
+  shift_amt <= unsigned(data2(log2(REGISTER_SIZE)-1 downto 0)) when not SHIFTER_USE_MULTIPLIER else
+               unsigned(data2(log2(REGISTER_SIZE)-1 downto 0)) when instruction(14) = '0'else
+               32-unsigned(data2(log2(REGISTER_SIZE)-1 downto 0));
+
+  shifted_value <= signed((instruction(30) and rs1_data(rs1_data'left)) & rs1_data);
+
+--combine slt
+  op1 <= signed((not instruction(12) and data1(data1'left)) & data1);
+  op2 <= signed((not instruction(12) and data2(data2'left)) & data2);
+  sub <= op1 - op2;
+
+
+  shifter_multiply <=
+    "0"&x"00000001" when shift_amt = x"00"else
+    "0"&x"00000002" when shift_amt = x"01"else
+    "0"&x"00000004" when shift_amt = x"02"else
+    "0"&x"00000008" when shift_amt = x"03"else
+    "0"&x"00000010" when shift_amt = x"04"else
+    "0"&x"00000020" when shift_amt = x"05"else
+    "0"&x"00000040" when shift_amt = x"06"else
+    "0"&x"00000080" when shift_amt = x"07"else
+    "0"&x"00000100" when shift_amt = x"08"else
+    "0"&x"00000200" when shift_amt = x"09"else
+    "0"&x"00000400" when shift_amt = x"0A"else
+    "0"&x"00000800" when shift_amt = x"0B"else
+    "0"&x"00001000" when shift_amt = x"0C"else
+    "0"&x"00002000" when shift_amt = x"0D"else
+    "0"&x"00004000" when shift_amt = x"0E"else
+    "0"&x"00008000" when shift_amt = x"0F"else
+    "0"&x"00010000" when shift_amt = x"10"else
+    "0"&x"00020000" when shift_amt = x"11"else
+    "0"&x"00040000" when shift_amt = x"12"else
+    "0"&x"00080000" when shift_amt = x"13"else
+    "0"&x"00100000" when shift_amt = x"14"else
+    "0"&x"00200000" when shift_amt = x"15"else
+    "0"&x"00400000" when shift_amt = x"16"else
+    "0"&x"00800000" when shift_amt = x"17"else
+    "0"&x"01000000" when shift_amt = x"18"else
+    "0"&x"02000000" when shift_amt = x"19"else
+    "0"&x"04000000" when shift_amt = x"1A"else
+    "0"&x"08000000" when shift_amt = x"1B"else
+    "0"&x"10000000" when shift_amt = x"1C"else
+    "0"&x"20000000" when shift_amt = x"1D"else
+    "0"&x"40000000" when shift_amt = x"1E"else
+    "0"&x"80000000";
+
+end architecture rtl;
+
+
+library ieee;
+use ieee.std_logic_1164.all;
+use IEEE.NUMERIC_STD.all;
+library work;
+use work.utils.all;
+
+
 entity divider is
   generic (
     REGISTER_SIZE : natural
@@ -112,32 +204,33 @@ architecture rtl of divider is
   type FSM_state is (START, DIVIDING, FINISH);
   signal state : FSM_state := FINISH;
   signal count : natural range REGISTER_SIZE-1 downto 0;
+
 begin  -- architecture rtl
 
   div_proc : process(clk)
+    alias D    : unsigned(REGISTER_SIZE-1 downto 0) is denominator;
+    variable N : unsigned(REGISTER_SIZE-1 downto 0);
     variable R : unsigned(REGISTER_SIZE -1 downto 0);
     variable Q : unsigned(REGISTER_SIZE-1 downto 0);
-    alias D    : unsigned(REGISTER_SIZE-1 downto 0) is denominator;
-    alias N    : unsigned(REGISTER_SIZE-1 downto 0) is numerator;
+
   begin
+
     if RISING_EDGE(clk) then
       case state is
         when START =>
-          Q    := (others => '0');
-          R    := (others => '0');
-          R(0) := N(N'left);
-          if R >= D then
-            R         := R - D;
-            Q(Q'left) := '1';
-          end if;
+
           if enable then
+            Q     := (others => '0');
+            R     := (others => '0');
+            N     := numerator;
             state <= DIVIDING;
-            count <= Q'left - 1;
+            count <= Q'length - 1;
           end if;
         when DIVIDING =>
           assert enable report "enable went low during divide" severity error;
           R(REGISTER_SIZE-1 downto 1) := R(REGISTER_SIZE-2 downto 0);
-          R(0)                        := N(count);
+          R(0)                        := N(N'left);
+          N                           := SHIFT_LEFT(N, 1);
           if R >= D then
             R        := R - D;
             Q(count) := '1';
@@ -224,19 +317,15 @@ architecture rtl of arithmetic_unit is
   constant AND_OP  : std_logic_vector(2 downto 0) := "111";
   constant MUL_F7  : std_logic_vector(6 downto 0) := "0000001";
 
-  constant OP_IMM_IMMEDIATE_SIZE : integer := 12;
   constant UP_IMM_IMMEDIATE_SIZE : integer := 20;
 
   alias func3  : std_logic_vector(2 downto 0) is instruction(14 downto 12);
   alias func7  : std_logic_vector(6 downto 0) is instruction(31 downto 25);
   alias opcode : std_logic_vector(6 downto 0) is instruction(6 downto 0);
 
-  signal is_immediate    : std_logic;
-  signal data1           : unsigned(REGISTER_SIZE-1 downto 0);
-  signal data2           : unsigned(REGISTER_SIZE-1 downto 0);
-  signal data_result     : unsigned(REGISTER_SIZE-1 downto 0);
-  signal immediate_value : unsigned(REGISTER_SIZE-1 downto 0);
-
+  signal data1            : unsigned(REGISTER_SIZE-1 downto 0);
+  signal data2            : unsigned(REGISTER_SIZE-1 downto 0);
+  signal data_result      : unsigned(REGISTER_SIZE-1 downto 0);
   signal shifter_multiply : signed(REGISTER_SIZE downto 0);
 
 
@@ -244,8 +333,6 @@ architecture rtl of arithmetic_unit is
   signal shifted_value   : signed(REGISTER_SIZE downto 0);
   signal rshifted_result : unsigned(REGISTER_SIZE-1 downto 0);
   signal lshifted_result : unsigned(REGISTER_SIZE-1 downto 0);
-  signal op1             : signed(REGISTER_SIZE downto 0);
-  signal op2             : signed(REGISTER_SIZE downto 0);
   signal sub             : signed(REGISTER_SIZE downto 0);
   signal slt_val         : unsigned(REGISTER_SIZE-1 downto 0);
 
@@ -320,24 +407,50 @@ architecture rtl of arithmetic_unit is
       );
   end component;
 
+
+  component operand_creation is
+    generic (
+      REGISTER_SIZE          : natural;
+      SIGN_EXTENSION_SIZE    : natural;
+      INSTRUCTION_SIZE       : natural;
+      SHIFTER_USE_MULTIPLIER : boolean
+      );
+    port(
+      rs1_data         : in     std_logic_vector(REGISTER_SIZE-1 downto 0);
+      rs2_data         : in     std_logic_vector(REGISTER_SIZE-1 downto 0);
+      instruction      : in     std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
+      sign_extension   : in     std_logic_vector(SIGN_EXTENSION_SIZE-1 downto 0);
+      data1            : out    unsigned(REGISTER_SIZE-1 downto 0);
+      data2            : out    unsigned(REGISTER_SIZE-1 downto 0);
+      sub              : out    signed(REGISTER_SIZE downto 0);
+      shifter_multiply : buffer signed(REGISTER_SIZE downto 0);
+      shift_amt        : buffer unsigned(log2(REGISTER_SIZE)-1 downto 0);
+      shifted_value    : buffer signed(REGISTER_SIZE downto 0)
+      );
+  end component;
+
 begin  -- architecture rtl
 
-  is_immediate <= not instruction(5);
-  immediate_value <= unsigned(sign_extension(REGISTER_SIZE-OP_IMM_IMMEDIATE_SIZE-1 downto 0)&
-                              instruction(31 downto 20));
-  data1 <= unsigned(rs1_data);
-  data2 <= unsigned(rs2_data) when is_immediate = '0' else immediate_value;
-  shift_amt_mul_gen : if SHIFTER_USE_MULTIPLIER generate
-    shift_amt <= unsigned(data2(log2(REGISTER_SIZE)-1 downto 0)) when instruction(14) = '0'else
-                 32-unsigned(data2(log2(REGISTER_SIZE)-1 downto 0));
+  oc : component operand_creation
+    generic map (
+      REGISTER_SIZE          => REGISTER_SIZE,
+      SIGN_EXTENSION_SIZE    => SIGN_EXTENSION_SIZE,
+      SHIFTER_USE_MULTIPLIER => SHIFTER_USE_MULTIPLIER,
+      INSTRUCTION_SIZE       => INSTRUCTION_SIZE)
+    port map (
+      rs1_data         => rs1_data,
+      rs2_data         => rs2_data,
+      instruction      => instruction,
+      sign_extension   => sign_extension,
+      data1            => data1,
+      data2            => data2,
+      sub              => sub,
+      shifter_multiply => shifter_multiply,
+      shift_amt        => shift_amt,
+      shifted_value    => shifted_value);
 
-  end generate shift_amt_mul_gen;
-  shift_amt_gen : if not SHIFTER_USE_MULTIPLIER generate
-    shift_amt <= unsigned(data2(log2(REGISTER_SIZE)-1 downto 0));
-  end generate shift_amt_gen;
 
-  shifted_value <= signed((instruction(30) and rs1_data(rs1_data'left)) & rs1_data);
-  sh_enable     <= valid when (opcode = OP or opcode = OP_IMM) and (func3 = "001" or func3 = "101") else '0';
+  sh_enable <= valid when (opcode = OP or opcode = OP_IMM) and (func3 = "001" or func3 = "101") else '0';
   sh : component shifter
     generic map (
       REGiSTER_SIZE => REGISTER_SIZE,
@@ -353,52 +466,12 @@ begin  -- architecture rtl
       );
 
 --combine slt
-  op1     <= signed((not instruction(12) and data1(data1'left)) & data1);
-  op2     <= signed((not instruction(12) and data2(data2'left)) & data2);
-  sub     <= op1 - op2;
   slt_val <= to_unsigned(1, REGISTER_SIZE) when sub(sub'left) = '1' else to_unsigned(0, REGISTER_SIZE);
 
-  upp_imm_sel <= '1' when opcode = LUI or opcode = AUIPC else '0';
-
+  upp_imm_sel                    <= '1'              when opcode = LUI or opcode = AUIPC else '0';
   upper_immediate1(31 downto 12) <= signed(instruction(31 downto 12));
   upper_immediate1(11 downto 0)  <= (others => '0');
-  upper_immediate                <= upper_immediate1 when instruction(5) = '1' else upper_immediate1 + signed(program_counter);
-
-
-  shifter_multiply <=
-    "0"&x"00000001" when shift_amt = x"00"else
-    "0"&x"00000002" when shift_amt = x"01"else
-    "0"&x"00000004" when shift_amt = x"02"else
-    "0"&x"00000008" when shift_amt = x"03"else
-    "0"&x"00000010" when shift_amt = x"04"else
-    "0"&x"00000020" when shift_amt = x"05"else
-    "0"&x"00000040" when shift_amt = x"06"else
-    "0"&x"00000080" when shift_amt = x"07"else
-    "0"&x"00000100" when shift_amt = x"08"else
-    "0"&x"00000200" when shift_amt = x"09"else
-    "0"&x"00000400" when shift_amt = x"0A"else
-    "0"&x"00000800" when shift_amt = x"0B"else
-    "0"&x"00001000" when shift_amt = x"0C"else
-    "0"&x"00002000" when shift_amt = x"0D"else
-    "0"&x"00004000" when shift_amt = x"0E"else
-    "0"&x"00008000" when shift_amt = x"0F"else
-    "0"&x"00010000" when shift_amt = x"10"else
-    "0"&x"00020000" when shift_amt = x"11"else
-    "0"&x"00040000" when shift_amt = x"12"else
-    "0"&x"00080000" when shift_amt = x"13"else
-    "0"&x"00100000" when shift_amt = x"14"else
-    "0"&x"00200000" when shift_amt = x"15"else
-    "0"&x"00400000" when shift_amt = x"16"else
-    "0"&x"00800000" when shift_amt = x"17"else
-    "0"&x"01000000" when shift_amt = x"18"else
-    "0"&x"02000000" when shift_amt = x"19"else
-    "0"&x"04000000" when shift_amt = x"1A"else
-    "0"&x"08000000" when shift_amt = x"1B"else
-    "0"&x"10000000" when shift_amt = x"1C"else
-    "0"&x"20000000" when shift_amt = x"1D"else
-    "0"&x"40000000" when shift_amt = x"1E"else
-    "0"&x"80000000";
-
+  upper_immediate                <= upper_immediate1 when instruction(5) = '1'           else upper_immediate1 + signed(program_counter);
 
   alu_proc : process(clk) is
     variable func        : std_logic_vector(2 downto 0);
@@ -408,7 +481,7 @@ begin  -- architecture rtl
   begin
     if rising_edge(clk) then
       func     := instruction(14 downto 12);
-      subtract := instruction(30) and not is_immediate;
+      subtract := instruction(30) and instruction(5);
       case func is
         when ADD_OP =>
           if subtract = '1' then
@@ -495,7 +568,7 @@ begin  -- architecture rtl
         end case;
         if opcode = LUI or opcode = AUIPC then
           data_out <= std_logic_vector(upper_immediate);
-        elsif func7 = mul_f7 and not is_immediate = '1' and MULTIPLY_ENABLE then
+        elsif func7 = mul_f7 and instruction(5) = '1' and MULTIPLY_ENABLE then
           data_out <= std_logic_vector(mul_result);
         else
           data_out <= std_logic_vector(base_result);
@@ -531,7 +604,7 @@ begin  -- architecture rtl
 
   div_zero     <= rs2_data = zero;
   div_overflow <= rs1_data = min_s and rs2_data = neg1;
-  div_en       <= (func7 = mul_f7 and opcode = OP and instruction(14) = '1')and not div_zero;
+  div_en       <= (func7 = mul_f7 and opcode = OP and instruction(14) = '1')and not div_zero and valid = '1';
   div : component divider
     generic map (
       REGISTER_SIZE => REGISTER_SIZE)

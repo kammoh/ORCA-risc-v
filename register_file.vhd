@@ -105,33 +105,22 @@ begin
     end if;  --rising edge
   end process;
 
-  read_during_write1 <= wb_data_latched when wb_en_latched = '1' and wb_sel_latched = rs1_sel_latched   else out1;
-  wb_fwd_data1       <= writeback_data  when writeback_sel = rs1_sel_latched and writeback_enable = '1' else read_during_write1;
 
-  read_during_write2 <= wb_data_latched when wb_en_latched = '1' and wb_sel_latched = rs2_sel_latched   else out2;
-  wb_fwd_data2       <= writeback_data  when writeback_sel = rs2_sel_latched and writeback_enable = '1' else read_during_write2;
-
+  --read during write logic
+  rs1_data     <= wb_data_latched when wb_en_latched = '1' and wb_sel_latched = rs1_sel_latched   else out1;
+  rs2_data     <= wb_data_latched when wb_en_latched = '1' and wb_sel_latched = rs2_sel_latched   else out2;
   process(clk) is
   begin
     if rising_edge(clk) then
-      if stall = '0' then
-        outreg1 <= wb_fwd_data1;
-        outreg2 <= wb_fwd_data2;
-      end if;
-
       rs1_sel_latched <= rs1_sel;
       rs2_sel_latched <= rs2_sel;
 
       wb_data_latched <= writeback_data;
       wb_sel_latched  <= writeback_sel;
       wb_en_latched   <= writeback_enable;
-
     end if;
   end process;
 
-
-  rs1_data <= outreg1;
-  rs2_data <= outreg2;
 
 
 end architecture;

@@ -104,7 +104,7 @@ architecture behavioural of execute is
   signal fwd_mux  : std_logic;
 
 
-  signal ls_valid_in  : std_logic;
+  signal valid_instr  : std_logic;
   signal ld_latch_en  : std_logic;
   signal ld_latch_out : std_logic_vector(REGISTER_SIZE-1 downto 0);
   signal ld_rd        : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0);
@@ -129,8 +129,14 @@ architecture behavioural of execute is
   constant ALU_OP   : std_logic_vector(4 downto 0) := "01100";
   constant ALUI_OP  : std_logic_vector(4 downto 0) := "00100";
   constant CSR_OP   : std_logic_vector(4 downto 0) := "11100";
-begin
+  constant LD_OP    : std_logic_vector(4 downto 0) := "00000";
 
+  alias ni_rs1 : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0) is subseq_instr(19 downto 15);
+  alias ni_rs2 : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0) is subseq_instr(24 downto 20);
+
+  signal use_after_load_stall : std_logic;
+begin
+  valid_instr <= valid_input and not use_after_load_stall;
   -----------------------------------------------------------------------------
   -- REGISTER FORWADING
   -- Knowing the next instruction coming downt the pipeline, we can
@@ -170,13 +176,12 @@ begin
               alu_data_out when alu_data_en = '1' else
               br_data_out;
 
-  stall_pipeline <= ls_unit_waiting or alu_stall;
+  stall_pipeline <= ls_unit_waiting or alu_stall or use_after_load_stall;
+
 
   process(clk)
     variable next_instr  : std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
     variable current_alu : boolean;
-    alias ni_rs1         : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0) is subseq_instr(19 downto 15);
-    alias ni_rs2         : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0) is subseq_instr(24 downto 20);
   begin
     if rising_edge(clk) then
 
@@ -190,7 +195,7 @@ begin
 
       --calculate where the next forward data will go
       if stall_pipeline = '0' then
-        if current_alu and rd = ni_rs1 and rd /= ZERO and valid_input = '1' then
+        if current_alu and rd = ni_rs1 and rd /= ZERO and valid_instr = '1' then
           rs1_mux <= '0';
         else
           rs1_mux <= '1';
@@ -198,15 +203,11 @@ begin
       end if;
 
       if stall_pipeline = '0' then
-        if current_alu and rd = ni_rs2 and rd /= ZERO and valid_input = '1' then
+        if current_alu and rd = ni_rs2 and rd /= ZERO and valid_instr = '1' then
           rs2_mux <= '0';
         else
           rs2_mux <= '1';
         end if;
-      end if;
-
-      if ls_unit_waiting = '0' then
-        ld_latch_out <= ld_data_out;
       end if;
 
       --save various flip flops for forwarding
@@ -215,18 +216,14 @@ begin
         rd_latch <= rd;
       end if;
 
-      if rd_latch /= ZERO then
-        ld_latch_en <= ld_data_en;
-      else
-        ld_latch_en <= '0';
+      use_after_load_stall <= '0';
+      if (ni_rs2 = rd or ni_rs1 = rd) and opcode = LD_OP then
+        use_after_load_stall <= valid_instr;
       end if;
-      ld_rd <= rd_latch;
 
-
-      if reset = '1' then
-        ld_latch_en <= '0';
-      end if;
     end if;
+
+
   end process;
 
   alu : component arithmetic_unit
@@ -239,7 +236,7 @@ begin
     port map (
       clk               => clk,
       stall_in          => stall_pipeline,
-      valid             => valid_input,
+      valid             => valid_instr,
       rs1_data          => rs1_data_fwd,
       rs2_data          => rs2_data_fwd,
       instruction       => instruction,
@@ -259,7 +256,7 @@ begin
     port map(
       clk            => clk,
       reset          => reset,
-      valid          => valid_input,
+      valid          => valid_instr,
       stall          => stall_pipeline,
       rs1_data       => rs1_data_fwd,
       rs2_data       => rs2_data_fwd,
@@ -273,7 +270,7 @@ begin
       is_branch      => is_branch,
       br_taken_out   => br_taken_out,
       bad_predict    => br_bad_predict);
-  ls_valid_in <= valid_input;
+
   ls_unit : component load_store_unit
     generic map(
       REGISTER_SIZE       => REGISTER_SIZE,
@@ -282,7 +279,7 @@ begin
     port map(
       clk            => clk,
       reset          => reset,
-      valid          => ls_valid_in,
+      valid          => valid_instr,
       rs1_data       => rs1_data_fwd,
       rs2_data       => rs2_data_fwd,
       instruction    => instruction,
@@ -312,7 +309,7 @@ begin
     port map (
       clk            => clk,
       reset          => reset,
-      valid          => valid_input,
+      valid          => valid_instr,
       rs1_data       => rs1_data_fwd,
       instruction    => instruction,
       finished_instr => finished_instr,
@@ -331,7 +328,7 @@ begin
       );
 
 
-  finished_instr <= valid_input and not stall_pipeline;
+  finished_instr <= valid_instr and not stall_pipeline;
 
   predict_corr_en <= syscall_en or br_bad_predict;
   predict_corr    <= br_new_pc  when syscall_en = '0' else syscall_target;
@@ -346,7 +343,7 @@ begin
 --  variable my_line : line;            -- type 'line' comes from textio
 --begin
 --  if rising_edge(clk) then
---    if valid_input = '1' then
+--    if valid_instr = '1' then
 --      write(my_line, string'("executing pc = "));  -- formatting
 --      hwrite(my_line, (pc_current));  -- format type std_logic_vector as hex
 --      write(my_line, string'(" instr =  "));       -- formatting

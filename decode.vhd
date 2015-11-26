@@ -25,26 +25,33 @@ entity decode is
     wb_enable   : in std_logic;
 
     --output signals
-    stall_out      : out std_logic;
-    rs1_data       : out std_logic_vector(REGISTER_SIZE -1 downto 0);
-    rs2_data       : out std_logic_vector(REGISTER_SIZE -1 downto 0);
-    sign_extension : out std_logic_vector(SIGN_EXTENSION_SIZE -1 downto 0);
+    stall_out      : out    std_logic;
+    rs1_data       : out    std_logic_vector(REGISTER_SIZE -1 downto 0);
+    rs2_data       : out    std_logic_vector(REGISTER_SIZE -1 downto 0);
+    sign_extension : out    std_logic_vector(SIGN_EXTENSION_SIZE -1 downto 0);
     --inputs just for carrying to next pipeline stage
-    br_taken_in    : in  std_logic;
-    pc_curr_in     : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
-    br_taken_out   : out std_logic;
-    pc_curr_out    : out std_logic_vector(REGISTER_SIZE-1 downto 0);
-    instr_out      : out std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
-    subseq_instr   : out std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
-    valid_output   : out std_logic);
+    br_taken_in    : in     std_logic;
+    pc_curr_in     : in     std_logic_vector(REGISTER_SIZE-1 downto 0);
+    br_taken_out   : out    std_logic;
+    pc_curr_out    : out    std_logic_vector(REGISTER_SIZE-1 downto 0);
+    instr_out      : buffer std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
+    subseq_instr   : out    std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
+    valid_output   : out    std_logic);
 
 
 end;
 
 architecture behavioural of decode is
 
-  signal rs1 : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0);
-  signal rs2 : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0);
+  signal rs1   : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0);
+  signal rs2   : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0);
+  signal rs1_p : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0);
+  signal rs2_p : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0);
+
+  signal rs1_reg : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal outreg1 : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal rs2_reg : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal outreg2 : std_logic_vector(REGISTER_SIZE-1 downto 0);
 
   signal br_taken_latch : std_logic;
   signal pc_next_latch  : std_logic_vector(REGISTER_SIZE-1 downto 0);
@@ -80,53 +87,56 @@ begin
       writeback_sel    => wb_sel,
       writeback_data   => wb_data,
       writeback_enable => wb_enable,
-      rs1_data         => rs1_data,
-      rs2_data         => rs2_data
+      rs1_data         => rs1_reg,
+      rs2_data         => rs2_reg
       );
   rs1 <= instruction(19 downto 15) when stall = '0' else instr_latch(19 downto 15);
   rs2 <= instruction(24 downto 20) when stall = '0' else instr_latch(24 downto 20);
 
-  il_rd     <= instr_latch(11 downto 7);
-  il_opcode <= instr_latch(6 downto 2);
-  i_rs1     <= instruction(19 downto 15);
-  i_rs2     <= instruction(24 downto 20);
+  rs1_p <= instr_latch(19 downto 15) when stall = '0' else instr_out(19 downto 15);
+  rs2_p <= instr_latch(24 downto 20) when stall = '0' else instr_out(24 downto 20);
 
-  use_after_load_stall1 <=  '1' when i_rs1 = il_rd and il_opcode = "00000"
-                           else '0';
-  use_after_load_stall2 <= '1' when i_rs2 = il_rd and il_opcode = "00000"
-                           else '0';
-  use_after_load_stall <= (use_after_load_stall1 or use_after_load_stall2) and valid_latch and not flush ;
 
-  stall_out <= use_after_load_stall;
 
   decode_stage : process (clk, reset) is
   begin  -- process decode_stage
     if rising_edge(clk) then            -- rising clock edge
+      if not stall = '1' then
+        sign_extension <= std_logic_vector(
+          resize(signed(instr_latch(INSTRUCTION_SIZE-1 downto INSTRUCTION_SIZE-1)),
+                 SIGN_EXTENSION_SIZE));
+        br_taken_latch <= br_taken_in;
+        PC_curr_latch  <= PC_curr_in;
+        instr_latch    <= instruction;
+        valid_latch    <= valid_input;
+
+        br_taken_out <= br_taken_latch;
+        pc_curr_out  <= PC_curr_latch;
+        instr_out    <= instr_latch;
+        valid_output <= valid_latch;
+
+      end if;
+
+      if wb_sel = rs1_p and wb_enable = '1' then
+        outreg1 <= wb_data;
+      elsif stall = '0' then
+        outreg1 <= rs1_reg;
+      end if;
+      if wb_sel = rs2_p and wb_enable = '1' then
+        outreg2 <= wb_data;
+      elsif stall = '0' then
+        outreg2 <= rs2_reg;
+      end if;
+
       if reset = '1' or flush = '1' then
         valid_output <= '0';
         valid_latch  <= '0';
-      else
-        if not stall = '1' then
-          sign_extension <= std_logic_vector(
-            resize(signed(instr_latch(INSTRUCTION_SIZE-1 downto INSTRUCTION_SIZE-1)),
-                   SIGN_EXTENSION_SIZE));
-
-
-          br_taken_latch <= br_taken_in;
-          PC_curr_latch  <= PC_curr_in;
-          instr_latch    <= instruction;
-          valid_latch    <= valid_input and not use_after_load_stall;
-
-          br_taken_out <= br_taken_latch;
-          pc_curr_out  <= PC_curr_latch;
-          instr_out    <= instr_latch;
-          valid_output <= valid_latch;
-
-
-
-        end if;
       end if;
     end if;
   end process decode_stage;
   subseq_instr <= instr_latch;
+
+  rs1_data <= outreg1;
+  rs2_data <= outreg2;
+  stall_out <= '0';
 end architecture;
