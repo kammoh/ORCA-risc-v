@@ -111,15 +111,36 @@ entity operand_creation is
     sub              : out    signed(REGISTER_SIZE downto 0);
     shifter_multiply : buffer signed(REGISTER_SIZE downto 0);
     shift_amt        : buffer unsigned(log2(REGISTER_SIZE)-1 downto 0);
-    shifted_value    : buffer signed(REGISTER_SIZE downto 0)
+    shifted_value    : buffer signed(REGISTER_SIZE downto 0);
+    mult_srca        : out    signed(REGISTER_SIZE downto 0);
+    mult_srcb        : out    signed(REGISTER_SIZE downto 0);
+    div_op1          : out    unsigned(REGISTER_SIZE-1 downto 0);
+    div_op2          : out    unsigned(REGISTER_SIZE-1 downto 0);
+    div_neg_op1      : buffer std_logic;
+    div_neg_op2      : buffer std_logic
     );
 end entity;
 
 architecture rtl of operand_creation is
+  constant MUL_F7 : std_logic_vector(6 downto 0) := "0000001";
+
   signal is_immediate    : std_logic;
   signal immediate_value : unsigned(REGISTER_SIZE-1 downto 0);
   signal op1             : signed(REGISTER_SIZE downto 0);
   signal op2             : signed(REGISTER_SIZE downto 0);
+
+  signal m_op1_msk : std_logic;
+  signal m_op2_msk : std_logic;
+  signal m_op1     : signed(REGISTER_SIZE downto 0);
+  signal m_op2     : signed(REGISTER_SIZE downto 0);
+  signal mult_dest : signed((REGISTER_SIZE+1)*2-1 downto 0);
+
+  signal unsigned_div : std_logic;
+
+
+
+  alias func3 : std_logic_vector(2 downto 0) is instruction(14 downto 12);
+  alias func7 : std_logic_vector(6 downto 0) is instruction(31 downto 25);
 
   constant OP_IMM_IMMEDIATE_SIZE : integer := 12;
 
@@ -174,6 +195,23 @@ begin  -- architecture rtl
     "0"&x"20000000" when shift_amt = x"1D"else
     "0"&x"40000000" when shift_amt = x"1E"else
     "0"&x"80000000";
+
+  m_op1_msk <= '0' when instruction(13 downto 12) = "11" else '1';
+  m_op2_msk <= not instruction(13);
+  m_op1     <= signed((m_op1_msk and rs1_data(data1'left)) & data1);
+  m_op2     <= signed((m_op2_msk and rs2_data(data2'left)) & data2);
+
+  mult_srca <= signed(m_op1) when func7 = mul_f7 or not SHIFTER_USE_MULTIPLIER else shifter_multiply;
+  mult_srcb <= signed(m_op2) when func7 = mul_f7 or not SHIFTER_USE_MULTIPLIER else shifted_value;
+
+
+  unsigned_div <= instruction(12);
+  div_neg_op1  <= not unsigned_div when signed(rs1_data) < 0 else '0';
+  div_neg_op2  <= not unsigned_div when signed(rs2_data) < 0 else '0';
+
+
+  div_op1 <= unsigned(rs1_data) when div_neg_op1 = '0' else unsigned(-signed(rs1_data));
+  div_op2 <= unsigned(rs2_data) when div_neg_op2 = '0' else unsigned(-signed(rs2_data));
 
 end architecture rtl;
 
@@ -341,21 +379,16 @@ architecture rtl of arithmetic_unit is
   signal upper_immediate  : signed(REGISTER_SIZE-1 downto 0);
 
 
-  signal m_op1_msk : std_logic;
-  signal m_op2_msk : std_logic;
-  signal m_op1     : signed(REGISTER_SIZE downto 0);
-  signal m_op2     : signed(REGISTER_SIZE downto 0);
   signal mult_srca : signed(REGISTER_SIZE downto 0);
   signal mult_srcb : signed(REGISTER_SIZE downto 0);
   signal mult_dest : signed((REGISTER_SIZE+1)*2-1 downto 0);
 
-  signal unsigned_div : std_logic;
-  signal div_op1      : unsigned(REGISTER_SIZE-1 downto 0);
-  signal div_op2      : unsigned(REGISTER_SIZE-1 downto 0);
-  signal div_result   : signed(REGISTER_SIZE-1 downto 0);
-  signal rem_result   : signed(REGISTER_SIZE-1 downto 0);
-  signal quotient     : unsigned(REGISTER_SIZE-1 downto 0);
-  signal remainder    : unsigned(REGISTER_SIZE-1 downto 0);
+  signal div_op1    : unsigned(REGISTER_SIZE-1 downto 0);
+  signal div_op2    : unsigned(REGISTER_SIZE-1 downto 0);
+  signal div_result : signed(REGISTER_SIZE-1 downto 0);
+  signal rem_result : signed(REGISTER_SIZE-1 downto 0);
+  signal quotient   : unsigned(REGISTER_SIZE-1 downto 0);
+  signal remainder  : unsigned(REGISTER_SIZE-1 downto 0);
 
                                         --min signed value
   signal min_s : std_logic_vector(REGISTER_SIZE-1 downto 0);
@@ -363,11 +396,11 @@ architecture rtl of arithmetic_unit is
   signal zero : std_logic_vector(REGISTER_SIZE-1 downto 0);
   signal neg1 : std_logic_vector(REGISTER_SIZE-1 downto 0);
 
-  signal neg_op1   : std_logic;
-  signal neg_op2   : std_logic;
-  signal div_neg   : std_logic;
-  signal div_done  : std_logic;
-  signal div_stall : std_logic;
+  signal div_neg     : std_logic;
+  signal div_neg_op1 : std_logic;
+  signal div_neg_op2 : std_logic;
+  signal div_done    : std_logic;
+  signal div_stall   : std_logic;
 
   signal div_en       : boolean;
   signal div_zero     : boolean;
@@ -425,7 +458,13 @@ architecture rtl of arithmetic_unit is
       sub              : out    signed(REGISTER_SIZE downto 0);
       shifter_multiply : buffer signed(REGISTER_SIZE downto 0);
       shift_amt        : buffer unsigned(log2(REGISTER_SIZE)-1 downto 0);
-      shifted_value    : buffer signed(REGISTER_SIZE downto 0)
+      shifted_value    : buffer signed(REGISTER_SIZE downto 0);
+      mult_srca        : out    signed(REGISTER_SIZE downto 0);
+      mult_srcb        : out    signed(REGISTER_SIZE downto 0);
+      div_op1          : out    unsigned(REGISTER_SIZE-1 downto 0);
+      div_op2          : out    unsigned(REGISTER_SIZE-1 downto 0);
+      div_neg_op1      : out    std_logic;
+      div_neg_op2      : out    std_logic
       );
   end component;
 
@@ -447,7 +486,14 @@ begin  -- architecture rtl
       sub              => sub,
       shifter_multiply => shifter_multiply,
       shift_amt        => shift_amt,
-      shifted_value    => shifted_value);
+      shifted_value    => shifted_value,
+      mult_srca        => mult_srca,
+      mult_srcb        => mult_srcb,
+      div_op1          => div_op1,
+      div_op2          => div_op2,
+      div_neg_op1      => div_neg_op1,
+      div_neg_op2      => div_neg_op2
+      );
 
 
   sh_enable <= valid when (opcode = OP or opcode = OP_IMM) and (func3 = "001" or func3 = "101") else '0';
@@ -577,24 +623,8 @@ begin  -- architecture rtl
     end if;  --clock
   end process;
 
-  m_op1_msk <= '0' when instruction(13 downto 12) = "11" else '1';
-  m_op2_msk <= not instruction(13);
-  m_op1     <= signed((m_op1_msk and rs1_data(data1'left)) & data1);
-  m_op2     <= signed((m_op2_msk and rs2_data(data2'left)) & data2);
 
-  mult_srca <= signed(m_op1) when func7 = mul_f7 or not SHIFTER_USE_MULTIPLIER else shifter_multiply;
-  mult_srcb <= signed(m_op2) when func7 = mul_f7 or not SHIFTER_USE_MULTIPLIER else shifted_value;
-
-  mult_dest <= mult_srca * mult_srcb;
-
-  unsigned_div <= instruction(12);
-  neg_op1      <= not unsigned_div when signed(rs1_data) < 0 else '0';
-  neg_op2      <= not unsigned_div when signed(rs2_data) < 0 else '0';
-  div_neg      <= neg_op1 xor neg_op2;
-
-  div_op1 <= unsigned(rs1_data) when neg_op1 = '0' else unsigned(-signed(rs1_data));
-  div_op2 <= unsigned(rs2_data) when neg_op2 = '0' else unsigned(-signed(rs2_data));
-
+  mult_dest                    <= mult_srca * mult_srcb;
                                         --min signed value
   min_s(min_s'left)            <= '1';
   min_s(min_s'left-1 downto 0) <= (others => '0');
@@ -616,8 +646,10 @@ begin  -- architecture rtl
       quotient    => quotient,
       remainder   => remainder,
       done        => div_done);
-  div_result <= signed(quotient)  when div_neg = '0' else -signed(quotient);
-  rem_result <= signed(remainder) when neg_op1 = '0' else -signed(remainder);
+
+  div_neg    <= div_neg_op1 xor div_neg_op2;
+  div_result <= signed(quotient)  when div_neg = '0'     else -signed(quotient);
+  rem_result <= signed(remainder) when div_neg_op1 = '0' else -signed(remainder);
 
   div_stall <= not div_done when div_en          else '0';
   sh_stall  <= not sh_done  when sh_enable = '1' else '0';
