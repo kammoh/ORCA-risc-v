@@ -303,6 +303,9 @@ begin
       master_RTY_I   => RAM_RTY_O);
 
   rv : component riscV_wishbone
+    generic map (
+      MULTIPLY_ENABLE => 0,
+      SHIFTER_SINGLE_CYCLE => 1)
     port map(
 
       clk   => clk,

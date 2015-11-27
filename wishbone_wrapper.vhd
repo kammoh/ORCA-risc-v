@@ -7,40 +7,41 @@ use work.rv_components.all;
 entity riscV_wishbone is
 
   generic (
-    REGISTER_SIZE   : integer := 32;
-    RESET_VECTOR    : natural := 16#00000200#;
-    MULTIPLY_ENABLE : boolean := false);
+    REGISTER_SIZE        : integer              := 32;
+    RESET_VECTOR         : natural              := 16#00000200#;
+    MULTIPLY_ENABLE      : natural range 0 to 1 := 0;
+    SHIFTER_SINGLE_CYCLE : natural range 0 to 1 := 0);
 
-  port(clk   : in std_logic;
-       reset : in std_logic;
+    port(clk   : in std_logic;
+         reset : in std_logic;
 
-       --conduit end point
-       coe_to_host         : out std_logic_vector(REGISTER_SIZE -1 downto 0);
-       coe_from_host       : in  std_logic_vector(REGISTER_SIZE -1 downto 0);
-       coe_program_counter : out std_logic_vector(REGISTER_SIZE -1 downto 0);
+         --conduit end point
+         coe_to_host         : out std_logic_vector(REGISTER_SIZE -1 downto 0);
+         coe_from_host       : in  std_logic_vector(REGISTER_SIZE -1 downto 0);
+         coe_program_counter : out std_logic_vector(REGISTER_SIZE -1 downto 0);
 
-       data_ADR_O   : out std_logic_vector(REGISTER_SIZE-1 downto 0);
-       data_DAT_I   : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
-       data_DAT_O   : out std_logic_vector(REGISTER_SIZE-1 downto 0);
-       data_WE_O    : out std_logic;
-       data_SEL_O   : out std_logic_vector(REGISTER_SIZE/8 -1 downto 0);
-       data_STB_O   : out std_logic;
-       data_ACK_I   : in  std_logic;
-       data_CYC_O   : out std_logic;
-       data_CTI_O   : out std_logic_vector(2 downto 0);
-       data_STALL_I : in  std_logic;
+         data_ADR_O   : out std_logic_vector(REGISTER_SIZE-1 downto 0);
+         data_DAT_I   : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
+         data_DAT_O   : out std_logic_vector(REGISTER_SIZE-1 downto 0);
+         data_WE_O    : out std_logic;
+         data_SEL_O   : out std_logic_vector(REGISTER_SIZE/8 -1 downto 0);
+         data_STB_O   : out std_logic;
+         data_ACK_I   : in  std_logic;
+         data_CYC_O   : out std_logic;
+         data_CTI_O   : out std_logic_vector(2 downto 0);
+         data_STALL_I : in  std_logic;
 
-       instr_ADR_O   : out std_logic_vector(REGISTER_SIZE-1 downto 0);
-       instr_DAT_I   : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
-       instr_DAT_O   : out std_logic_vector(REGISTER_SIZE-1 downto 0);
-       instr_WE_O    : out std_logic;
-       instr_SEL_O   : out std_logic_vector(REGISTER_SIZE/8 -1 downto 0);
-       instr_STB_O   : out std_logic;
-       instr_ACK_I   : in  std_logic;
-       instr_CYC_O   : out std_logic;
-       instr_CTI_O   : out std_logic_vector(2 downto 0);
-       instr_STALL_I : in  std_logic
-       );
+         instr_ADR_O   : out std_logic_vector(REGISTER_SIZE-1 downto 0);
+         instr_DAT_I   : in  std_logic_vector(REGISTER_SIZE-1 downto 0);
+         instr_DAT_O   : out std_logic_vector(REGISTER_SIZE-1 downto 0);
+         instr_WE_O    : out std_logic;
+         instr_SEL_O   : out std_logic_vector(REGISTER_SIZE/8 -1 downto 0);
+         instr_STB_O   : out std_logic;
+         instr_ACK_I   : in  std_logic;
+         instr_CYC_O   : out std_logic;
+         instr_CTI_O   : out std_logic_vector(2 downto 0);
+         instr_STALL_I : in  std_logic
+         );
 
 end entity riscV_wishbone;
 
