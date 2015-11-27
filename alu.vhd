@@ -381,7 +381,10 @@ architecture rtl of arithmetic_unit is
 
   signal mult_srca : signed(REGISTER_SIZE downto 0);
   signal mult_srcb : signed(REGISTER_SIZE downto 0);
+
   signal mult_dest : signed((REGISTER_SIZE+1)*2-1 downto 0);
+  signal mul_done  : std_logic;
+  signal mul_stall : std_logic;
 
   signal div_op1    : unsigned(REGISTER_SIZE-1 downto 0);
   signal div_op2    : unsigned(REGISTER_SIZE-1 downto 0);
@@ -623,9 +626,16 @@ begin  -- architecture rtl
     end if;  --clock
   end process;
 
+  mul_stall <= valid when func7 = mul_f7 and opcode = OP and instruction(14) = '0' and mul_done = '0' else '0';
+  process(clk)
+  begin
+    if rising_edge(clk) then
+      mul_done  <= mul_stall;
+      mult_dest <= mult_srca * mult_srcb;
 
-  mult_dest                    <= mult_srca * mult_srcb;
-                                        --min signed value
+    end if;
+  end process;
+--min signed value
   min_s(min_s'left)            <= '1';
   min_s(min_s'left-1 downto 0) <= (others => '0');
   zero                         <= (others => '0');
@@ -655,6 +665,7 @@ begin  -- architecture rtl
   sh_stall  <= not sh_done  when sh_enable = '1' else '0';
 
   stall_out <= '1' when ((div_stall = '1' and MULTIPLY_ENABLE) or
+                         (mul_stall = '1' and MULTIPLY_ENABLE) or
                          (sh_stall = '1' and sh_enable = '1'))
                else '0';
 
