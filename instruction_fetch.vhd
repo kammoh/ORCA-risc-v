@@ -37,12 +37,13 @@ end entity instruction_fetch;
 
 architecture rtl of instruction_fetch is
 
-  signal correction      : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal correction_en   : std_logic;
-  signal program_counter : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal next_pc         : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal predicted_pc    : std_logic_vector(REGISTER_SIZE -1 downto 0);
-  signal saved_address   : std_logic_vector(REGISTER_SIZE -1 downto 0);
+  signal correction       : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal correction_en    : std_logic;
+  signal program_counter  : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal next_pc          : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal predicted_pc     : std_logic_vector(REGISTER_SIZE -1 downto 0);
+  signal saved_address    : std_logic_vector(REGISTER_SIZE -1 downto 0);
+  signal saved_address_en : std_logic;
 
   signal saved_instr    : std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
   signal saved_instr_en : std_logic;
@@ -68,6 +69,7 @@ begin  -- architecture rtl
   if_stall <= stall or read_wait;
 
   next_pc <= pc_corr when pc_corr_en = '1' else
+             program_counter when if_stall = '1' else
              predicted_pc;
 
   latch_corr : process(clk)
@@ -87,11 +89,12 @@ begin  -- architecture rtl
   latch_pc : process(clk)
   begin
     if rising_edge(clk) then
-      if stall = '0' or pc_corr_en = '1' then
-        program_counter <= next_pc;
-      end if;
-      if stall = '0' then
-        saved_address <= program_counter;
+      program_counter <= next_pc;
+
+      saved_address_en <= '0';
+      saved_address    <= program_counter;
+      if read_wait = '1' then
+        saved_address_en <= '1';
       end if;
       if reset = '1' then
         program_counter <= std_logic_vector(to_signed(RESET_VECTOR, REGISTER_SIZE));
@@ -182,7 +185,7 @@ begin  -- architecture rtl
 
   valid_instr_out <= (valid_instr or saved_instr_en) and not if_stall;
 
-  read_address <= saved_address when read_wait = '1' else program_counter;
+  read_address <= saved_address when saved_address_en = '1' else program_counter;
 
   process(clk)
   begin
@@ -193,7 +196,7 @@ begin  -- architecture rtl
       elsif if_stall = '0' then
         saved_instr_en <= '0';
       end if;
-      if reset='1' then
+      if reset = '1' then
         saved_instr_en <= '0';
       end if;
     end if;
