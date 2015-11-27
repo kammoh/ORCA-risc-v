@@ -11,6 +11,7 @@ package rv_components is
       REGISTER_SIZE        : integer              := 32;
       RESET_VECTOR         : natural              := 16#00000200#;
       MULTIPLY_ENABLE      : natural range 0 to 1 := 0;
+      DIVIDE_ENABLE        : natural range 0 to 1 := 0;
       SHIFTER_SINGLE_CYCLE : natural range 0 to 1 := 0);
     port(
       clk   : in std_logic;
@@ -89,6 +90,7 @@ package rv_components is
       SIGN_EXTENSION_SIZE  : positive;
       RESET_VECTOR         : natural;
       MULTIPLY_ENABLE      : boolean;
+      DIVIDE_ENABLE        : boolean;
       SHIFTER_SINGLE_CYCLE : boolean);
     port(
       clk         : in std_logic;
@@ -155,7 +157,9 @@ package rv_components is
       REGISTER_SIZE        : integer;
       SIGN_EXTENSION_SIZE  : integer;
       MULTIPLY_ENABLE      : boolean;
-      SHIFTER_SINGLE_CYCLE : boolean);
+      DIVIDE_ENABLE        : boolean;
+      SHIFTER_SINGLE_CYCLE : boolean
+      );
     port (
       clk               : in  std_logic;
       stall_in          : in  std_logic;

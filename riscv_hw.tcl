@@ -90,14 +90,31 @@ set_display_item_property RESET_VECTOR DISPLAY_HINT hexadecimal
 add_parameter MULTIPLY_ENABLE natural 0
 set_parameter_property MULTIPLY_ENABLE DEFAULT_VALUE 0
 set_parameter_property MULTIPLY_ENABLE DISPLAY_NAME "HARDWARE MULTIPLY"
+set_parameter_property MULTIPLY_ENABLE DESCRIPTION "Enable Multiplier, uses around 100 LUT4s, Shift instruction use the multiplier, 2 cycle operation"
 set_parameter_property MULTIPLY_ENABLE TYPE NATURAL
 set_parameter_property MULTIPLY_ENABLE UNITS None
 set_parameter_property MULTIPLY_ENABLE ALLOWED_RANGES 0:1
 set_parameter_property MULTIPLY_ENABLE HDL_PARAMETER true
 set_display_item_property MULTIPLY_ENABLE DISPLAY_HINT boolean
+add_parameter DIVIDE_ENABLE natural 0
+set_parameter_property DIVIDE_ENABLE DEFAULT_VALUE 0
+set_parameter_property DIVIDE_ENABLE DISPLAY_NAME "HARDWARE DIVIDE"
+set_parameter_property DIVIDE_ENABLE DESCRIPTION "Enable Divider, uses around 400 LUT4s, 35 cycle operation"
+set_parameter_property DIVIDE_ENABLE TYPE NATURAL
+set_parameter_property DIVIDE_ENABLE UNITS None
+set_parameter_property DIVIDE_ENABLE ALLOWED_RANGES 0:1
+set_parameter_property DIVIDE_ENABLE HDL_PARAMETER true
+set_display_item_property DIVIDE_ENABLE DISPLAY_HINT boolean
+
 add_parameter SHIFTER_SINGLE_CYCLE natural 0
 set_parameter_property SHIFTER_SINGLE_CYCLE DEFAULT_VALUE 0
 set_parameter_property SHIFTER_SINGLE_CYCLE DISPLAY_NAME "SINGLE CYLCE SHIFTER"
+set_parameter_property SHIFTER_SINGLE_CYCLE DESCRIPTION "\
+Single cycle shifter, uses about 100 LUT4s.\
+If not set, a n bit shift will take n+2 cycles. \
+This setting is overridden by enabling Hardware Multiply. \
+If Hardware Multiply is enabled then the shift instruction \
+uses the multiplier \(2 cycles\)."
 set_parameter_property SHIFTER_SINGLE_CYCLE TYPE NATURAL
 set_parameter_property SHIFTER_SINGLE_CYCLE UNITS None
 set_parameter_property SHIFTER_SINGLE_CYCLE ALLOWED_RANGES 0:1

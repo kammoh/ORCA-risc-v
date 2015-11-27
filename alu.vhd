@@ -305,6 +305,7 @@ entity arithmetic_unit is
     REGISTER_SIZE        : integer;
     SIGN_EXTENSION_SIZE  : integer;
     MULTIPLY_ENABLE      : boolean;
+    DIVIDE_ENABLE        : boolean;
     SHIFTER_SINGLE_CYCLE : boolean);
 
   port (
@@ -329,6 +330,7 @@ architecture rtl of arithmetic_unit is
   constant SHIFTER_USE_MULTIPLIER : boolean := MULTIPLY_ENABLE;
   constant SHIFT_SC               : boolean :=
     SHIFTER_SINGLE_CYCLE or SHIFTER_USE_MULTIPLIER;
+
   --op codes
   constant OP     : std_logic_vector(6 downto 0) := "0110011";
   constant OP_IMM : std_logic_vector(6 downto 0) := "0010011";
@@ -383,6 +385,7 @@ architecture rtl of arithmetic_unit is
   signal mult_srcb : signed(REGISTER_SIZE downto 0);
 
   signal mult_dest : signed((REGISTER_SIZE+1)*2-1 downto 0);
+  signal mul_en    : std_logic;
   signal mul_done  : std_logic;
   signal mul_stall : std_logic;
 
@@ -500,6 +503,7 @@ begin  -- architecture rtl
 
 
   sh_enable <= valid when (opcode = OP or opcode = OP_IMM) and (func3 = "001" or func3 = "101") else '0';
+  sh_stall  <= not sh_done  when sh_enable = '1' else '0';
   sh : component shifter
     generic map (
       REGiSTER_SIZE => REGISTER_SIZE,
@@ -626,13 +630,13 @@ begin  -- architecture rtl
     end if;  --clock
   end process;
 
-  mul_stall <= valid when func7 = mul_f7 and opcode = OP and instruction(14) = '0' and mul_done = '0' else '0';
+  mul_en    <= '1' when func7 = mul_f7 and opcode = OP and instruction(14) = '0' else '0';
+  mul_stall <= valid and (mul_en or sh_enable)and not mul_done;
   process(clk)
   begin
     if rising_edge(clk) then
       mul_done  <= mul_stall;
       mult_dest <= mult_srca * mult_srcb;
-
     end if;
   end process;
 --min signed value
@@ -641,30 +645,40 @@ begin  -- architecture rtl
   zero                         <= (others => '0');
   neg1                         <= (others => '1');
 
+  d_en : if DIVIDE_ENABLE generate
+  begin
+    div_zero     <= rs2_data = zero;
+    div_overflow <= rs1_data = min_s and rs2_data = neg1;
+    div_en       <= (func7 = mul_f7 and opcode = OP and instruction(14) = '1')and not div_zero and valid = '1';
+    div : component divider
+      generic map (
+        REGISTER_SIZE => REGISTER_SIZE)
+      port map (
+        clk         => clk,
+        enable      => div_en,
+        numerator   => div_op1,
+        denominator => div_op2,
+        quotient    => quotient,
+        remainder   => remainder,
+        done        => div_done);
 
-  div_zero     <= rs2_data = zero;
-  div_overflow <= rs1_data = min_s and rs2_data = neg1;
-  div_en       <= (func7 = mul_f7 and opcode = OP and instruction(14) = '1')and not div_zero and valid = '1';
-  div : component divider
-    generic map (
-      REGISTER_SIZE => REGISTER_SIZE)
-    port map (
-      clk         => clk,
-      enable      => div_en,
-      numerator   => div_op1,
-      denominator => div_op2,
-      quotient    => quotient,
-      remainder   => remainder,
-      done        => div_done);
+    div_neg    <= div_neg_op1 xor div_neg_op2;
+    div_result <= signed(quotient)  when div_neg = '0'     else -signed(quotient);
+    rem_result <= signed(remainder) when div_neg_op1 = '0' else -signed(remainder);
 
-  div_neg    <= div_neg_op1 xor div_neg_op2;
-  div_result <= signed(quotient)  when div_neg = '0'     else -signed(quotient);
-  rem_result <= signed(remainder) when div_neg_op1 = '0' else -signed(remainder);
+    div_stall <= not div_done when div_en          else '0';
 
-  div_stall <= not div_done when div_en          else '0';
-  sh_stall  <= not sh_done  when sh_enable = '1' else '0';
+  end generate d_en;
+  nd_en : if not DIVIDE_ENABLE generate
+  begin
+    div_zero     <= false;
+    div_overflow <= false;
+    div_stall    <= '0';
+    div_result   <= (others => '0');
+    rem_result   <= (others => '0');
 
-  stall_out <= '1' when ((div_stall = '1' and MULTIPLY_ENABLE) or
+  end generate;
+  stall_out <= '1' when ((div_stall = '1' and DIVIDE_ENABLE) or
                          (mul_stall = '1' and MULTIPLY_ENABLE) or
                          (sh_stall = '1' and sh_enable = '1'))
                else '0';
@@ -672,5 +686,7 @@ begin  -- architecture rtl
   illegal_alu_instr <= '0' when (instruction(31 downto 25) = "0000000" or
                                  (instruction(31 downto 25) = "0100000" and (instruction(14 downto 12) = "101" or
                                                                              instruction(14 downto 12) = "000"))or
-                                 (instruction(31 downto 25) = "0000001" and MULTIPLY_ENABLE)) else '1';
+                                 (instruction(31 downto 25) = "0000001" and MULTIPLY_ENABLE and (instruction(14) = '0' or DIVIDE_ENABLE)))
+
+                       else '1';
 end architecture;
