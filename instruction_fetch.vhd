@@ -21,10 +21,10 @@ entity instruction_fetch is
 
     branch_pred : in std_logic_vector(REGISTER_SIZE*2+3-1 downto 0);
 
-    instr_out       : out std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
-    pc_out          : out std_logic_vector(REGISTER_SIZE-1 downto 0);
-    br_taken        : out std_logic;
-    valid_instr_out : out std_logic;
+    instr_out       : out    std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
+    pc_out          : out    std_logic_vector(REGISTER_SIZE-1 downto 0);
+    br_taken        : buffer std_logic;
+    valid_instr_out : out    std_logic;
 
     read_address   : out std_logic_vector(REGISTER_SIZE-1 downto 0);
     read_en        : out std_logic;
@@ -69,7 +69,7 @@ begin  -- architecture rtl
   if_stall <= stall or read_wait;
 
   next_pc <= pc_corr when pc_corr_en = '1' else
-             program_counter when if_stall = '1' else
+--             program_counter when if_stall = '1' else
              predicted_pc;
 
   latch_corr : process(clk)
@@ -89,7 +89,10 @@ begin  -- architecture rtl
   latch_pc : process(clk)
   begin
     if rising_edge(clk) then
-      program_counter <= next_pc;
+      if (pc_corr_en or not if_stall) = '1' then
+        program_counter <= next_pc;
+      end if;
+
 
       saved_address_en <= '0';
       saved_address    <= program_counter;
@@ -117,7 +120,10 @@ begin  -- architecture rtl
     begin
       if rising_edge(clk) then
         br_taken <= '0';
-        if stall = '0' then
+
+        if if_stall = '0' then
+          --this works because a correction can never happen while
+          --the pipeline is stalled
           predicted_pc <= std_logic_vector(signed(next_pc) + 4);
         end if;
         if reset = '1' then
@@ -149,6 +155,10 @@ begin  -- architecture rtl
     alias tbt_tag    : std_logic_vector(TAG_SIZE-1 downto 0) is tbt_entry(REGISTER_SIZE+TAG_SIZE-1 downto REGISTER_SIZE);
     alias tbt_taken  : std_logic is tbt_entry(tbt_entry'left);
     alias tbt_target : std_logic_vector(REGISTER_SIZE-1 downto 0) is tbt_entry(REGISTER_SIZE-1 downto 0);
+
+    signal saved_predicted_pc : std_logic_vector(REGISTER_SIZE-1 downto 0);
+    signal saved_br_taken     : std_logic;
+    signal saved_br_en        : std_logic;
   begin
     branch_tgt   <= branch_get_tgt(branch_pred);
     branch_pc    <= branch_get_pc(branch_pred);
@@ -170,12 +180,28 @@ begin  -- architecture rtl
 
         addr_tag <= next_pc(INDEX_SIZE+2+TAG_SIZE-1 downto INDEX_SIZE+2);
         add4     <= std_logic_vector(signed(next_pc) + 4);
+
+        saved_predicted_pc <= next_pc;
+
+        if saved_br_en = '0' then
+          br_taken <= '0';
+          if tbt_tag = addr_tag then
+            br_taken <= tbt_taken;
+          end if;
+        end if;
+        saved_br_en <= if_stall;
+        if reset = '1' then
+          saved_predicted_pc <= std_logic_vector(to_signed(RESET_VECTOR+4, REGISTER_SIZE));
+          saved_br_taken     <= '0';
+          saved_br_en        <= '1';
+        end if;
       end if;
     end process;
-
-    predicted_pc     <= tbt_target when tbt_tag = addr_tag and tbt_taken = '1' else add4;
-    br_taken         <= '1'        when tbt_tag = addr_tag and tbt_taken = '1' else '0';
-    prediction_match <= '1'        when tbt_tag = addr_tag                     else '0';
+    predicted_pc <= saved_predicted_pc when saved_br_en = '1' else
+                    tbt_target when tbt_tag = addr_tag and tbt_taken = '1' else add4;
+    --br_taken <= saved_br_taken when saved_br_en = '1' else
+    --            '1' when tbt_tag = addr_tag and tbt_taken = '1' else '0';
+    prediction_match <= '1' when tbt_tag = addr_tag else '0';
   end generate use_BP;
 
 
