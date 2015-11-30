@@ -11,9 +11,10 @@ use work.utils.all;
 
 entity instruction_fetch is
   generic (
-    REGISTER_SIZE    : positive;
-    INSTRUCTION_SIZE : positive;
-    RESET_VECTOR     : natural);
+    REGISTER_SIZE     : positive;
+    INSTRUCTION_SIZE  : positive;
+    RESET_VECTOR      : natural;
+    BRANCH_PREDICTORS : natural);
   port (
     clk   : in std_logic;
     reset : in std_logic;
@@ -53,7 +54,8 @@ architecture rtl of instruction_fetch is
 
   signal valid_instr : std_logic;
 
-  constant BRANCH_PREDICTORS : natural := 0;
+  --Branch target buffer size
+  constant BTB_SIZE : natural := BRANCH_PREDICTORS;
 
   signal pc_corr    : std_logic_vector(REGISTER_SIZE-1 downto 0);
   signal pc_corr_en : std_logic;
@@ -113,7 +115,7 @@ begin  -- architecture rtl
 
 
 
-  nuse_BP : if BRANCH_PREDICTORS = 0 generate
+  nuse_BP : if BTB_SIZE = 0 generate
 
     --No branch prediction
     process(clk)
@@ -134,27 +136,27 @@ begin  -- architecture rtl
 
   end generate nuse_BP;
 
-  use_BP : if BRANCH_PREDICTORS > 0 generate
-    constant INDEX_SIZE : integer := log2(BRANCH_PREDICTORS);
+  use_BP : if BTB_SIZE > 0 generate
+    constant INDEX_SIZE : integer := log2(BTB_SIZE);
     constant TAG_SIZE   : integer := REGISTER_SIZE-2-INDEX_SIZE;
 
-    type tbt_type is array(BRANCH_PREDICTORS-1 downto 0) of std_logic_vector(REGISTER_SIZE+TAG_SIZE+1 -1 downto 0);
-    signal branch_tbt       : tbt_type := (others => (others => '0'));
+    type btb_type is array(BTB_SIZE-1 downto 0) of std_logic_vector(REGISTER_SIZE+TAG_SIZE+1 -1 downto 0);
+    signal branch_btb       : btb_type := (others => (others => '0'));
     signal prediction_match : std_logic;
     signal branch_taken     : std_logic;
     signal branch_pc        : std_logic_vector(REGISTER_SIZE-1 downto 0);
     signal branch_tgt       : std_logic_vector(REGISTER_SIZE-1 downto 0);
     signal branch_flush     : std_logic;
     signal branch_en        : std_logic;
-    signal tbt_raddr        : integer;
-    signal tbt_waddr        : integer;
+    signal btb_raddr        : integer;
+    signal btb_waddr        : integer;
     signal add4             : std_logic_vector(REGISTER_SIZE-1 downto 0);
     signal addr_tag         : std_logic_vector(TAG_SIZE-1 downto 0);
 
-    signal tbt_entry : std_logic_vector(branch_tbt(0)'range);
-    alias tbt_tag    : std_logic_vector(TAG_SIZE-1 downto 0) is tbt_entry(REGISTER_SIZE+TAG_SIZE-1 downto REGISTER_SIZE);
-    alias tbt_taken  : std_logic is tbt_entry(tbt_entry'left);
-    alias tbt_target : std_logic_vector(REGISTER_SIZE-1 downto 0) is tbt_entry(REGISTER_SIZE-1 downto 0);
+    signal btb_entry : std_logic_vector(branch_btb(0)'range);
+    alias btb_tag    : std_logic_vector(TAG_SIZE-1 downto 0) is btb_entry(REGISTER_SIZE+TAG_SIZE-1 downto REGISTER_SIZE);
+    alias btb_taken  : std_logic is btb_entry(btb_entry'left);
+    alias btb_target : std_logic_vector(REGISTER_SIZE-1 downto 0) is btb_entry(REGISTER_SIZE-1 downto 0);
 
     signal saved_predicted_pc : std_logic_vector(REGISTER_SIZE-1 downto 0);
     signal saved_br_taken     : std_logic;
@@ -164,18 +166,18 @@ begin  -- architecture rtl
     branch_pc    <= branch_get_pc(branch_pred);
     branch_taken <= branch_get_taken(branch_pred);
     branch_en    <= branch_get_enable(branch_pred);
-    tbt_raddr    <= 0 when BRANCH_PREDICTORS = 1 else
+    btb_raddr    <= 0 when BTB_SIZE = 1 else
                     to_integer(unsigned(next_pc(INDEX_SIZE+2-1 downto 2)));
-    tbt_waddr <= 0 when BRANCH_PREDICTORS = 1 else
+    btb_waddr <= 0 when BTB_SIZE = 1 else
                  to_integer(unsigned(branch_pc(INDEX_SIZE+2-1 downto 2)));
 
     process(clk)
 
     begin
       if rising_edge(clk) then
-        tbt_entry <= branch_tbt(tbt_raddr);
+        btb_entry <= branch_btb(btb_raddr);
         if branch_en = '1' then
-          branch_tbt(tbt_waddr) <= branch_taken &branch_pc(INDEX_SIZE+2+TAG_SIZE-1 downto INDEX_SIZE+2) & branch_tgt;
+          branch_btb(btb_waddr) <= branch_taken &branch_pc(INDEX_SIZE+2+TAG_SIZE-1 downto INDEX_SIZE+2) & branch_tgt;
         end if;
 
         addr_tag <= next_pc(INDEX_SIZE+2+TAG_SIZE-1 downto INDEX_SIZE+2);
@@ -185,11 +187,13 @@ begin  -- architecture rtl
 
         if saved_br_en = '0' then
           br_taken <= '0';
-          if tbt_tag = addr_tag then
-            br_taken <= tbt_taken;
+          if btb_tag = addr_tag then
+            br_taken <= btb_taken;
           end if;
         end if;
+
         saved_br_en <= if_stall;
+
         if reset = '1' then
           saved_predicted_pc <= std_logic_vector(to_signed(RESET_VECTOR+4, REGISTER_SIZE));
           saved_br_taken     <= '0';
@@ -198,10 +202,9 @@ begin  -- architecture rtl
       end if;
     end process;
     predicted_pc <= saved_predicted_pc when saved_br_en = '1' else
-                    tbt_target when tbt_tag = addr_tag and tbt_taken = '1' else add4;
-    --br_taken <= saved_br_taken when saved_br_en = '1' else
-    --            '1' when tbt_tag = addr_tag and tbt_taken = '1' else '0';
-    prediction_match <= '1' when tbt_tag = addr_tag else '0';
+                    btb_target when btb_tag = addr_tag and btb_taken = '1' else add4;
+
+    prediction_match <= '1' when btb_tag = addr_tag else '0';
   end generate use_BP;
 
 

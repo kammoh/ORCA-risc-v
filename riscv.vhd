@@ -13,7 +13,8 @@ entity riscV is
     MULTIPLY_ENABLE      : natural range 0 to 1 := 0;
     DIVIDE_ENABLE        : natural range 0 to 1 := 0;
     SHIFTER_SINGLE_CYCLE : natural range 0 to 1 := 0;
-    INCLUDE_COUNTERS     : natural range 0 to 1 := 0);
+    INCLUDE_COUNTERS     : natural range 0 to 1 := 0;
+    BRANCH_PREDICTORS    : natural              := 0);
 
   port(clk   : in std_logic;
        reset : in std_logic;
@@ -113,9 +114,10 @@ begin  -- architecture rtl
   if_stall_in <= execute_stalled or decode_stalled;
   instr_fetch : component instruction_fetch
     generic map (
-      REGISTER_SIZE    => REGISTER_SIZE,
-      INSTRUCTION_SIZE => INSTRUCTION_SIZE,
-      RESET_VECTOR     => RESET_VECTOR)
+      REGISTER_SIZE     => REGISTER_SIZE,
+      INSTRUCTION_SIZE  => INSTRUCTION_SIZE,
+      RESET_VECTOR      => RESET_VECTOR,
+      BRANCH_PREDICTORS => BRANCH_PREDICTORS)
     port map (
       clk         => clk,
       reset       => reset,

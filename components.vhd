@@ -13,7 +13,8 @@ package rv_components is
       MULTIPLY_ENABLE      : natural range 0 to 1 := 0;
       DIVIDE_ENABLE        : natural range 0 to 1 := 0;
       SHIFTER_SINGLE_CYCLE : natural range 0 to 1 := 0;
-      INCLUDE_COUNTERS     : natural range 0 to 1 := 0);
+      INCLUDE_COUNTERS     : natural range 0 to 1 := 0;
+      BRANCH_PREDICTORS    : natural);
     port(
       clk   : in std_logic;
       reset : in std_logic;
@@ -130,9 +131,10 @@ package rv_components is
 
   component instruction_fetch is
     generic (
-      REGISTER_SIZE    : positive;
-      INSTRUCTION_SIZE : positive;
-      RESET_VECTOR     : natural);
+      REGISTER_SIZE     : positive;
+      INSTRUCTION_SIZE  : positive;
+      RESET_VECTOR      : natural;
+      BRANCH_PREDICTORS : natural);
     port (
       clk   : in std_logic;
       reset : in std_logic;

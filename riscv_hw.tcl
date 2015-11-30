@@ -131,6 +131,23 @@ set_parameter_property INCLUDE_COUNTERS ALLOWED_RANGES 0:1
 set_parameter_property INCLUDE_COUNTERS HDL_PARAMETER true
 set_display_item_property INCLUDE_COUNTERS DISPLAY_HINT boolean
 
+add_parameter          BRANCH_PREDICTORS natural 0
+set_parameter_property BRANCH_PREDICTORS DEFAULT_VALUE 1
+set_parameter_property BRANCH_PREDICTORS TYPE NATURAL
+set_parameter_property BRANCH_PREDICTORS UNITS None
+set_parameter_property BRANCH_PREDICTORS HDL_PARAMETER true
+set_parameter_property BRANCH_PREDICTORS visible false
+set_parameter_property BRANCH_PREDICTORS derived true
+
+add_parameter          BRANCH_PREDICTION boolean false
+set_parameter_property BRANCH_PREDICTION HDL_PARAMETER false
+
+add_parameter          BTB_SIZE natural
+set_parameter_property BTB_SIZE HDL_PARAMETER false
+set_parameter_property BTB_SIZE DISPLAY_NAME "BRANCH TARGET BUFFER SIZE"
+set_parameter_property BTB_SIZE DISPLAY_UNITS entries
+set_parameter_property BTB_SIZE visible false
+
 
 #
 # display items
@@ -287,10 +304,36 @@ set_interface_property from_host SVD_ADDRESS_GROUP ""
 
 add_interface_port from_host coe_from_host export Input register_size
 
+proc log_out {out_str} {
+        set chan [open ~/log.txt a]
+        set timestamp [clock format [clock seconds]]
+        puts $chan "$timestamp $out_str"
+        close $chan
+}
+
 proc elaboration_callback {} {
 	 if { [get_parameter_value MULTIPLY_ENABLE] } {
 		  set_display_item_property SHIFTER_SINGLE_CYCLE ENABLED false
 	 } else {
 		  set_display_item_property SHIFTER_SINGLE_CYCLE ENABLED true
 	 }
+	 set table_size 0
+	 if { [get_parameter_value BRANCH_PREDICTION] } {
+		  set_parameter_property BTB_SIZE visible true
+		  set table_size [get_parameter_value BTB_SIZE ]
+	 } else {
+	  set_parameter_property BTB_SIZE visible false
+	 }
+
+	 set count 0
+	 for {set i 0} {$i<32} {incr i} {
+		  log_out "$i\n"
+		  if { $table_size & [expr 1<< $i ] } {
+				set count [expr $count + 1]
+		  }
+	 }
+	 if { $count > 1 } {
+		  send_message Error "BTB_SIZE is not a power of two"
+	 }
+	 set_parameter_value BRANCH_PREDICTORS $table_size
 }
