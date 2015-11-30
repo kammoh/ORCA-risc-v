@@ -12,7 +12,8 @@ entity riscV is
     RESET_VECTOR         : natural              := 16#00000200#;
     MULTIPLY_ENABLE      : natural range 0 to 1 := 0;
     DIVIDE_ENABLE        : natural range 0 to 1 := 0;
-    SHIFTER_SINGLE_CYCLE : natural range 0 to 1 := 0);
+    SHIFTER_SINGLE_CYCLE : natural range 0 to 1 := 0;
+    INCLUDE_COUNTERS     : natural range 0 to 1 := 0);
 
   port(clk   : in std_logic;
        reset : in std_logic;
@@ -174,7 +175,8 @@ begin  -- architecture rtl
       RESET_VECTOR         => RESET_VECTOR,
       MULTIPLY_ENABLE      => MULTIPLY_ENABLE = 1,
       DIVIDE_ENABLE        => DIVIDE_ENABLE = 1,
-      SHIFTER_SINGLE_CYCLE => SHIFTER_SINGLE_CYCLE = 1)
+      SHIFTER_SINGLE_CYCLE => SHIFTER_SINGLE_CYCLE = 1,
+      INCLUDE_COUNTERS     => INCLUDE_COUNTERS = 1)
     port map (
       clk            => clk,
       reset          => reset,

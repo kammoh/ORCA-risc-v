@@ -31,7 +31,7 @@ set_module_property REPORT_TO_TALKBACK false
 set_module_property ALLOW_GREYBOX_GENERATION false
 set_module_property REPORT_HIERARCHY false
 set_module_property ELABORATION_CALLBACK elaboration_callback
-
+add_documentation_link "Documentation" https://github.com/VectorBlox/risc-v
 #
 # file sets
 #
@@ -120,6 +120,18 @@ set_parameter_property SHIFTER_SINGLE_CYCLE UNITS None
 set_parameter_property SHIFTER_SINGLE_CYCLE ALLOWED_RANGES 0:1
 set_parameter_property SHIFTER_SINGLE_CYCLE HDL_PARAMETER true
 set_display_item_property SHIFTER_SINGLE_CYCLE DISPLAY_HINT boolean
+
+add_parameter INCLUDE_COUNTERS natural 1
+set_parameter_property INCLUDE_COUNTERS DEFAULT_VALUE 1
+set_parameter_property INCLUDE_COUNTERS DISPLAY_NAME "INCLUDE COUNTERS"
+set_parameter_property INCLUDE_COUNTERS DESCRIPTION "Add rdcycle and rdinstret instructions. It costs about 200 LUT4s"
+set_parameter_property INCLUDE_COUNTERS TYPE NATURAL
+set_parameter_property INCLUDE_COUNTERS UNITS None
+set_parameter_property INCLUDE_COUNTERS ALLOWED_RANGES 0:1
+set_parameter_property INCLUDE_COUNTERS HDL_PARAMETER true
+set_display_item_property INCLUDE_COUNTERS DISPLAY_HINT boolean
+
+
 #
 # display items
 #

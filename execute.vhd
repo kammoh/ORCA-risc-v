@@ -20,7 +20,8 @@ entity execute is
     RESET_VECTOR         : natural;
     MULTIPLY_ENABLE      : boolean;
     DIVIDE_ENABLE        : boolean;
-    SHIFTER_SINGLE_CYCLE : boolean);
+    SHIFTER_SINGLE_CYCLE : boolean;
+    INCLUDE_COUNTERS     : boolean);
   port(
     clk         : in std_logic;
     reset       : in std_logic;
@@ -332,7 +333,8 @@ begin
     generic map (
       REGISTER_SIZE    => REGISTER_SIZE,
       INSTRUCTION_SIZE => INSTRUCTION_SIZE,
-      RESET_VECTOR     => RESET_VECTOR)
+      RESET_VECTOR     => RESET_VECTOR,
+      INCLUDE_COUNTERS => INCLUDE_COUNTERS)
     port map (
       clk            => clk,
       reset          => reset,

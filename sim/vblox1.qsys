@@ -7,7 +7,7 @@
    description=""
    tags=""
    categories="System" />
- <parameter name="bonusData"><![CDATA[bonusData 
+ <parameter name="bonusData"><![CDATA[bonusData
 {
    element $${FILENAME}
    {
@@ -292,6 +292,7 @@
   <parameter name="REGISTER_SIZE" value="32" />
   <parameter name="RESET_VECTOR" value="512" />
   <parameter name="SHIFTER_SINGLE_CYCLE" value="false" />
+  <parameter name="INCLUDE_COUNTERS" value="1" />
  </module>
  <connection
    kind="avalon"

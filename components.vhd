@@ -12,7 +12,8 @@ package rv_components is
       RESET_VECTOR         : natural              := 16#00000200#;
       MULTIPLY_ENABLE      : natural range 0 to 1 := 0;
       DIVIDE_ENABLE        : natural range 0 to 1 := 0;
-      SHIFTER_SINGLE_CYCLE : natural range 0 to 1 := 0);
+      SHIFTER_SINGLE_CYCLE : natural range 0 to 1 := 0;
+      INCLUDE_COUNTERS     : natural range 0 to 1 := 0);
     port(
       clk   : in std_logic;
       reset : in std_logic;
@@ -91,7 +92,8 @@ package rv_components is
       RESET_VECTOR         : natural;
       MULTIPLY_ENABLE      : boolean;
       DIVIDE_ENABLE        : boolean;
-      SHIFTER_SINGLE_CYCLE : boolean);
+      SHIFTER_SINGLE_CYCLE : boolean;
+      INCLUDE_COUNTERS     : boolean);
     port(
       clk         : in std_logic;
       reset       : in std_logic;
@@ -382,7 +384,8 @@ package rv_components is
     generic (
       REGISTER_SIZE    : natural;
       INSTRUCTION_SIZE : natural;
-      RESET_VECTOR     : natural);
+      RESET_VECTOR     : natural;
+      INCLUDE_COUNTERS : boolean);
     port (
       clk         : in std_logic;
       reset       : in std_logic;

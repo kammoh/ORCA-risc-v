@@ -41,7 +41,8 @@ entity system_calls is
   generic (
     REGISTER_SIZE    : natural;
     INSTRUCTION_SIZE : natural;
-    RESET_VECTOR     : natural);
+    RESET_VECTOR     : natural;
+    INCLUDE_COUNTERS : boolean);
 
   port (
     clk         : in std_logic;
@@ -87,7 +88,7 @@ architecture rtl of system_calls is
 
   --if INCLUDE_EXTRA_COUNTERS is enabled, then
   --INCLUDE_TIMERS must be enabled
-  constant INCLUDE_TIMERS         : boolean := true;
+  constant INCLUDE_TIMERS         : boolean := INCLUDE_COUNTERS;
   constant INCLUDE_EXTRA_COUNTERS : boolean := false;
 
   constant CHECK_LEGAL_INSTRUCTIONS : boolean := true;

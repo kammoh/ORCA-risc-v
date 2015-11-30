@@ -152,6 +152,11 @@
          value = "3";
          type = "int";
       }
+      datum sopceditor_expanded
+      {
+         value = "0";
+         type = "boolean";
+      }
    }
    element onchip_memory2_0
    {
@@ -438,11 +443,12 @@
   <parameter name="writable" value="true" />
  </module>
  <module name="riscv_0" kind="riscv" version="1.0" enabled="1">
-  <parameter name="DIVIDE_ENABLE" value="1" />
-  <parameter name="MULTIPLY_ENABLE" value="1" />
+  <parameter name="DIVIDE_ENABLE" value="0" />
+  <parameter name="INCLUDE_COUNTERS" value="0" />
+  <parameter name="MULTIPLY_ENABLE" value="0" />
   <parameter name="REGISTER_SIZE" value="32" />
   <parameter name="RESET_VECTOR" value="512" />
-  <parameter name="SHIFTER_SINGLE_CYCLE" value="1" />
+  <parameter name="SHIFTER_SINGLE_CYCLE" value="0" />
  </module>
  <module name="tohost_pio" kind="altera_avalon_pio" version="15.0" enabled="1">
   <parameter name="bitClearingEdgeCapReg" value="false" />
