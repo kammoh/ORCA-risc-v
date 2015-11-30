@@ -14,7 +14,7 @@ package rv_components is
       DIVIDE_ENABLE        : natural range 0 to 1 := 0;
       SHIFTER_SINGLE_CYCLE : natural range 0 to 1 := 0;
       INCLUDE_COUNTERS     : natural range 0 to 1 := 0;
-      BRANCH_PREDICTORS    : natural);
+      BRANCH_PREDICTORS    : natural              := 0);
     port(
       clk   : in std_logic;
       reset : in std_logic;

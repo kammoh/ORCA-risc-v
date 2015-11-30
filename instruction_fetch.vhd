@@ -93,8 +93,8 @@ begin  -- architecture rtl
     if rising_edge(clk) then
       if (pc_corr_en or not if_stall) = '1' then
         program_counter <= next_pc;
+        pc_out <= program_counter;
       end if;
-
 
       saved_address_en <= '0';
       saved_address    <= program_counter;
@@ -210,7 +210,6 @@ begin  -- architecture rtl
 
 
   instr_out <= instr when saved_instr_en = '0' else saved_instr;
-  pc_out    <= saved_address;
 
   valid_instr_out <= (valid_instr or saved_instr_en) and not if_stall;
 
