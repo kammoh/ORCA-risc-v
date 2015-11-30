@@ -287,7 +287,8 @@
   <parameter name="INITIAL_RESET_CYCLES" value="0" />
  </module>
  <module name="riscv_0" kind="riscv" version="1.0" enabled="1">
-  <parameter name="MULTIPLY_ENABLE" value="true" />
+  <parameter name="DIVIDE_ENABLE" value="1" />
+  <parameter name="MULTIPLY_ENABLE" value="1" />
   <parameter name="REGISTER_SIZE" value="32" />
   <parameter name="RESET_VECTOR" value="512" />
   <parameter name="SHIFTER_SINGLE_CYCLE" value="false" />
