@@ -22,6 +22,7 @@ entity branch_unit is
     br_taken_in    : in  std_logic;
     instr          : in  std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
     sign_extension : in  std_logic_vector(SIGN_EXTENSION_SIZE-1 downto 0);
+    less_than      : in  std_logic;
     --unconditional jumps store return address in rd, output return address
     -- on data_out lines
     data_out       : out std_logic_vector(REGISTER_SIZE-1 downto 0);
@@ -102,7 +103,7 @@ begin  -- architecture
   sub <= op1 - op2;
 
   eq_flg  <= '1' when op1 = op2 else '0';
-  leq_flg <= sub(sub'left);
+  leq_flg <= less_than;
 
   with func3 select
     branch_taken <=

@@ -137,6 +137,8 @@ architecture rtl of operand_creation is
 
   signal unsigned_div : std_logic;
 
+  signal op1_msb         : std_logic;
+  signal op2_msb         : std_logic;
 
 
   alias func3 : std_logic_vector(2 downto 0) is instruction(14 downto 12);
@@ -157,8 +159,21 @@ begin  -- architecture rtl
   shifted_value <= signed((instruction(30) and rs1_data(rs1_data'left)) & rs1_data);
 
 --combine slt
-  op1 <= signed((not instruction(12) and data1(data1'left)) & data1);
-  op2 <= signed((not instruction(12) and data2(data2'left)) & data2);
+  with instruction(14 downto 12) select
+    op1_msb <=
+    '0'               when "110",
+    '0'               when "111",
+    '0'               when "011",
+    data1(data1'left) when others;
+  with instruction(14 downto 12) select
+    op2_msb <=
+    '0'               when "110",
+    '0'               when "111",
+    '0'               when "011",
+    data2(data1'left) when others;
+
+  op1 <= signed(op1_msb & data1);
+  op2 <= signed(op2_msb & data2);
   sub <= op1 - op2;
 
 
@@ -320,6 +335,7 @@ entity arithmetic_unit is
     data_out          : out std_logic_vector(REGISTER_SIZE-1 downto 0);
     data_enable       : out std_logic;
     illegal_alu_instr : out std_logic;
+    less_than         : out std_logic;
     stall_out         : out std_logic
     );
 
@@ -518,8 +534,9 @@ begin  -- architecture rtl
       done          => sh_done
       );
 
+  less_than <= sub(sub'left);
 --combine slt
-  slt_val <= to_unsigned(1, REGISTER_SIZE) when sub(sub'left) = '1' else to_unsigned(0, REGISTER_SIZE);
+  slt_val   <= to_unsigned(1, REGISTER_SIZE) when sub(sub'left) = '1' else to_unsigned(0, REGISTER_SIZE);
 
   upper_immediate(31 downto 12) <= signed(instruction(31 downto 12));
   upper_immediate(11 downto 0)  <= (others => '0');
@@ -612,7 +629,7 @@ begin  -- architecture rtl
 
       if stall_in = '0' then
         case OPCODE is
-          when OP     =>
+          when OP =>
             data_enable <= valid;
             if func7 = mul_f7 and MULTIPLY_ENABLE then
               data_out <= std_logic_vector(mul_result);
@@ -621,16 +638,16 @@ begin  -- architecture rtl
             end if;
           when OP_IMM =>
             data_enable <= valid;
-            data_out <= std_logic_vector(base_result);
-          when LUI    =>
+            data_out    <= std_logic_vector(base_result);
+          when LUI =>
             data_enable <= valid;
-            data_out <= std_logic_vector(upper_immediate);
-          when AUIPC  =>
+            data_out    <= std_logic_vector(upper_immediate);
+          when AUIPC =>
             data_enable <= valid;
-            data_out <= std_logic_vector(upper_immediate + signed(program_counter));
+            data_out    <= std_logic_vector(upper_immediate + signed(program_counter));
           when others =>
             data_enable <= '0';
-            data_out <= (others => 'X');
+            data_out    <= (others => 'X');
         end case;
       end if;
     end if;  --clock

@@ -176,6 +176,7 @@ package rv_components is
       data_out          : out std_logic_vector(REGISTER_SIZE-1 downto 0);
       data_enable       : out std_logic;
       illegal_alu_instr : out std_logic;
+      less_than         : out std_logic;
       stall_out         : out std_logic);
   end component arithmetic_unit;
 

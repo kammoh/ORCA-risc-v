@@ -84,8 +84,8 @@ architecture behavioural of execute is
   signal ld_data_en  : std_logic;
   signal upp_data_en : std_logic;
   signal sys_data_en : std_logic;
-
-  signal wb_mux : std_logic_vector(1 downto 0);
+  signal less_than   : std_logic;
+  signal wb_mux      : std_logic_vector(1 downto 0);
 
   signal alu_stall : std_logic;
 
@@ -273,6 +273,7 @@ begin
       data_out          => alu_data_out,
       data_enable       => alu_data_en,
       illegal_alu_instr => illegal_alu_instr,
+      less_than => less_than,
       stall_out         => alu_stall);
 
 
@@ -291,6 +292,7 @@ begin
       current_pc     => pc_current,
       br_taken_in    => br_taken_in,
       instr          => instruction,
+      less_than      => less_than,
       sign_extension => sign_extension,
       data_out       => br_data_out,
       data_out_en    => br_data_en,
