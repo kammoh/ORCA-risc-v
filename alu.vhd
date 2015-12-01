@@ -502,8 +502,8 @@ begin  -- architecture rtl
       );
 
 
-  sh_enable <= valid when (opcode = OP or opcode = OP_IMM) and (func3 = "001" or func3 = "101") else '0';
-  sh_stall  <= not sh_done  when sh_enable = '1' else '0';
+  sh_enable <= valid       when (opcode = OP or opcode = OP_IMM) and (func3 = "001" or func3 = "101") else '0';
+  sh_stall  <= not sh_done when sh_enable = '1'                                                       else '0';
   sh : component shifter
     generic map (
       REGiSTER_SIZE => REGISTER_SIZE,
@@ -521,10 +521,9 @@ begin  -- architecture rtl
 --combine slt
   slt_val <= to_unsigned(1, REGISTER_SIZE) when sub(sub'left) = '1' else to_unsigned(0, REGISTER_SIZE);
 
-  upp_imm_sel                    <= '1'              when opcode = LUI or opcode = AUIPC else '0';
-  upper_immediate1(31 downto 12) <= signed(instruction(31 downto 12));
-  upper_immediate1(11 downto 0)  <= (others => '0');
-  upper_immediate                <= upper_immediate1 when instruction(5) = '1'           else upper_immediate1 + signed(program_counter);
+  upper_immediate(31 downto 12) <= signed(instruction(31 downto 12));
+  upper_immediate(11 downto 0)  <= (others => '0');
+
 
   alu_proc : process(clk) is
     variable func        : std_logic_vector(2 downto 0);
@@ -613,19 +612,26 @@ begin  -- architecture rtl
 
       if stall_in = '0' then
         case OPCODE is
-          when OP     => data_enable <= valid;
-          when OP_IMM => data_enable <= valid;
-          when LUI    => data_enable <= valid;
-          when AUIPC  => data_enable <= valid;
-          when others => data_enable <= '0';
+          when OP     =>
+            data_enable <= valid;
+            if func7 = mul_f7 and MULTIPLY_ENABLE then
+              data_out <= std_logic_vector(mul_result);
+            else
+              data_out <= std_logic_vector(base_result);
+            end if;
+          when OP_IMM =>
+            data_enable <= valid;
+            data_out <= std_logic_vector(base_result);
+          when LUI    =>
+            data_enable <= valid;
+            data_out <= std_logic_vector(upper_immediate);
+          when AUIPC  =>
+            data_enable <= valid;
+            data_out <= std_logic_vector(upper_immediate + signed(program_counter));
+          when others =>
+            data_enable <= '0';
+            data_out <= (others => 'X');
         end case;
-        if opcode = LUI or opcode = AUIPC then
-          data_out <= std_logic_vector(upper_immediate);
-        elsif func7 = mul_f7 and instruction(5) = '1' and MULTIPLY_ENABLE then
-          data_out <= std_logic_vector(mul_result);
-        else
-          data_out <= std_logic_vector(base_result);
-        end if;
       end if;
     end if;  --clock
   end process;
@@ -666,7 +672,7 @@ begin  -- architecture rtl
     div_result <= signed(quotient)  when div_neg = '0'     else -signed(quotient);
     rem_result <= signed(remainder) when div_neg_op1 = '0' else -signed(remainder);
 
-    div_stall <= not div_done when div_en          else '0';
+    div_stall <= not div_done when div_en else '0';
 
   end generate d_en;
   nd_en : if not DIVIDE_ENABLE generate
