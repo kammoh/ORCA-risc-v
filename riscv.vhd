@@ -14,7 +14,8 @@ entity riscV is
     DIVIDE_ENABLE        : natural range 0 to 1 := 0;
     SHIFTER_SINGLE_CYCLE : natural range 0 to 1 := 0;
     INCLUDE_COUNTERS     : natural range 0 to 1 := 0;
-    BRANCH_PREDICTORS    : natural              := 0);
+    BRANCH_PREDICTORS    : natural              := 0;
+    PIPELINE_STAGES : natural range 3 to 4 := 4);
 
   port(clk   : in std_logic;
        reset : in std_logic;
@@ -136,6 +137,7 @@ begin  -- architecture rtl
 
 
   d_valid <= if_valid_out and not pipeline_flush;
+  three_stage: if PIPELINE_STAGES = 3 generate
   D : entity work.decode(one_cycle)
     generic map(
       REGISTER_SIZE       => REGISTER_SIZE,
@@ -167,6 +169,40 @@ begin  -- architecture rtl
       subseq_instr   => e_subseq_instr,
       valid_output   => d_valid_out);
 
+  end generate three_stage;
+  four_stage: if PIPELINE_STAGES = 4 generate
+  D : entity work.decode(two_cycle)
+    generic map(
+      REGISTER_SIZE       => REGISTER_SIZE,
+      REGISTER_NAME_SIZE  => REGISTER_NAME_SIZE,
+      INSTRUCTION_SIZE    => INSTRUCTION_SIZE,
+      SIGN_EXTENSION_SIZE => SIGN_EXTENSION_SIZE)
+    port map(
+      clk            => clk,
+      reset          => reset,
+      stall          => execute_stalled,
+      flush          => pipeline_flush,
+      instruction    => d_instr,
+      valid_input    => d_valid,
+      --writeback ,signals
+      wb_sel         => wb_sel,
+      wb_data        => wb_data,
+      wb_enable      => wb_en,
+      --output sig,nals
+      stall_out      => decode_stalled,
+      rs1_data       => rs1_data,
+      rs2_data       => rs2_data,
+      sign_extension => sign_extension,
+      --inputs jus,t for carrying to next pipeline stage
+      br_taken_in    => d_br_taken,
+      pc_curr_in     => d_pc,
+      br_taken_out   => e_br_taken,
+      pc_curr_out    => e_pc,
+      instr_out      => e_instr,
+      subseq_instr   => e_subseq_instr,
+      valid_output   => d_valid_out);
+
+  end generate four_stage;
   e_valid <= d_valid_out and not pipeline_flush;
   X : component execute
     generic map (

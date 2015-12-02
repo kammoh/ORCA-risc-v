@@ -148,6 +148,14 @@ set_parameter_property BTB_SIZE DISPLAY_NAME "BRANCH TARGET BUFFER SIZE"
 set_parameter_property BTB_SIZE DISPLAY_UNITS entries
 set_parameter_property BTB_SIZE visible false
 
+add_parameter          PIPELINE_STAGES natural 4
+set_parameter_property PIPELINE_STAGES HDL_PARAMETER true
+set_parameter_property PIPELINE_STAGES DISPLAY_NAME "PIPELINE STAGES"
+set_parameter_property PIPELINE_STAGES DESCRIPTION "Choose the number of pipeline stages, 3 stages is smaller\
+but 4 stages has a higher fmax"
+set_parameter_property PIPELINE_STAGES ALLOWED_RANGES {3,4}
+
+
 
 #
 # display items
