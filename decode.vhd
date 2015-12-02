@@ -41,7 +41,7 @@ entity decode is
 
 end;
 
-architecture behavioural of decode is
+architecture two_cycle of decode is
 
   signal rs1   : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0);
   signal rs2   : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0);
@@ -59,9 +59,6 @@ architecture behavioural of decode is
   signal instr_latch    : std_logic_vector(INSTRUCTION_SIZE-1 downto 0);
   signal valid_latch    : std_logic;
 
-  signal use_after_load_stall1 : std_logic;
-  signal use_after_load_stall2 : std_logic;
-  signal use_after_load_stall  : std_logic;
 
   signal i_rd  : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0);
   signal i_rs1 : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0);
@@ -138,5 +135,56 @@ begin
 
   rs1_data <= outreg1;
   rs2_data <= outreg2;
+  stall_out <= '0';
+end architecture;
+
+
+architecture one_cycle of decode is
+
+  signal rs1   : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0);
+  signal rs2   : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0);
+
+begin
+  register_file_1 : component register_file
+    generic map (
+      REGISTER_SIZE      => REGISTER_SIZE,
+      REGISTER_NAME_SIZE => REGISTER_NAME_SIZE)
+    port map(
+      clk              => clk,
+      stall            => stall,
+      valid_input      => valid_input,
+      rs1_sel          => rs1,
+      rs2_sel          => rs2,
+      writeback_sel    => wb_sel,
+      writeback_data   => wb_data,
+      writeback_enable => wb_enable,
+      rs1_data         => rs1_data,
+      rs2_data         => rs2_data
+      );
+  rs1 <= instruction(19 downto 15) when stall = '0' else instr_out(19 downto 15);
+  rs2 <= instruction(24 downto 20) when stall = '0' else instr_out(24 downto 20);
+
+
+  decode_stage : process (clk, reset) is
+  begin  -- process decode_stage
+    if rising_edge(clk) then            -- rising clock edge
+      if not stall = '1' then
+        sign_extension <= std_logic_vector(
+          resize(signed(instruction(INSTRUCTION_SIZE-1 downto INSTRUCTION_SIZE-1)),
+                 SIGN_EXTENSION_SIZE));
+        br_taken_out <= br_taken_in;
+        PC_curr_out  <= PC_curr_in;
+        instr_out    <= instruction;
+        valid_output    <= valid_input;
+      end if;
+
+
+      if reset = '1' or flush = '1' then
+        valid_output <= '0';
+      end if;
+    end if;
+  end process decode_stage;
+  subseq_instr <= instruction;
+
   stall_out <= '0';
 end architecture;

@@ -136,7 +136,7 @@ begin  -- architecture rtl
 
 
   d_valid <= if_valid_out and not pipeline_flush;
-  D : component decode
+  D : entity work.decode(one_cycle)
     generic map(
       REGISTER_SIZE       => REGISTER_SIZE,
       REGISTER_NAME_SIZE  => REGISTER_NAME_SIZE,
