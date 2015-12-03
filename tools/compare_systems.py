@@ -115,8 +115,6 @@ def summarize_stats(systems):
         os.mkdir("summary")
     except:
         pass
-    with open("summary/summary.css","w") as css:
-        css.write(summary_css)
     with open("summary/summary.html","w") as html:
         html.write("\n".join(("<html>",
                              "<head>",
