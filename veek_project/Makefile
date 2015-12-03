@@ -15,6 +15,35 @@ DEVICE_FAMILY=$(shell grep deviceFamily $(QSYS_FILE) | head -1 | sed 's/.*value=
 VHDL_FILES=$(wildcard ../*.vhd)
 VHDL_SUBMODULE_FILES=$(addprefix vblox1/synthesis/submodules/,$(notdir $(VHDL_FILES)))
 TOP_LEVEL_FILES=$(wildcard *.vhd)
+
+
+
+include config.mk
+
+$(QSYS_FILE):config.mk
+ifdef BRANCH_PREDICTION
+	sed -i 's|parameter name="BRANCH_PREDICTION" value=".*" />|parameter name="BRANCH_PREDICTION" value=$(BRANCH_PREDICTION) />|' $(QSYS_FILE)
+endif
+ifdef BTB_SIZE
+	sed -i 's|parameter name="BTB_SIZE" value=".*" />|parameter name="BTB_SIZE" value=$(BTB_SIZE) />|' $(QSYS_FILE)
+endif
+ifdef DIVIDE_ENABLE
+	sed -i 's|parameter name="DIVIDE_ENABLE" value=".*" />|parameter name="DIVIDE_ENABLE" value=$(DIVIDE_ENABLE) />|' $(QSYS_FILE)
+endif
+ifdef INCLUDE_COUNTERS
+	sed -i 's|parameter name="INCLUDE_COUNTERS" value=".*" />|parameter name="INCLUDE_COUNTERS" value=$(INCLUDE_COUNTERS) />|' $(QSYS_FILE)
+endif
+ifdef MULTIPLY_ENABLE
+	sed -i 's|parameter name="MULTIPLY_ENABLE" value=".*" />|parameter name="MULTIPLY_ENABLE" value=$(MULTIPLY_ENABLE) />|' $(QSYS_FILE)
+endif
+ifdef PIPELINE_STAGES
+	sed -i 's|parameter name="PIPELINE_STAGES" value=".*" />|parameter name="PIPELINE_STAGES" value=$(PIPELINE_STAGES) />|' $(QSYS_FILE)
+endif
+ifdef SHIFTER_SINGLE_CYCLE
+	sed -i 's|parameter name="SHIFTER_SINGLE_CYCLE" value=".*" />|parameter name="SHIFTER_SINGLE_CYCLE" value=$(SHIFTER_SINGLE_CYCLE) />|' $(QSYS_FILE)
+endif
+
+
 $(QIP_FILE):$(QSYS_FILE)
 	qsys-generate --synthesis=VHDL vblox1.qsys 2>&1 | tee ./vblox1.qsys.log
 
