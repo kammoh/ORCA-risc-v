@@ -14,7 +14,8 @@ package rv_components is
       DIVIDE_ENABLE        : natural range 0 to 1 := 0;
       SHIFTER_SINGLE_CYCLE : natural range 0 to 1 := 0;
       INCLUDE_COUNTERS     : natural range 0 to 1 := 0;
-      BRANCH_PREDICTORS    : natural              := 0);
+      BRANCH_PREDICTORS    : natural              := 0;
+      FORWARD_ALU_ONLY     : natural range 0 to 1 := 0);
     port(
       clk   : in std_logic;
       reset : in std_logic;
@@ -56,7 +57,8 @@ package rv_components is
       REGISTER_SIZE       : positive;
       REGISTER_NAME_SIZE  : positive;
       INSTRUCTION_SIZE    : positive;
-      SIGN_EXTENSION_SIZE : positive);
+      SIGN_EXTENSION_SIZE : positive;
+      PIPELINE_STAGES     : natural range 1 to 2);
     port(
       clk         : in std_logic;
       reset       : in std_logic;
@@ -70,7 +72,6 @@ package rv_components is
       wb_enable   : in std_logic;
 
       --output signals
-      stall_out      : out std_logic;
       rs1_data       : out std_logic_vector(REGISTER_SIZE -1 downto 0);
       rs2_data       : out std_logic_vector(REGISTER_SIZE -1 downto 0);
       sign_extension : out std_logic_vector(SIGN_EXTENSION_SIZE -1 downto 0);
@@ -94,7 +95,8 @@ package rv_components is
       MULTIPLY_ENABLE      : boolean;
       DIVIDE_ENABLE        : boolean;
       SHIFTER_SINGLE_CYCLE : boolean;
-      INCLUDE_COUNTERS     : boolean);
+      INCLUDE_COUNTERS     : boolean;
+      FORWARD_ALU_ONLY     : boolean);
     port(
       clk         : in std_logic;
       reset       : in std_logic;

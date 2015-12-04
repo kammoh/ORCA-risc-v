@@ -15,7 +15,8 @@ entity riscV is
     SHIFTER_SINGLE_CYCLE : natural range 0 to 1 := 0;
     INCLUDE_COUNTERS     : natural range 0 to 1 := 0;
     BRANCH_PREDICTORS    : natural              := 0;
-    PIPELINE_STAGES : natural range 3 to 4 := 4);
+    PIPELINE_STAGES      : natural range 3 to 4 := 4;
+    FORWARD_ALU_ONLY     : natural range 0 to 1 := 0);
 
   port(clk   : in std_logic;
        reset : in std_logic;
@@ -57,7 +58,6 @@ architecture rtl of riscV is
   constant INSTRUCTION_SIZE    : integer := 32;
   constant SIGN_EXTENSION_SIZE : integer := 20;
 
-
   --signals going int fetch
 
   signal if_stall_in  : std_logic;
@@ -65,12 +65,11 @@ architecture rtl of riscV is
 
 
   --signals going into decode
-  signal d_instr        : std_logic_vector(INSTRUCTION_SIZE -1 downto 0);
-  signal d_pc           : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal d_br_taken     : std_logic;
-  signal d_valid        : std_logic;
-  signal d_valid_out    : std_logic;
-  signal decode_stalled : std_logic;
+  signal d_instr     : std_logic_vector(INSTRUCTION_SIZE -1 downto 0);
+  signal d_pc        : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal d_br_taken  : std_logic;
+  signal d_valid     : std_logic;
+  signal d_valid_out : std_logic;
 
   signal wb_data : std_logic_vector(REGISTER_SIZE-1 downto 0);
   signal wb_sel  : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0);
@@ -112,7 +111,7 @@ begin  -- architecture rtl
   pipeline_flush      <= branch_get_flush(branch_pred);
   coe_program_counter <= d_pc;
 
-  if_stall_in <= execute_stalled or decode_stalled;
+  if_stall_in <= execute_stalled;
   instr_fetch : component instruction_fetch
     generic map (
       REGISTER_SIZE     => REGISTER_SIZE,
@@ -137,13 +136,14 @@ begin  -- architecture rtl
 
 
   d_valid <= if_valid_out and not pipeline_flush;
-  three_stage: if PIPELINE_STAGES = 3 generate
-  D : entity work.decode(one_cycle)
+
+  D : component decode
     generic map(
       REGISTER_SIZE       => REGISTER_SIZE,
       REGISTER_NAME_SIZE  => REGISTER_NAME_SIZE,
       INSTRUCTION_SIZE    => INSTRUCTION_SIZE,
-      SIGN_EXTENSION_SIZE => SIGN_EXTENSION_SIZE)
+      SIGN_EXTENSION_SIZE => SIGN_EXTENSION_SIZE,
+      PIPELINE_STAGES     => PIPELINE_STAGES-2)
     port map(
       clk            => clk,
       reset          => reset,
@@ -156,7 +156,6 @@ begin  -- architecture rtl
       wb_data        => wb_data,
       wb_enable      => wb_en,
       --output sig,nals
-      stall_out      => decode_stalled,
       rs1_data       => rs1_data,
       rs2_data       => rs2_data,
       sign_extension => sign_extension,
@@ -169,40 +168,6 @@ begin  -- architecture rtl
       subseq_instr   => e_subseq_instr,
       valid_output   => d_valid_out);
 
-  end generate three_stage;
-  four_stage: if PIPELINE_STAGES = 4 generate
-  D : entity work.decode(two_cycle)
-    generic map(
-      REGISTER_SIZE       => REGISTER_SIZE,
-      REGISTER_NAME_SIZE  => REGISTER_NAME_SIZE,
-      INSTRUCTION_SIZE    => INSTRUCTION_SIZE,
-      SIGN_EXTENSION_SIZE => SIGN_EXTENSION_SIZE)
-    port map(
-      clk            => clk,
-      reset          => reset,
-      stall          => execute_stalled,
-      flush          => pipeline_flush,
-      instruction    => d_instr,
-      valid_input    => d_valid,
-      --writeback ,signals
-      wb_sel         => wb_sel,
-      wb_data        => wb_data,
-      wb_enable      => wb_en,
-      --output sig,nals
-      stall_out      => decode_stalled,
-      rs1_data       => rs1_data,
-      rs2_data       => rs2_data,
-      sign_extension => sign_extension,
-      --inputs jus,t for carrying to next pipeline stage
-      br_taken_in    => d_br_taken,
-      pc_curr_in     => d_pc,
-      br_taken_out   => e_br_taken,
-      pc_curr_out    => e_pc,
-      instr_out      => e_instr,
-      subseq_instr   => e_subseq_instr,
-      valid_output   => d_valid_out);
-
-  end generate four_stage;
   e_valid <= d_valid_out and not pipeline_flush;
   X : component execute
     generic map (
@@ -214,7 +179,8 @@ begin  -- architecture rtl
       MULTIPLY_ENABLE      => MULTIPLY_ENABLE = 1,
       DIVIDE_ENABLE        => DIVIDE_ENABLE = 1,
       SHIFTER_SINGLE_CYCLE => SHIFTER_SINGLE_CYCLE = 1,
-      INCLUDE_COUNTERS     => INCLUDE_COUNTERS = 1)
+      INCLUDE_COUNTERS     => INCLUDE_COUNTERS = 1,
+      FORWARD_ALU_ONLY     => FORWARD_ALU_ONLY = 1)
     port map (
       clk            => clk,
       reset          => reset,

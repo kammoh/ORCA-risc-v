@@ -154,7 +154,7 @@
       }
       datum sopceditor_expanded
       {
-         value = "0";
+         value = "1";
          type = "boolean";
       }
    }
@@ -446,6 +446,7 @@
   <parameter name="BRANCH_PREDICTION" value="false" />
   <parameter name="BTB_SIZE" value="256" />
   <parameter name="DIVIDE_ENABLE" value="0" />
+  <parameter name="FORWARD_ALU_ONLY" value="1" />
   <parameter name="INCLUDE_COUNTERS" value="0" />
   <parameter name="MULTIPLY_ENABLE" value="0" />
   <parameter name="PIPELINE_STAGES" value="4" />

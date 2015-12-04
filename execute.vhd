@@ -21,7 +21,8 @@ entity execute is
     MULTIPLY_ENABLE      : boolean;
     DIVIDE_ENABLE        : boolean;
     SHIFTER_SINGLE_CYCLE : boolean;
-    INCLUDE_COUNTERS     : boolean);
+    INCLUDE_COUNTERS     : boolean;
+    FORWARD_ALU_ONLY     : boolean);
   port(
     clk         : in std_logic;
     reset       : in std_logic;
@@ -71,7 +72,7 @@ architecture behavioural of execute is
   signal predict_corr    : std_logic_vector(REGISTER_SIZE-1 downto 0);
   signal predict_corr_en : std_logic;
 
-  constant FORWARD_ONLY_FROM_ALU : boolean := false;
+  constant FORWARD_ONLY_FROM_ALU : boolean := FORWARD_ALU_ONLY;
 
   -- various writeback sources
   signal br_data_out  : std_logic_vector(REGISTER_SIZE-1 downto 0);

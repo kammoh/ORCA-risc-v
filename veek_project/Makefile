@@ -18,9 +18,9 @@ TOP_LEVEL_FILES=$(wildcard *.vhd)
 
 
 
-include config.mk
+-include config.mk
 
-$(QSYS_FILE):config.mk
+$(QSYS_FILE):$(wildcard config.mk)
 ifdef BRANCH_PREDICTION
 	sed -i 's|parameter name="BRANCH_PREDICTION" value=".*" />|parameter name="BRANCH_PREDICTION" value=$(BRANCH_PREDICTION) />|' $(QSYS_FILE)
 endif
@@ -42,7 +42,9 @@ endif
 ifdef SHIFTER_SINGLE_CYCLE
 	sed -i 's|parameter name="SHIFTER_SINGLE_CYCLE" value=".*" />|parameter name="SHIFTER_SINGLE_CYCLE" value=$(SHIFTER_SINGLE_CYCLE) />|' $(QSYS_FILE)
 endif
-
+ifdef FORWARD_ALU_ONLY
+	sed -i 's|parameter name="FORWARD_ALU_ONLY" value=".*" />|parameter name="FORWARD_ALU_ONLY" value=$(FORWARD_ALU_ONLY) />|' $(QSYS_FILE)
+endif
 
 $(QIP_FILE):$(QSYS_FILE)
 	qsys-generate --synthesis=VHDL vblox1.qsys 2>&1 | tee ./vblox1.qsys.log

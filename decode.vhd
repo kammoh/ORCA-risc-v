@@ -10,7 +10,8 @@ entity decode is
     REGISTER_SIZE       : positive;
     REGISTER_NAME_SIZE  : positive;
     INSTRUCTION_SIZE    : positive;
-    SIGN_EXTENSION_SIZE : positive);
+    SIGN_EXTENSION_SIZE : positive;
+    PIPELINE_STAGES : natural range 1 to 2);
   port(
     clk   : in std_logic;
     reset : in std_logic;
@@ -25,7 +26,6 @@ entity decode is
     wb_enable   : in std_logic;
 
     --output signals
-    stall_out      : out    std_logic;
     rs1_data       : out    std_logic_vector(REGISTER_SIZE -1 downto 0);
     rs2_data       : out    std_logic_vector(REGISTER_SIZE -1 downto 0);
     sign_extension : out    std_logic_vector(SIGN_EXTENSION_SIZE -1 downto 0);
@@ -41,7 +41,7 @@ entity decode is
 
 end;
 
-architecture two_cycle of decode is
+architecture rtl of decode is
 
   signal rs1   : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0);
   signal rs2   : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0);
@@ -71,6 +71,8 @@ architecture two_cycle of decode is
 
 
 begin
+
+
   register_file_1 : component register_file
     generic map (
       REGISTER_SIZE      => REGISTER_SIZE,
@@ -87,104 +89,85 @@ begin
       rs1_data         => rs1_reg,
       rs2_data         => rs2_reg
       );
-  rs1 <= instruction(19 downto 15) when stall = '0' else instr_latch(19 downto 15);
-  rs2 <= instruction(24 downto 20) when stall = '0' else instr_latch(24 downto 20);
+  two_cycle : if PIPELINE_STAGES = 2 generate
+    rs1 <= instruction(19 downto 15) when stall = '0' else instr_latch(19 downto 15);
+    rs2 <= instruction(24 downto 20) when stall = '0' else instr_latch(24 downto 20);
 
-  rs1_p <= instr_latch(19 downto 15) when stall = '0' else instr_out(19 downto 15);
-  rs2_p <= instr_latch(24 downto 20) when stall = '0' else instr_out(24 downto 20);
+    rs1_p <= instr_latch(19 downto 15) when stall = '0' else instr_out(19 downto 15);
+    rs2_p <= instr_latch(24 downto 20) when stall = '0' else instr_out(24 downto 20);
 
 
 
-  decode_stage : process (clk, reset) is
-  begin  -- process decode_stage
-    if rising_edge(clk) then            -- rising clock edge
-      if not stall = '1' then
-        sign_extension <= std_logic_vector(
-          resize(signed(instr_latch(INSTRUCTION_SIZE-1 downto INSTRUCTION_SIZE-1)),
-                 SIGN_EXTENSION_SIZE));
-        br_taken_latch <= br_taken_in;
-        PC_curr_latch  <= PC_curr_in;
-        instr_latch    <= instruction;
-        valid_latch    <= valid_input;
+    decode_stage : process (clk, reset) is
+    begin  -- process decode_stage
+      if rising_edge(clk) then          -- rising clock edge
+        if not stall = '1' then
+          sign_extension <= std_logic_vector(
+            resize(signed(instr_latch(INSTRUCTION_SIZE-1 downto INSTRUCTION_SIZE-1)),
+                   SIGN_EXTENSION_SIZE));
+          br_taken_latch <= br_taken_in;
+          PC_curr_latch  <= PC_curr_in;
+          instr_latch    <= instruction;
+          valid_latch    <= valid_input;
 
-        br_taken_out <= br_taken_latch;
-        pc_curr_out  <= PC_curr_latch;
-        instr_out    <= instr_latch;
-        valid_output <= valid_latch;
+          br_taken_out <= br_taken_latch;
+          pc_curr_out  <= PC_curr_latch;
+          instr_out    <= instr_latch;
+          valid_output <= valid_latch;
 
+        end if;
+
+        if wb_sel = rs1_p and wb_enable = '1' then
+          outreg1 <= wb_data;
+        elsif stall = '0' then
+          outreg1 <= rs1_reg;
+        end if;
+        if wb_sel = rs2_p and wb_enable = '1' then
+          outreg2 <= wb_data;
+        elsif stall = '0' then
+          outreg2 <= rs2_reg;
+        end if;
+
+        if reset = '1' or flush = '1' then
+          valid_output <= '0';
+          valid_latch  <= '0';
+        end if;
       end if;
+    end process decode_stage;
+    subseq_instr <= instr_latch;
 
-      if wb_sel = rs1_p and wb_enable = '1' then
-        outreg1 <= wb_data;
-      elsif stall = '0' then
-        outreg1 <= rs1_reg;
+    rs1_data  <= outreg1;
+    rs2_data  <= outreg2;
+  end generate two_cycle;
+
+
+  one_cycle : if PIPELINE_STAGES = 1 generate
+    rs1 <= instruction(19 downto 15) when stall = '0' else instr_out(19 downto 15);
+    rs2 <= instruction(24 downto 20) when stall = '0' else instr_out(24 downto 20);
+
+
+    decode_stage : process (clk, reset) is
+    begin  -- process decode_stage
+      if rising_edge(clk) then          -- rising clock edge
+        if not stall = '1' then
+          sign_extension <= std_logic_vector(
+            resize(signed(instruction(INSTRUCTION_SIZE-1 downto INSTRUCTION_SIZE-1)),
+                   SIGN_EXTENSION_SIZE));
+          br_taken_out <= br_taken_in;
+          PC_curr_out  <= PC_curr_in;
+          instr_out    <= instruction;
+          valid_output <= valid_input;
+        end if;
+
+
+        if reset = '1' or flush = '1' then
+          valid_output <= '0';
+        end if;
       end if;
-      if wb_sel = rs2_p and wb_enable = '1' then
-        outreg2 <= wb_data;
-      elsif stall = '0' then
-        outreg2 <= rs2_reg;
-      end if;
+    end process decode_stage;
+    subseq_instr <= instruction;
+    rs1_data  <= rs1_reg;
+    rs2_data  <= rs2_reg;
+  end generate one_cycle;
 
-      if reset = '1' or flush = '1' then
-        valid_output <= '0';
-        valid_latch  <= '0';
-      end if;
-    end if;
-  end process decode_stage;
-  subseq_instr <= instr_latch;
-
-  rs1_data <= outreg1;
-  rs2_data <= outreg2;
-  stall_out <= '0';
-end architecture;
-
-
-architecture one_cycle of decode is
-
-  signal rs1   : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0);
-  signal rs2   : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0);
-
-begin
-  register_file_1 : component register_file
-    generic map (
-      REGISTER_SIZE      => REGISTER_SIZE,
-      REGISTER_NAME_SIZE => REGISTER_NAME_SIZE)
-    port map(
-      clk              => clk,
-      stall            => stall,
-      valid_input      => valid_input,
-      rs1_sel          => rs1,
-      rs2_sel          => rs2,
-      writeback_sel    => wb_sel,
-      writeback_data   => wb_data,
-      writeback_enable => wb_enable,
-      rs1_data         => rs1_data,
-      rs2_data         => rs2_data
-      );
-  rs1 <= instruction(19 downto 15) when stall = '0' else instr_out(19 downto 15);
-  rs2 <= instruction(24 downto 20) when stall = '0' else instr_out(24 downto 20);
-
-
-  decode_stage : process (clk, reset) is
-  begin  -- process decode_stage
-    if rising_edge(clk) then            -- rising clock edge
-      if not stall = '1' then
-        sign_extension <= std_logic_vector(
-          resize(signed(instruction(INSTRUCTION_SIZE-1 downto INSTRUCTION_SIZE-1)),
-                 SIGN_EXTENSION_SIZE));
-        br_taken_out <= br_taken_in;
-        PC_curr_out  <= PC_curr_in;
-        instr_out    <= instruction;
-        valid_output    <= valid_input;
-      end if;
-
-
-      if reset = '1' or flush = '1' then
-        valid_output <= '0';
-      end if;
-    end if;
-  end process decode_stage;
-  subseq_instr <= instruction;
-
-  stall_out <= '0';
 end architecture;

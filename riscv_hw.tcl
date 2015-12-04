@@ -96,6 +96,7 @@ set_parameter_property MULTIPLY_ENABLE UNITS None
 set_parameter_property MULTIPLY_ENABLE ALLOWED_RANGES 0:1
 set_parameter_property MULTIPLY_ENABLE HDL_PARAMETER true
 set_display_item_property MULTIPLY_ENABLE DISPLAY_HINT boolean
+
 add_parameter DIVIDE_ENABLE natural 0
 set_parameter_property DIVIDE_ENABLE DEFAULT_VALUE 0
 set_parameter_property DIVIDE_ENABLE DISPLAY_NAME "HARDWARE DIVIDE"
@@ -120,6 +121,17 @@ set_parameter_property SHIFTER_SINGLE_CYCLE UNITS None
 set_parameter_property SHIFTER_SINGLE_CYCLE ALLOWED_RANGES 0:1
 set_parameter_property SHIFTER_SINGLE_CYCLE HDL_PARAMETER true
 set_display_item_property SHIFTER_SINGLE_CYCLE DISPLAY_HINT boolean
+
+add_parameter          FORWARD_ALU_ONLY natural 0
+set_parameter_property FORWARD_ALU_ONLY ALLOWED_RANGES 0:1
+set_parameter_property FORWARD_ALU_ONLY DISPLAY_NAME "FORWARD FROM_ALU ONLY"
+set_parameter_property FORWARD_ALU_ONLY DESCRIPTION "\
+If the data is not forwarded to the next instruction, then a bubble is \
+inserted into the pipeline to wait until the data is ready. Be default \
+the the load instruction isn't forwarded, but FORWARD_ALU_ONLY is \
+selected then only the alu \(OP,OP-IMM,LUI,AUIPC\) are forwarded to \
+the next cycle."
+set_display_item_property FORWARD_ALU_ONLY DISPLAY_HINT boolean
 
 add_parameter INCLUDE_COUNTERS natural 1
 set_parameter_property INCLUDE_COUNTERS DEFAULT_VALUE 1
