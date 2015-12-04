@@ -1,5 +1,6 @@
 #!/usr/bin/python
 import sys
+import shlex
 import shutil
 import os
 import subprocess
@@ -80,8 +81,15 @@ class system:
             f.write('PIPELINE_STAGES="%s"\n'     %self.pipeline_stages)
             f.write('SHIFTER_SINGLE_CYCLE="%s"\n'%self.shifter_single_cycle)
             f.write('FORWARD_ALU_ONLY="%s"\n'    %self.fwd_alu_only)
-    def build(self,build_target="all"):
-        subprocess.call(["make", "-C"+self.directory,build_target])
+    def build(self,use_qsub=False,build_target="all"):
+        make_cmd='make -C %s %s'%(self.directory,build_target)
+        if use_qsub:
+            qsub_cmd='qsub -q main.q -b y -sync y -j y  -V -cwd -N "veek_project" ' + make_cmd
+            proc=subprocess.Popen(shlex.split(qsub_cmd))
+        else:
+           proc=subprocess.Popen(shlex.split(make_cmd))
+           proc.wait()
+        return proc
 
     def get_build_stats(self):
         timing_rpt=self.directory+"/output_files/vblox1.sta.rpt"
@@ -121,8 +129,10 @@ def summarize_stats(systems):
     except:
         pass
     with open("summary/summary.html","w") as html:
-        html.write("\n".join(("<html>",
+        html.write("\n".join(("<!DOCTYPE html>",
+                              "<html>",
                              "<head>",
+                              ' <meta charset="UTF-8"> ',
                              '<script src="http://www.kryogenix.org/code/browser/sorttable/sorttable.js"></script>',
                               "<style>",
                               "table, th, td {",
@@ -167,6 +177,14 @@ SYSTEMS=[ system(branch_prediction="false",
                  include_counters="0",
                  shifter_single_cycle="0",
                  pipeline_stages="3",
+                 fwd_alu_only="1"),
+          system(branch_prediction="false",
+                 btb_size="1",
+                 divide_enable="0",
+                 multiply_enable="0",
+                 include_counters="0",
+                 shifter_single_cycle="0",
+                 pipeline_stages="4",
                  fwd_alu_only="1"),
           system(branch_prediction="true",
                  btb_size="256",
@@ -283,12 +301,21 @@ if __name__ == '__main__':
     parser.add_argument('--stats-only',dest='stats_only',action='store_true',default=False)
     parser.add_argument('--no-stats',dest='no_stats',action='store_true',default=False)
     parser.add_argument('--build-target',dest='build_target',default='all')
+    parser.add_argument('--use-qsub',dest='use_qsub',action='store_true',default=False)
     args=parser.parse_args()
 
     for s in SYSTEMS:
         s.create_build_dir()
+    processes=[]
+    for s in SYSTEMS:
         if not args.stats_only:
-            s.build(args.build_target)
+            processes.append(
+                s.build(args.use_qsub,args.build_target))
+
+    for p in processes:
+        p.wait()
+
+    for s in SYSTEMS:
         if not args.no_stats:
             s.get_build_stats()
 

@@ -125,6 +125,7 @@ set_display_item_property SHIFTER_SINGLE_CYCLE DISPLAY_HINT boolean
 add_parameter          FORWARD_ALU_ONLY natural 0
 set_parameter_property FORWARD_ALU_ONLY ALLOWED_RANGES 0:1
 set_parameter_property FORWARD_ALU_ONLY DISPLAY_NAME "FORWARD FROM_ALU ONLY"
+set_parameter_property FORWARD_ALU_ONLY HDL_PARAMETER true
 set_parameter_property FORWARD_ALU_ONLY DESCRIPTION "\
 If the data is not forwarded to the next instruction, then a bubble is \
 inserted into the pipeline to wait until the data is ready. Be default \
