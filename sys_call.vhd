@@ -154,6 +154,7 @@ architecture rtl of system_calls is
   -- EXECPTION CODES
   constant ILLEGAL_I   : std_logic_vector(3 downto 0)  := x"2";
   constant MMODE_ECALL : std_logic_vector(3 downto 0)  := x"B";
+  constant UMODE_ECALL : std_logic_vector(3 downto 0)  := x"8";
   constant BREAKPOINT  : std_logic_vector(3 downto 0)  := x"3";
 
                                         --RESSET VECTORS
@@ -357,7 +358,7 @@ begin  -- architecture rtl
           if zimm & func3 = "00000"&"000" then
             if CSR = x"000" then           --ECALL
               mcause_i      <= '0';
-              mcause_ex     <= MMODE_ECALL;
+              mcause_ex     <= UMODE_ECALL;
               pc_corr_en    <= '1';
               pc_correction <= MACHINE_MODE_TRAP;
               mepc          <= current_pc;
