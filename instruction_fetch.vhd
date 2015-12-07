@@ -129,7 +129,7 @@ begin  -- architecture rtl
           predicted_pc <= std_logic_vector(signed(next_pc) + 4);
         end if;
         if reset = '1' then
-          predicted_pc <= std_logic_vector(to_signed(RESET_VECTOR, REGISTER_SIZE));
+          predicted_pc <= std_logic_vector(to_signed(RESET_VECTOR+4, REGISTER_SIZE));
         end if;
       end if;
     end process;
