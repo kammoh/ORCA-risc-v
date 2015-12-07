@@ -13,7 +13,7 @@
    {
       datum _originalDeviceFamily
       {
-         value = "Cyclone IV GX";
+         value = "Cyclone IV E";
          type = "String";
       }
    }
@@ -290,7 +290,7 @@
   <parameter name="BRANCH_PREDICTION" value="false" />
   <parameter name="BTB_SIZE" value="0" />
   <parameter name="DIVIDE_ENABLE" value="1" />
-  <parameter name="FORWARD_ALU_ONLY" value="0" />
+  <parameter name="FORWARD_ALU_ONLY" value="1" />
   <parameter name="INCLUDE_COUNTERS" value="1" />
   <parameter name="MULTIPLY_ENABLE" value="1" />
   <parameter name="PIPELINE_STAGES" value="4" />
