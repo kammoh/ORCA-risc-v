@@ -137,9 +137,10 @@ architecture rtl of operand_creation is
 
   signal unsigned_div : std_logic;
 
-  signal op1_msb         : std_logic;
-  signal op2_msb         : std_logic;
+  signal op1_msb : std_logic;
+  signal op2_msb : std_logic;
 
+  signal is_add : boolean;
 
   alias func3 : std_logic_vector(2 downto 0) is instruction(14 downto 12);
   alias func7 : std_logic_vector(6 downto 0) is instruction(31 downto 25);
@@ -174,7 +175,13 @@ begin  -- architecture rtl
 
   op1 <= signed(op1_msb & data1);
   op2 <= signed(op2_msb & data2);
-  sub <= op1 - op2;
+
+  with instruction(6 downto 5) select
+    is_add <=
+    instruction(14 downto 12) = "000"                           when "00",
+    instruction(14 downto 12) = "000" and instruction(30) = '0' when "01",
+    false                                                       when others;
+  sub    <= op1+op2 when is_add else op1 - op2;
 
 
   shifter_multiply <=
@@ -553,11 +560,7 @@ begin  -- architecture rtl
       subtract := instruction(30) and instruction(5);
       case func is
         when ADD_OP =>
-          if subtract = '1' then
-            base_result := unsigned(sub(REGISTER_SIZE-1 downto 0));
-          else
-            base_result := data1 + data2;
-          end if;
+          base_result := unsigned(sub(REGISTER_SIZE-1 downto 0));
         when SLL_OP =>
           if SHIFTER_USE_MULTIPLIER then
             base_result := unsigned(mult_dest(REGISTER_SIZE-1 downto 0));
@@ -697,13 +700,13 @@ begin  -- architecture rtl
     div_zero     <= false;
     div_overflow <= false;
     div_stall    <= '0';
-    div_result   <= (others => '0');
-    rem_result   <= (others => '0');
+    div_result   <= (others => 'X');
+    rem_result   <= (others => 'X');
 
   end generate;
   stall_out <= '1' when ((div_stall = '1' and DIVIDE_ENABLE) or
                          (mul_stall = '1' and MULTIPLY_ENABLE) or
-                         (sh_stall = '1' and sh_enable = '1'))
+                         (sh_stall = '1'))
                else '0';
 
   illegal_alu_instr <= '0' when (instruction(31 downto 25) = "0000000" or
