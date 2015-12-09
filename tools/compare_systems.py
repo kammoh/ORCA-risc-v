@@ -30,7 +30,9 @@ class system:
                   "vblox1.qsf",
                   "vblox1.qsys",
                   "vblox1.sdc")
-
+    dirs=[]
+    class duplicate_dir(Exception):
+        pass
     def __init__(self,
                  branch_prediction,
                  btb_size,
@@ -64,6 +66,12 @@ class system:
                                    self.pipeline_stages,
                                    self.shifter_single_cycle,
                                    self.fwd_alu_only)
+        print self.directory
+        if self.directory in system.dirs:
+            raise system.duplicate_dir;
+        else:
+            system.dirs.append(self.directory)
+
     def create_build_dir(self ):
         print "creating %s"%self.directory
         try:
@@ -155,12 +163,12 @@ def summarize_stats(systems):
             html.write("<tr>")
             html.write("<td>%s</td>"%str(sys.directory))
             html.write("<td>%s</td>"%str(sys.branch_prediction))
-            html.write("<td>%s</td>"%str(sys.btb_size))
+            html.write("<td>%s</td>"%str(sys.btb_size if sys.branch_prediction == "true" else "N/A"))
             html.write("<td>%s</td>"%str(sys.multiply_enable))
             html.write("<td>%s</td>"%str(sys.divide_enable))
             html.write("<td>%s</td>"%str(sys.include_counters))
             html.write("<td>%s</td>"%str(sys.pipeline_stages))
-            html.write("<td>%s</td>"%str(sys.shifter_single_cycle))
+            html.write("<td>%s</td>"%str(sys.shifter_single_cycle if sys.multiply_enable == "0" else "N/A"))
             html.write("<td>%s</td>"%str(sys.fwd_alu_only))
             html.write("<td>%s</td>"%str(sys.cpu_prefit_size))
             html.write("<td>%s</td>"%str(sys.cpu_postfit_size))
@@ -169,139 +177,124 @@ def summarize_stats(systems):
         html.write("</table></body></html>")
 
 
+SYSTEMS=[]
 
-SYSTEMS=[ system(branch_prediction="false",
-                 btb_size="1",
-                 divide_enable="0",
-                 multiply_enable="0",
-                 include_counters="0",
-                 shifter_single_cycle="0",
-                 pipeline_stages="3",
-                 fwd_alu_only="1"),
-          system(branch_prediction="false",
-                 btb_size="1",
-                 divide_enable="0",
-                 multiply_enable="0",
-                 include_counters="0",
-                 shifter_single_cycle="0",
-                 pipeline_stages="4",
-                 fwd_alu_only="1"),
-          system(branch_prediction="true",
-                 btb_size="256",
-                 divide_enable="0",
-                 multiply_enable="0",
-                 include_counters="0",
-                 shifter_single_cycle="0",
-                 pipeline_stages="3",
-                 fwd_alu_only="1"),
-          system(branch_prediction="false",
-                 btb_size="256",
-                 divide_enable="0",
-                 multiply_enable="0",
-                 include_counters="1",
-                 shifter_single_cycle="0",
-                 pipeline_stages="3",
-                 fwd_alu_only="0"),
-          system(branch_prediction="false",
-                 btb_size="256",
-                 divide_enable="0",
-                 multiply_enable="0",
-                 include_counters="0",
-                 shifter_single_cycle="1",
-                 pipeline_stages="3",
-                 fwd_alu_only="0"),
-          system(branch_prediction="false",
-                 btb_size="256",
-                 divide_enable="0",
-                 multiply_enable="1",
-                 include_counters="0",
-                 shifter_single_cycle="1",
-                 pipeline_stages="3",
-                 fwd_alu_only="0"),
-          system(branch_prediction="false",
-                 btb_size="256",
-                 divide_enable="1",
-                 multiply_enable="1",
-                 include_counters="0",
-                 shifter_single_cycle="0",
-                 pipeline_stages="3",
-                 fwd_alu_only="0"),
-          system(branch_prediction="true",
-                 btb_size="4096",
-                 divide_enable="1",
-                 multiply_enable="1",
-                 include_counters="1",
-                 shifter_single_cycle="0",
-                 pipeline_stages="3",
-                 fwd_alu_only="0"),
-          #4 stage pipeline systems
-          system(branch_prediction="false",
-                 btb_size="1",
-                 divide_enable="0",
-                 multiply_enable="0",
-                 include_counters="0",
-                 shifter_single_cycle="0",
-                 pipeline_stages="4",
-                 fwd_alu_only="0"),
-          system(branch_prediction="true",
-                 btb_size="256",
-                 divide_enable="0",
-                 multiply_enable="0",
-                 include_counters="0",
-                 shifter_single_cycle="0",
-                 pipeline_stages="4",
-                 fwd_alu_only="0"),
-          system(branch_prediction="false",
-                 btb_size="256",
-                 divide_enable="0",
-                 multiply_enable="0",
-                 include_counters="1",
-                 shifter_single_cycle="0",
-                 pipeline_stages="4",
-                 fwd_alu_only="0"),
-          system(branch_prediction="false",
-                 btb_size="256",
-                 divide_enable="0",
-                 multiply_enable="0",
-                 include_counters="0",
-                 shifter_single_cycle="1",
-                 pipeline_stages="4",
-                 fwd_alu_only="0"),
-          system(branch_prediction="false",
-                 btb_size="256",
-                 divide_enable="0",
-                 multiply_enable="1",
-                 include_counters="0",
-                 shifter_single_cycle="1",
-                 pipeline_stages="4",
-                 fwd_alu_only="0"),
-          system(branch_prediction="false",
-                 btb_size="256",
-                 divide_enable="1",
-                 multiply_enable="1",
-                 include_counters="0",
-                 shifter_single_cycle="0",
-                 pipeline_stages="4",
-                 fwd_alu_only="0"),
-          system(branch_prediction="true",
-                 btb_size="4096",
-                 divide_enable="1",
-                 multiply_enable="1",
-                 include_counters="1",
-                 shifter_single_cycle="0",
-                 pipeline_stages="4",
-                 fwd_alu_only="0"),
+if 0:
+    SYSTEMS=[ system(branch_prediction="false",
+                     btb_size="1",
+                     divide_enable="0",
+                     multiply_enable="0",
+                     include_counters="0",
+                     shifter_single_cycle="0",
+                     pipeline_stages="3",
+                     fwd_alu_only="1"),
+              system(branch_prediction="false",
+                     btb_size="1",
+                     divide_enable="0",
+                     multiply_enable="0",
+                     include_counters="0",
+                     shifter_single_cycle="0",
+                     pipeline_stages="4",
+                     fwd_alu_only="1"),
+              system(branch_prediction="true",
+                     btb_size="4096",
+                     divide_enable="0",
+                     multiply_enable="0",
+                     include_counters="0",
+                     shifter_single_cycle="0",
+                     pipeline_stages="4",
+                     fwd_alu_only="1"),
+              system(branch_prediction="true",
+                     btb_size="256",
+                     divide_enable="0",
+                     multiply_enable="0",
+                     include_counters="0",
+                     shifter_single_cycle="0",
+                     pipeline_stages="4",
+                     fwd_alu_only="1"),
+              system(branch_prediction="false",
+                     btb_size="1",
+                     divide_enable="0",
+                     multiply_enable="0",
+                     include_counters="0",
+                     shifter_single_cycle="1",
+                     pipeline_stages="4",
+                     fwd_alu_only="1"),
+              system(branch_prediction="true",
+                     btb_size="256",
+                     divide_enable="0",
+                     multiply_enable="0",
+                     include_counters="0",
+                     shifter_single_cycle="0",
+                     pipeline_stages="3",
+                     fwd_alu_only="1"),
+              system(branch_prediction="false",
+                     btb_size="256",
+                     divide_enable="1",
+                     multiply_enable="1",
+                     include_counters="0",
+                     shifter_single_cycle="0",
+                     pipeline_stages="3",
+                     fwd_alu_only="1"),
+              system(branch_prediction="true",
+                     btb_size="4096",
+                     divide_enable="1",
+                     multiply_enable="1",
+                     include_counters="1",
+                     shifter_single_cycle="0",
+                     pipeline_stages="3",
+                     fwd_alu_only="1"),
+              system(branch_prediction="false",
+                     btb_size="256",
+                     divide_enable="1",
+                     multiply_enable="1",
+                     include_counters="0",
+                     shifter_single_cycle="0",
+                     pipeline_stages="4",
+                     fwd_alu_only="1"),
+              system(branch_prediction="true",
+                     btb_size="4096",
+                     divide_enable="1",
+                     multiply_enable="1",
+                     include_counters="1",
+                     shifter_single_cycle="0",
+                     pipeline_stages="4",
+                     fwd_alu_only="1"),
+
       ]
+else:
+
+    for bp in ["false","true"]:
+        for btb_size in ["1","8","16","256","4096"]:
+            if bp== "false" and btb_size != "1":
+                continue;
+            for mul in ["0","1"]:
+                for div in ["0","1"]:
+                    if div == "1" and mul == '0':
+                        continue;
+                    for ic in ["0","1"]:
+                        for ssc in ["0","1"]:
+                            if mul == '1' and ssc == '1':
+                                continue;
+                            for ps in ["3","4"]:
+                                SYSTEMS.append(system(branch_prediction=bp,
+                                                      btb_size=btb_size,
+                                                      divide_enable=div,
+                                                      multiply_enable=mul,
+                                                      include_counters=ic,
+                                                      shifter_single_cycle=ssc,
+                                                      pipeline_stages=ps,
+                                                      fwd_alu_only="1"))
 
 
 if __name__ == '__main__':
 
     import argparse
     parser=argparse.ArgumentParser()
-    parser.add_argument('--stats-only',dest='stats_only',action='store_true',default=False)
-    parser.add_argument('--no-stats',dest='no_stats',action='store_true',default=False)
-    parser.add_argument('--build-target',dest='build_target',default='all')
-    parser.add_argument('--use-qsub',dest='use_qsub',action='store_true',default=False)
+    parser.add_argument('-s','--stats-only',dest='stats_only',action='store_true',default=False)
+    parser.add_argument('-n','--no-stats',dest='no_stats',action='store_true',default=False)
+    parser.add_argument('-t','--build-target',dest='build_target',default='all',help='Target to run with make command')
+    parser.add_argument('-q','--use-qsub',dest='use_qsub',action='store_true',default=False, help='Use grid-engine to build systems')
     args=parser.parse_args()
 
     for s in SYSTEMS:
@@ -311,6 +304,14 @@ if __name__ == '__main__':
         if not args.stats_only:
             processes.append(
                 s.build(args.use_qsub,args.build_target))
+            while len(processes) > 25:
+                time.sleep(5)
+                for p in processes:
+                    if p.poll() != None:
+                        processes.remove(p)
+                        break
+
+
 
     for p in processes:
         p.wait()
