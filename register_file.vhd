@@ -32,25 +32,12 @@ architecture rtl of register_file is
 
   constant ZERO : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0) := (others => '0');
 
-  signal we      : std_logic;
-  signal re      : std_logic;
-  signal out1    : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal out2    : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal outreg1 : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal outreg2 : std_logic_vector(REGISTER_SIZE-1 downto 0);
-
-  signal rs1_sel_latched : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0);
-  signal rs2_sel_latched : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0);
-
-  signal read_during_write1 : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal read_during_write2 : std_logic_vector(REGISTER_SIZE-1 downto 0);
-
-  signal wb_fwd_data1 : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal wb_fwd_data2 : std_logic_vector(REGISTER_SIZE-1 downto 0);
-
-  signal wb_data_latched : std_logic_vector(REGISTER_SIZE-1 downto 0);
-  signal wb_sel_latched  : std_logic_vector(REGISTER_NAME_SIZE-1 downto 0);
-  signal wb_en_latched   : std_logic;
+  signal read_during_write1 : std_logic;
+  signal read_during_write2 : std_logic;
+  signal out1               : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal out2               : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal wb_data_latched    : std_logic_vector(REGISTER_SIZE-1 downto 0);
+  signal we                 : std_logic;
 
 --These aliases are useful during simulation of software.
   alias ra  : std_logic_vector(REGISTER_SIZE-1 downto 0) is registers(1);
@@ -85,16 +72,10 @@ architecture rtl of register_file is
   alias t5  : std_logic_vector(REGISTER_SIZE-1 downto 0) is registers(30);
   alias t6  : std_logic_vector(REGISTER_SIZE-1 downto 0) is registers(31);
 
-  signal rdw1_en : std_logic;
-  signal wbf1_en : std_logic;
-
 begin
 
   we <= writeback_enable;
-  re <= not stall;
   register_proc : process (clk) is
-    variable read1 : std_logic_vector(REGISTER_SIZE-1 downto 0);
-    variable read2 : std_logic_vector(REGISTER_SIZE-1 downto 0);
   begin
     if rising_edge(clk) then
       if we = '1' then
@@ -107,18 +88,22 @@ begin
 
 
   --read during write logic
-  rs1_data     <= wb_data_latched when wb_en_latched = '1' and wb_sel_latched = rs1_sel_latched   else out1;
-  rs2_data     <= wb_data_latched when wb_en_latched = '1' and wb_sel_latched = rs2_sel_latched   else out2;
+  rs1_data <= wb_data_latched when read_during_write1 = '1'else out1;
+  rs2_data <= wb_data_latched when read_during_write2 = '1'else out2;
   process(clk) is
   begin
     if rising_edge(clk) then
-      rs1_sel_latched <= rs1_sel;
-      rs2_sel_latched <= rs2_sel;
-
+      read_during_write2 <= '0';
+      read_during_write1 <= '0';
+      if rs1_sel = writeback_sel and writeback_enable = '1' then
+        read_during_write1 <= '1';
+      end if;
+      if rs2_sel = writeback_sel and writeback_enable = '1' then
+        read_during_write2 <= '1';
+      end if;
       wb_data_latched <= writeback_data;
-      wb_sel_latched  <= writeback_sel;
-      wb_en_latched   <= writeback_enable;
     end if;
+
   end process;
 
 
