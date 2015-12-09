@@ -122,7 +122,7 @@ set_parameter_property SHIFTER_SINGLE_CYCLE ALLOWED_RANGES 0:1
 set_parameter_property SHIFTER_SINGLE_CYCLE HDL_PARAMETER true
 set_display_item_property SHIFTER_SINGLE_CYCLE DISPLAY_HINT boolean
 
-add_parameter          FORWARD_ALU_ONLY natural 0
+add_parameter          FORWARD_ALU_ONLY natural 1
 set_parameter_property FORWARD_ALU_ONLY ALLOWED_RANGES 0:1
 set_parameter_property FORWARD_ALU_ONLY DISPLAY_NAME "FORWARD FROM_ALU ONLY"
 set_parameter_property FORWARD_ALU_ONLY HDL_PARAMETER true

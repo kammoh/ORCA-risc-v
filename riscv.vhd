@@ -16,7 +16,7 @@ entity riscV is
     INCLUDE_COUNTERS     : natural range 0 to 1 := 0;
     BRANCH_PREDICTORS    : natural              := 0;
     PIPELINE_STAGES      : natural range 3 to 4 := 4;
-    FORWARD_ALU_ONLY     : natural range 0 to 1 := 0);
+    FORWARD_ALU_ONLY     : natural range 0 to 1 := 1);
 
   port(clk   : in std_logic;
        reset : in std_logic;

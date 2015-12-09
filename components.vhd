@@ -15,7 +15,7 @@ package rv_components is
       SHIFTER_SINGLE_CYCLE : natural range 0 to 1 := 0;
       INCLUDE_COUNTERS     : natural range 0 to 1 := 0;
       BRANCH_PREDICTORS    : natural              := 0;
-      FORWARD_ALU_ONLY     : natural range 0 to 1 := 0);
+      FORWARD_ALU_ONLY     : natural range 0 to 1 := 1);
     port(
       clk   : in std_logic;
       reset : in std_logic;
