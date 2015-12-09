@@ -21,6 +21,12 @@ def pushd(dirname):
 
     return PushdContext(dirname)
 
+
+QUEUES=("main.q",)
+QUEUES=("main.q@altivec","main.q@asc","main.q@avx","main.q@cray1","main.q@mmx")#avoid star100
+QUEUES=" ".join(map( lambda x : "-q "+ x,QUEUES))
+
+
 class system:
     files_needed=("Makefile",
                   "riscv_hw.tcl",
@@ -50,6 +56,7 @@ class system:
         self.pipeline_stages=pipeline_stages
         self.shifter_single_cycle=shifter_single_cycle
         self.fwd_alu_only=fwd_alu_only
+        self.dhrystones=""
         self.directory=("./veek_project_"+
                         "bp%s_"+
                         "btbsz%s_"+
@@ -66,7 +73,7 @@ class system:
                                    self.pipeline_stages,
                                    self.shifter_single_cycle,
                                    self.fwd_alu_only)
-        print self.directory
+
         if self.directory in system.dirs:
             raise system.duplicate_dir;
         else:
@@ -80,24 +87,88 @@ class system:
             pass
         for f in system.files_needed :
             shutil.copy2("veek_project/"+f,self.directory)
+
         with open(self.directory+"/config.mk","w") as f:
             f.write('BRANCH_PREDICTION="%s"\n'   %self.branch_prediction)
             f.write('BTB_SIZE="%s"\n'            %self.btb_size)
-            f.write('MULTIPLY_ENABLE="%s"\n'     %self.include_counters)
+            f.write('MULTIPLY_ENABLE="%s"\n'     %self.multiply_enable)
             f.write('DIVIDE_ENABLE="%s"\n'       %self.divide_enable)
-            f.write('INCLUDE_COUNTERS="%s"\n'    %self.multiply_enable)
+            f.write('INCLUDE_COUNTERS="%s"\n'    %self.include_counters)
             f.write('PIPELINE_STAGES="%s"\n'     %self.pipeline_stages)
             f.write('SHIFTER_SINGLE_CYCLE="%s"\n'%self.shifter_single_cycle)
             f.write('FORWARD_ALU_ONLY="%s"\n'    %self.fwd_alu_only)
     def build(self,use_qsub=False,build_target="all"):
         make_cmd='make -C %s %s'%(self.directory,build_target)
         if use_qsub:
-            qsub_cmd='qsub -q main.q -b y -sync y -j y  -V -cwd -N "veek_project" ' + make_cmd
+            qsub_cmd='qsub %s -b y -sync y -j y  -V -cwd -N "veek_project" '%QUEUES + make_cmd
             proc=subprocess.Popen(shlex.split(qsub_cmd))
         else:
            proc=subprocess.Popen(shlex.split(make_cmd))
            proc.wait()
         return proc
+
+    def run_dhrystone_sim(self,qsub):
+        proc=subprocess.Popen(['true'])
+        def replace(x,y):
+            cmd="sed -ie 's/"+x+"\s*=> [0-9]+/"+x+" => "+y+"/g' vblox1/simulation/vblox1.vhd"
+            subprocess.call(shlex.split(cmd))
+
+        if self.include_counters == "0":
+            self.dhrystones="No Count"
+            return proc
+        if os.path.exists(self.directory+"/vblox1/simulation"):
+            shutil.rmtree(self.directory+"/vblox1/simulation")
+        shutil.copytree("sim/vblox1/simulation",self.directory+"/vblox1/simulation")
+
+
+        with pushd(self.directory):
+            #these are modified versions of the benchmarks found in the riscv-test
+            #repository. they only run 5 loops, all printf calls and setStats calls
+            #are removed, and usertime is written to a gpio called hex0
+            if self.multiply_enable == '1' :
+                hex_file="../dhrystone.riscv.rv32im.gex"
+            else:
+                hex_file="../dhrystone.riscv.rv32i.gex"
+
+            if not os.path.exists(hex_file):
+                self.dhystones="No Hex File"
+                return proc
+            shutil.copy(hex_file,"vblox1/simulation/mentor/test.hex")
+
+            replace('BRANCH_PREDICTORS',self.btb_size if self.branch_prediction == "true" else '0')
+            replace('MULTIPLY_ENABLE',self.multiply_enable)
+            replace('DIVIDE_ENABLE',self.divide_enable)
+            replace('INCLUDE_COUNTERS',self.include_counters)
+            replace('PIPELINE_STAGES',self.pipeline_stages)
+            replace('SHIFTER_SINGLE_CYCLE',self.shifter_single_cycle)
+            replace('FORWARD_ALU_ONLY',self.fwd_alu_only)
+            vsim_tcl=("do ../tools/runsim.tcl",
+                      "add wave /vblox1/hex_0_external_connection_export",
+                      "restart -f",
+                      "onbreak {resume}",
+                      "when {/vblox1/hex_0_external_connection_export /= x\"00000000\" } {stop}",
+                      "run 200 us",
+                      "puts \" User Time = [examine -decimal /vblox1/hex_0_external_connection_export ] \"",
+                      "exit -f")
+            vsim_tcl=";".join(vsim_tcl)
+            vsim_cmd="echo '"+vsim_tcl+"' | vsim -c | tee dhrystone_sim.out"
+            queues=shlex.split(QUEUES)
+            if qsub:
+                split_cmd=["qsub",]+queues+["-b","y","-sync","y","-j","y","-V","-cwd","-N","dsim",vsim_cmd]
+                proc=subprocess.Popen(split_cmd)
+            else:
+                proc=subprocess.Popen(shlex.split(vsim_cmd))
+                proc.wait();
+            return proc
+
+    def get_dhrystone_stats(self):
+        out_file=self.directory+"/dhrystone_sim.out"
+        if os.path.exists(out_file):
+            out=open(out_file).read()
+            user_time=re.findall(r"User Time = ([0-9]+)",out)[0]
+            self.dhrystones=user_time
+        return
+
 
     def get_build_stats(self):
         timing_rpt=self.directory+"/output_files/vblox1.sta.rpt"
@@ -107,16 +178,13 @@ class system:
             rpt_string = f.read()
             fmax=re.findall(r";\s([.0-9]+)\s+MHz\s+;\s+clock_50",rpt_string)
             fmax=min(map(lambda x:float(x) , fmax))
-            print "fmax=%f"%fmax
             self.fmax=fmax
         with open(synth_rpt) as f:
             rpt_string = f.read()
             self.cpu_prefit_size=int(re.findall(r"^;\s+\|riscV:riscv_0\|\s+; (\d+)",rpt_string,re.MULTILINE)[0])
-            print "cpu_prefit_size=%d" %self.cpu_prefit_size
         with open(fit_rpt) as f:
             rpt_string = f.read()
             self.cpu_postfit_size=int(re.findall(r"^;\s+\|riscV:riscv_0\|\s+; (\d+)",rpt_string,re.MULTILINE)[0])
-            print "cpu_postfit_size=%d" %self.cpu_postfit_size
         with open(self.directory+"/summary.txt","w") as f:
             f.write('BRANCH_PREDICTION="%s"\n'   %self.branch_prediction)
             f.write('BTB_SIZE="%s"\n'            %self.btb_size)
@@ -140,26 +208,29 @@ def summarize_stats(systems):
         html.write("\n".join(("<!DOCTYPE html>",
                               "<html>",
                              "<head>",
-                              ' <meta charset="UTF-8"> ',
-                             '<script src="http://www.kryogenix.org/code/browser/sorttable/sorttable.js"></script>',
-                              "<style>",
-                              "table, th, td {",
-                              "    border: 1px solid black;",
-                              "    border-collapse: collapse;",
-                              "}",
-                              "</style>",
+                              "<title>Comparison of different build configurations</title>",
+                              '<meta charset="UTF-8"> ',
+                              '<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">',
+                              '<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js" integrity="sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS" crossorigin="anonymous"></script>'
+                              '<script src="http://www.kryogenix.org/code/browser/sorttable/sorttable.js"></script>',
                               "</head>",
                              "<body>",
-                             "<table class=sortable >")))
+                             "<table class=\"table table-striped table-bordered table-hover sortable\">")))
+        html.write("<h2>Comparison of different build configurations</h2><br>\n")
         html.write("<thead><tr><td></td>")
         for th in ('branch prediction','btb size','multiply','divide',
                    'perfomance counters','pipeline stages','single cycle shift',
-                   'fwd alu only','prefit size','postfit size','FMAX'):
-            html.write('<th class="rotate"><div><span>%s</span></div></th>'%th)
+                   'fwd alu only','prefit size','postfit size','FMAX','DMIPS/MHz','DMIPS'):
+            html.write('<th>%s</th>'%th)
         html.write("</thead></tr>\n")
 
-
         for sys in systems:
+            try:
+                dmips_per_mhz="%.3f"%((5*1000000./1757)/int(sys.dhrystones))
+                dmips="%.3f"%((5*100000./1757)/int(sys.dhrystones)*sys.fmax)
+            except ValueError:
+                dmips_per_mhz=sys.dhrystones
+                dmips=""
             html.write("<tr>")
             html.write("<td>%s</td>"%str(sys.directory))
             html.write("<td>%s</td>"%str(sys.branch_prediction))
@@ -173,6 +244,8 @@ def summarize_stats(systems):
             html.write("<td>%s</td>"%str(sys.cpu_prefit_size))
             html.write("<td>%s</td>"%str(sys.cpu_postfit_size))
             html.write("<td>%s</td>"%str(sys.fmax))
+            html.write("<td>%s</td>"%str(dmips_per_mhz))
+            html.write("<td>%s</td>"%str(dmips))
             html.write("</tr>\n")
         html.write("</table></body></html>")
 
@@ -184,7 +257,7 @@ if 0:
                      btb_size="1",
                      divide_enable="0",
                      multiply_enable="0",
-                     include_counters="0",
+                     include_counters="1",
                      shifter_single_cycle="0",
                      pipeline_stages="3",
                      fwd_alu_only="1"),
@@ -292,26 +365,35 @@ if __name__ == '__main__':
     import argparse
     parser=argparse.ArgumentParser()
     parser.add_argument('-s','--stats-only',dest='stats_only',action='store_true',default=False)
+    parser.add_argument('-d','--skip-dhrysone',dest='skip_dhrystone',action='store_true',default=False)
     parser.add_argument('-n','--no-stats',dest='no_stats',action='store_true',default=False)
     parser.add_argument('-t','--build-target',dest='build_target',default='all',help='Target to run with make command')
     parser.add_argument('-q','--use-qsub',dest='use_qsub',action='store_true',default=False, help='Use grid-engine to build systems')
     args=parser.parse_args()
 
+    devnull=open(os.devnull,"w")
+    processes=[]
+    if not os.path.exists('sim/vblox1/simulation/vblox1.vhd'):
+        with pushd('sim'):
+            processes.append(subprocess.Popen(["qsys-generate","--simulation=vhdl","vblox1.qsys"],stdout=devnull,stderr=devnull))
+
     for s in SYSTEMS:
         s.create_build_dir()
-    processes=[]
+
     for s in SYSTEMS:
         if not args.stats_only:
             processes.append(
                 s.build(args.use_qsub,args.build_target))
-            while len(processes) > 25:
-                time.sleep(5)
-                for p in processes:
-                    if p.poll() != None:
-                        processes.remove(p)
-                        break
+        if not args.no_stats and not args.skip_dhrystone:
+            processes.append(
+                s.run_dhrystone_sim(args.use_qsub))
 
-
+        while len(processes) > 25:
+            time.sleep(5)
+            for p in processes:
+                if p.poll() != None:
+                    processes.remove(p)
+                    break
 
     for p in processes:
         p.wait()
@@ -319,6 +401,7 @@ if __name__ == '__main__':
     for s in SYSTEMS:
         if not args.no_stats:
             s.get_build_stats()
+            s.get_dhrystone_stats()
 
     if not args.no_stats:
         summarize_stats(SYSTEMS)
