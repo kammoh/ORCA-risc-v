@@ -110,12 +110,19 @@ class system:
     def run_dhrystone_sim(self,qsub):
         proc=subprocess.Popen(['true'])
         def replace(x,y):
-            cmd="sed -ie 's/"+x+"\s*=> [0-9]+/"+x+" => "+y+"/g' vblox1/simulation/vblox1.vhd"
-            subprocess.call(shlex.split(cmd))
+            with open("vblox1/simulation/vblox1.vhd") as f:
+                string=re.sub(x+r"\s*=> [0-9]+",x+" => "+y,f.read())
+            with open("vblox1/simulation/vblox1.vhd","w") as f:
+                f.write(string)
+
 
         if self.include_counters == "0":
             self.dhrystones="No Count"
             return proc
+        if self.multiply_enable == "1" and self.divide_enable == "0":
+            self.dhrystones="No Divide"
+            return proc
+
         if os.path.exists(self.directory+"/vblox1/simulation"):
             shutil.rmtree(self.directory+"/vblox1/simulation")
         shutil.copytree("sim/vblox1/simulation",self.directory+"/vblox1/simulation")
@@ -150,15 +157,17 @@ class system:
                       "run 200 us",
                       "puts \" User Time = [examine -decimal /vblox1/hex_0_external_connection_export ] \"",
                       "exit -f")
+            with open("dhrystone.tcl","w") as f:
+                f.write("\n".join(vsim_tcl))
+
             vsim_tcl=";".join(vsim_tcl)
-            vsim_cmd="echo '"+vsim_tcl+"' | vsim -c | tee dhrystone_sim.out"
-            queues=shlex.split(QUEUES)
+            vsim_cmd="vsim -c -do dhrystone.tcl| tee dhrystone_sim.out"
             if qsub:
+                queues=shlex.split(QUEUES)
                 split_cmd=["qsub",]+queues+["-b","y","-sync","y","-j","y","-V","-cwd","-N","dsim",vsim_cmd]
                 proc=subprocess.Popen(split_cmd)
             else:
-                proc=subprocess.Popen(shlex.split(vsim_cmd))
-                proc.wait();
+               subprocess.call(vsim_cmd,shell=True)
             return proc
 
     def get_dhrystone_stats(self):
@@ -174,17 +183,23 @@ class system:
         timing_rpt=self.directory+"/output_files/vblox1.sta.rpt"
         synth_rpt = self.directory+"/output_files/vblox1.map.rpt"
         fit_rpt=self.directory+"/output_files/vblox1.fit.rpt"
-        with open(timing_rpt) as f:
-            rpt_string = f.read()
-            fmax=re.findall(r";\s([.0-9]+)\s+MHz\s+;\s+clock_50",rpt_string)
-            fmax=min(map(lambda x:float(x) , fmax))
-            self.fmax=fmax
-        with open(synth_rpt) as f:
-            rpt_string = f.read()
-            self.cpu_prefit_size=int(re.findall(r"^;\s+\|riscV:riscv_0\|\s+; (\d+)",rpt_string,re.MULTILINE)[0])
-        with open(fit_rpt) as f:
-            rpt_string = f.read()
-            self.cpu_postfit_size=int(re.findall(r"^;\s+\|riscV:riscv_0\|\s+; (\d+)",rpt_string,re.MULTILINE)[0])
+        self.fmax=-1
+        self.cpu_prefit_size=-1
+        self.cpu_postfit_size=-1
+        if os.path.exists(timing_rpt):
+            with open(timing_rpt) as f:
+                rpt_string = f.read()
+                fmax=re.findall(r";\s([.0-9]+)\s+MHz\s+;\s+clock_50",rpt_string)
+                fmax=min(map(lambda x:float(x) , fmax))
+                self.fmax=fmax
+        if os.path.exists(synth_rpt):
+            with open(synth_rpt) as f:
+                rpt_string = f.read()
+                self.cpu_prefit_size=int(re.findall(r"^;\s+\|riscV:riscv_0\|\s+; (\d+)",rpt_string,re.MULTILINE)[0])
+        if os.path.exists(fit_rpt):
+            with open(fit_rpt) as f:
+                rpt_string = f.read()
+                self.cpu_postfit_size=int(re.findall(r"^;\s+\|riscV:riscv_0\|\s+; (\d+)",rpt_string,re.MULTILINE)[0])
         with open(self.directory+"/summary.txt","w") as f:
             f.write('BRANCH_PREDICTION="%s"\n'   %self.branch_prediction)
             f.write('BTB_SIZE="%s"\n'            %self.btb_size)
@@ -210,28 +225,55 @@ def summarize_stats(systems):
                              "<head>",
                               "<title>Comparison of different build configurations</title>",
                               '<meta charset="UTF-8"> ',
+                              '<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>',
+                              '<script src="http://code.jquery.com/ui/1.9.2/jquery-ui.js"></script>',
                               '<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">',
                               '<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js" integrity="sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS" crossorigin="anonymous"></script>'
                               '<script src="http://www.kryogenix.org/code/browser/sorttable/sorttable.js"></script>',
+                              "<script>  ",
+                              "$=jQuery",
+                              "  $(document).ready(function(){      ",
+                              "    $('.remove-row').click(function(){ ",
+                              '       $($(this).closest("tr")).remove()              ',
+                              "    });                              ",
+                              "  });                                ",
+                              "</script>                            ",
                               "</head>",
-                             "<body>",
-                             "<table class=\"table table-striped table-bordered table-hover sortable\">")))
-        html.write("<h2>Comparison of different build configurations</h2><br>\n")
-        html.write("<thead><tr><td></td>")
-        for th in ('branch prediction','btb size','multiply','divide',
+                              "<body>",
+                              "<h2>Comparison of different build configurations</h2><br>\n",
+                              "<table class=\"table table-striped table-bordered table-hover sortable\" style=\"text-align:center\">")))
+
+        html.write("<thead><tr>")
+        for th in ('','','branch prediction','btb size','multiply','divide',
                    'perfomance counters','pipeline stages','single cycle shift',
-                   'fwd alu only','prefit size','postfit size','FMAX','DMIPS/MHz','DMIPS'):
+                   'fwd alu only','prefit size','postfit size','FMAX','DMIPS','DMIPS/MHz','DMIPS/1000LUT (post-fit)'):
             html.write('<th>%s</th>'%th)
         html.write("</thead></tr>\n")
 
         for sys in systems:
             try:
-                dmips_per_mhz="%.3f"%((5*1000000./1757)/int(sys.dhrystones))
-                dmips="%.3f"%((5*100000./1757)/int(sys.dhrystones)*sys.fmax)
-            except ValueError:
-                dmips_per_mhz=sys.dhrystones
+                dmips_per_mhz=((5*1000000./1757)/int(sys.dhrystones))
+                dmips=dmips_per_mhz*sys.fmax
+                dmips_per_lut=dmips*1000/sys.cpu_postfit_size;
+                dmips_per_mhz="%.3f" % dmips_per_mhz
+                dmips="%.3f"% dmips
+                dmips_per_lut="%.3f"% dmips_per_lut
+
+            except Exception as e:
+                dmips_per_mhz=""
                 dmips=""
+                if sys.include_counters == "0":
+                    dmips_per_lut="No Counters"
+                elif sys.multiply_enable == "1" and sys.divide_enable == "0":
+                    dmips_per_lut="No Divide"
+                else:
+                    print sys.directory
+                    print sys.include_counters
+                    raise e
+
+            button_html='<button class="btn btn-default remove-row"><span class="glyphicon glyphicon-remove" aria-hidden=true></span></button>'
             html.write("<tr>")
+            html.write("<td>%s</td>" % button_html)
             html.write("<td>%s</td>"%str(sys.directory))
             html.write("<td>%s</td>"%str(sys.branch_prediction))
             html.write("<td>%s</td>"%str(sys.btb_size if sys.branch_prediction == "true" else "N/A"))
@@ -244,8 +286,10 @@ def summarize_stats(systems):
             html.write("<td>%s</td>"%str(sys.cpu_prefit_size))
             html.write("<td>%s</td>"%str(sys.cpu_postfit_size))
             html.write("<td>%s</td>"%str(sys.fmax))
-            html.write("<td>%s</td>"%str(dmips_per_mhz))
             html.write("<td>%s</td>"%str(dmips))
+            html.write("<td>%s</td>"%str(dmips_per_mhz))
+            html.write("<td>%s</td>"%str(dmips_per_lut))
+
             html.write("</tr>\n")
         html.write("</table></body></html>")
 
@@ -373,9 +417,14 @@ if __name__ == '__main__':
 
     devnull=open(os.devnull,"w")
     processes=[]
+
     if not os.path.exists('sim/vblox1/simulation/vblox1.vhd'):
         with pushd('sim'):
-            processes.append(subprocess.Popen(["qsys-generate","--simulation=vhdl","vblox1.qsys"],stdout=devnull,stderr=devnull))
+            print "generating simulation files"
+            subprocess.call( "qsys-generate --simulation=vhdl vblox1.qsys;"+
+                                        " cd vblox1/simulation/submodules/;"+
+                                        "ln -sf ../../../../*.vhd .",shell=True,
+                                       stdout=devnull,stderr=devnull)
 
     for s in SYSTEMS:
         s.create_build_dir()
