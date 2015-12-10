@@ -93,7 +93,7 @@ begin  -- architecture rtl
     if rising_edge(clk) then
       if (pc_corr_en or not if_stall) = '1' then
         program_counter <= next_pc;
-        pc_out <= program_counter;
+        pc_out          <= program_counter;
       end if;
 
       saved_address_en <= '0';
@@ -153,14 +153,19 @@ begin  -- architecture rtl
     signal add4             : std_logic_vector(REGISTER_SIZE-1 downto 0);
     signal addr_tag         : std_logic_vector(TAG_SIZE-1 downto 0);
 
-    signal btb_entry : std_logic_vector(branch_btb(0)'range);
-    alias btb_tag    : std_logic_vector(TAG_SIZE-1 downto 0) is btb_entry(REGISTER_SIZE+TAG_SIZE-1 downto REGISTER_SIZE);
-    alias btb_taken  : std_logic is btb_entry(btb_entry'left);
-    alias btb_target : std_logic_vector(REGISTER_SIZE-1 downto 0) is btb_entry(REGISTER_SIZE-1 downto 0);
+    signal btb_entry    : std_logic_vector(branch_btb(0)'range);
+    signal btb_entry_rd : std_logic_vector(branch_btb(0)'range);
+
+    signal btb_entry_saved_en : std_logic;
+    signal btb_entry_saved    : std_logic_vector(branch_btb(0)'range);
+    alias btb_tag             : std_logic_vector(TAG_SIZE-1 downto 0) is btb_entry(REGISTER_SIZE+TAG_SIZE-1 downto REGISTER_SIZE);
+    alias btb_taken           : std_logic is btb_entry(btb_entry'left);
+    alias btb_target          : std_logic_vector(REGISTER_SIZE-1 downto 0) is btb_entry(REGISTER_SIZE-1 downto 0);
 
     signal saved_predicted_pc : std_logic_vector(REGISTER_SIZE-1 downto 0);
     signal saved_br_taken     : std_logic;
     signal saved_br_en        : std_logic;
+
   begin
     branch_tgt   <= branch_get_tgt(branch_pred);
     branch_pc    <= branch_get_pc(branch_pred);
@@ -175,36 +180,37 @@ begin  -- architecture rtl
 
     begin
       if rising_edge(clk) then
-        btb_entry <= branch_btb(btb_raddr);
+        --block ram read
+        btb_entry_rd <= branch_btb(btb_raddr);
         if branch_en = '1' then
           branch_btb(btb_waddr) <= branch_taken &branch_pc(INDEX_SIZE+2+TAG_SIZE-1 downto INDEX_SIZE+2) & branch_tgt;
         end if;
 
+        --latched values
         addr_tag <= next_pc(INDEX_SIZE+2+TAG_SIZE-1 downto INDEX_SIZE+2);
-        add4     <= std_logic_vector(signed(next_pc) + 4);
+        if if_stall = '0' then
+          add4 <= std_logic_vector(signed(next_pc) + 4);
+        end if;
 
-        saved_predicted_pc <= next_pc;
+        --bypass for simulating read enable
+        btb_entry_saved    <= btb_entry;
+        btb_entry_saved_en <= if_stall;
+        if reset = '1' then
+          add4 <= std_logic_vector(to_signed(RESET_VECTOR, REGISTER_SIZE));
+        end if;
 
-        if saved_br_en = '0' then
+        if if_stall = '0' then
           br_taken <= '0';
-          if btb_tag = addr_tag then
+          if btb_tag = addr_tag  then
             br_taken <= btb_taken;
           end if;
         end if;
-
-        saved_br_en <= if_stall;
-
-        if reset = '1' then
-          saved_predicted_pc <= std_logic_vector(to_signed(RESET_VECTOR+4, REGISTER_SIZE));
-          saved_br_taken     <= '0';
-          saved_br_en        <= '1';
-        end if;
       end if;
-    end process;
-    predicted_pc <= saved_predicted_pc when saved_br_en = '1' else
-                    btb_target when btb_tag = addr_tag and btb_taken = '1' else add4;
 
-    prediction_match <= '1' when btb_tag = addr_tag else '0';
+    end process;
+    btb_entry        <= btb_entry_rd when btb_entry_saved_en = '0'               else btb_entry_saved;
+    predicted_pc     <= btb_target   when btb_tag = addr_tag and btb_taken = '1' else add4;
+    prediction_match <= '1'          when btb_tag = addr_tag                     else '0';
   end generate use_BP;
 
 
