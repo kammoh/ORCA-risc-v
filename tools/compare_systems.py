@@ -212,6 +212,78 @@ class system:
             f.write( "cpu_prefit_size=%d\n"      %self.cpu_prefit_size)
             f.write( "cpu_postfit_size=%d\n"     %self.cpu_postfit_size)
 
+chart_script="""
+function insert_chart(element_select,data) {
+
+
+	 var margin = {top: 20, right: 15, bottom: 60, left: 60}
+	 , width = 960 - margin.left - margin.right
+	 , height = 500 - margin.top - margin.bottom;
+
+         var xmin = d3.min(data, function(d) { return d[0]; });
+         var xmax = d3.max(data, function(d) { return d[0]; });
+         var xmarg = (xmax -xmin)*0.05;
+         var xmin = xmin - xmarg
+         var xmax = xmax + xmarg
+	 var x = d3.scale.linear()
+		  .domain([xmin,xmax])
+		  .range([ 0, width ]);
+
+         var ymin = d3.min(data, function(d) { return d[1]; });
+         var ymax = d3.max(data, function(d) { return d[1]; });
+         var ymarg = (ymax -ymin)*0.05;
+         var ymin = ymin - ymarg
+         var ymax = ymax + ymarg
+
+
+	 var y = d3.scale.linear()
+		  .domain([ymin,ymax])
+		  .range([ height, 0 ]);
+
+	 var chart = d3.select(element_select)
+		  .append('svg:svg')
+		  .attr('width', width + margin.right + margin.left)
+		  .attr('height', height + margin.top + margin.bottom)
+		  .attr('class', 'chart')
+
+	 var main = chart.append('g')
+		  .attr('transform', 'translate(' + margin.left + ',' + margin.top + ')')
+		  .attr('width', width)
+		  .attr('height', height)
+		  .attr('class', 'main')
+
+	 // draw the x axis
+	 var xAxis = d3.svg.axis()
+		  .scale(x)
+		  .orient('bottom');
+
+	 main.append('g')
+		  .attr('transform', 'translate(0,' + height + ')')
+		  .attr('class', 'main axis date')
+		  .call(xAxis);
+
+	 // draw the y axis
+	 var yAxis = d3.svg.axis()
+		  .scale(y)
+		  .orient('left');
+
+	 main.append('g')
+		  .attr('transform', 'translate(0,0)')
+		  .attr('class', 'main axis date')
+		  .call(yAxis);
+
+	 var g = main.append("svg:g");
+
+	 g.selectAll("scatter-dots")
+		  .data(data)
+		  .enter().append("svg:circle")
+		  .attr("cx", function (d,i) { return x(d[0]); } )
+		  .attr("cy", function (d) { return y(d[1]); } )
+		  .attr("r", 8)
+		  .append("svg:title").text(  function (d,i) { return d[2] } );
+}
+"""
+
 
 
 def summarize_stats(systems):
@@ -225,36 +297,62 @@ def summarize_stats(systems):
                              "<head>",
                               "<title>Comparison of different build configurations</title>",
                               '<meta charset="UTF-8"> ',
-                              '<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>',
-                              '<script src="http://code.jquery.com/ui/1.9.2/jquery-ui.js"></script>',
+                              '<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>',
+                              '<script src="http://code.jquery.com/ui/1.11.3/jquery-ui.js"></script>',
                               '<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">',
                               '<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js" integrity="sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS" crossorigin="anonymous"></script>'
-                              '<script src="http://www.kryogenix.org/code/browser/sorttable/sorttable.js"></script>',
+
+                              #'<script src="http://www.kryogenix.org/code/browser/sorttable/sorttable.js"></script>',
+                              '<script src="http://tablesorter.com/__jquery.tablesorter.min.js"></script>',
+                              '<script type="text/javascript" src="http://mbostock.github.com/d3/d3.v2.js"></script>',
+
+                              '<script >%s</script>'%chart_script,
+                              "<style>                       ",
+                              "	.chart {                     ",
+                              "                              ",
+                              "	}                            ",
+                              "                              ",
+                              "	.main text {                 ",
+                              "	font: 10px sans-serif;       ",
+                              "	}                            ",
+                              "                              ",
+                              "	.axis line, .axis path {     ",
+                              "	shape-rendering: crispEdges; ",
+                              "	stroke: black;               ",
+                              "	fill: none;                  ",
+                              "	}                            ",
+                              "	circle {                     ",
+                              "	fill: steelblue;             ",
+                              "	}                            ",
+                              "</style>                      ",
                               "<script>  ",
-                              "$=jQuery",
                               "  $(document).ready(function(){      ",
+                              '      var tbl = $(".tablesorter");',
+                              "      tbl.tablesorter() ",
                               "    $('.remove-row').click(function(){ ",
-                              '       $($(this).closest("tr")).remove()              ',
+                              '       $($(this).closest("tr")).remove();',
                               "    });                              ",
                               "  });                                ",
                               "</script>                            ",
                               "</head>",
                               "<body>",
                               "<h2>Comparison of different build configurations</h2><br>\n",
-                              "<table class=\"table table-striped table-bordered table-hover sortable\" style=\"text-align:center\">")))
+                              "<table class=\"table table-striped table-bordered table-hover tablesorter\" style=\"text-align:center\">")))
 
         html.write("<thead><tr>")
         for th in ('','','branch prediction','btb size','multiply','divide',
                    'perfomance counters','pipeline stages','single cycle shift',
                    'fwd alu only','prefit size','postfit size','FMAX','DMIPS','DMIPS/MHz','DMIPS/1000LUT (post-fit)'):
             html.write('<th>%s</th>'%th)
-        html.write("</thead></tr>\n")
+        html.write("</tr></thead><tbody>\n")
+        data=[]
 
         for sys in systems:
             try:
                 dmips_per_mhz=((5*1000000./1757)/int(sys.dhrystones))
                 dmips=dmips_per_mhz*sys.fmax
                 dmips_per_lut=dmips*1000/sys.cpu_postfit_size;
+                data.append([sys.cpu_postfit_size,1000./dmips,sys.directory])
                 dmips_per_mhz="%.3f" % dmips_per_mhz
                 dmips="%.3f"% dmips
                 dmips_per_lut="%.3f"% dmips_per_lut
@@ -270,7 +368,8 @@ def summarize_stats(systems):
                     print sys.directory
                     print sys.include_counters
                     raise e
-
+            if str(dmips):
+                print "%s %s %s" % (str(sys.directory),str(dmips),str(sys.cpu_postfit_size))
             button_html='<button class="btn btn-default remove-row"><span class="glyphicon glyphicon-remove" aria-hidden=true></span></button>'
             html.write("<tr>")
             html.write("<td>%s</td>" % button_html)
@@ -291,8 +390,10 @@ def summarize_stats(systems):
             html.write("<td>%s</td>"%str(dmips_per_lut))
 
             html.write("</tr>\n")
-        html.write("</table></body></html>")
-
+        html.write("</tbody></table>\n")
+        html.write("<div class=scatter><h3>LUT Count vs Execution Time (1000/DMIPS)</h3></div>\n")
+        html.write("<script>\n insert_chart('.scatter',%s);\n</script>" % str(data))
+        html.write("</body></html>\n")
 
 SYSTEMS=[]
 
