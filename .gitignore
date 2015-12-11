@@ -5,6 +5,7 @@ sim/db/*
 veek_project/output_files/*
 veek_project/incremental_db/*
 
+veek_project_bp*
 
 wishbone/cae_library/*
 ice40ultra/ice40ultra_Implmnt/*

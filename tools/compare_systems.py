@@ -100,7 +100,7 @@ class system:
     def build(self,use_qsub=False,build_target="all"):
         make_cmd='make -C %s %s'%(self.directory,build_target)
         if use_qsub:
-            qsub_cmd='qsub %s -b y -sync y -j y  -V -cwd -N "veek_project" '%QUEUES + make_cmd
+            qsub_cmd='qsub %s -b y -o %s -sync y -j y  -V -cwd -N "veek_project" '% (QUEUES, self.directory +"/build.log") + make_cmd
             proc=subprocess.Popen(shlex.split(qsub_cmd))
         else:
            proc=subprocess.Popen(shlex.split(make_cmd))
@@ -123,10 +123,6 @@ class system:
             self.dhrystones="No Divide"
             return proc
 
-        if os.path.exists(self.directory+"/vblox1/simulation"):
-            shutil.rmtree(self.directory+"/vblox1/simulation")
-        shutil.copytree("sim/vblox1/simulation",self.directory+"/vblox1/simulation")
-
 
         with pushd(self.directory):
             #these are modified versions of the benchmarks found in the riscv-test
@@ -138,8 +134,14 @@ class system:
                 hex_file="../dhrystone.riscv.rv32i.gex"
 
             if not os.path.exists(hex_file):
-                self.dhystones="No Hex File"
+                self.dhrystones="No Hex File"
                 return proc
+
+            if os.path.exists("vblox1/simulation"):
+                shutil.rmtree("vblox1/simulation")
+            shutil.copytree("../sim/vblox1/simulation","vblox1/simulation")
+
+
             shutil.copy(hex_file,"vblox1/simulation/mentor/test.hex")
 
             replace('BRANCH_PREDICTORS',self.btb_size if self.branch_prediction == "true" else '0')
@@ -162,6 +164,7 @@ class system:
 
             vsim_tcl=";".join(vsim_tcl)
             vsim_cmd="vsim -c -do dhrystone.tcl| tee dhrystone_sim.out"
+
             if qsub:
                 queues=shlex.split(QUEUES)
                 split_cmd=["qsub",]+queues+["-b","y","-sync","y","-j","y","-V","-cwd","-N","dsim",vsim_cmd]
@@ -345,14 +348,15 @@ def summarize_stats(systems):
                    'fwd alu only','prefit size','postfit size','FMAX','DMIPS','DMIPS/MHz','DMIPS/1000LUT (post-fit)'):
             html.write('<th>%s</th>'%th)
         html.write("</tr></thead><tbody>\n")
-        data=[]
-
+        dhry_data=[]
+        fmax_data=[]
         for sys in systems:
             try:
                 dmips_per_mhz=((5*1000000./1757)/int(sys.dhrystones))
                 dmips=dmips_per_mhz*sys.fmax
                 dmips_per_lut=dmips*1000/sys.cpu_postfit_size;
-                data.append([sys.cpu_postfit_size,1000./dmips,sys.directory])
+                dhry_data.append([sys.cpu_postfit_size,1000./dmips,sys.directory])
+                fmax_data.append([sys.cpu_postfit_size,sys.fmax,sys.directory])
                 dmips_per_mhz="%.3f" % dmips_per_mhz
                 dmips="%.3f"% dmips
                 dmips_per_lut="%.3f"% dmips_per_lut
@@ -360,16 +364,9 @@ def summarize_stats(systems):
             except Exception as e:
                 dmips_per_mhz=""
                 dmips=""
-                if sys.include_counters == "0":
-                    dmips_per_lut="No Counters"
-                elif sys.multiply_enable == "1" and sys.divide_enable == "0":
-                    dmips_per_lut="No Divide"
-                else:
-                    print sys.directory
-                    print sys.include_counters
-                    raise e
-            if str(dmips):
-                print "%s %s %s" % (str(sys.directory),str(dmips),str(sys.cpu_postfit_size))
+                dmips_per_lut=sys.dhrystones
+
+
             button_html='<button class="btn btn-default remove-row"><span class="glyphicon glyphicon-remove" aria-hidden=true></span></button>'
             html.write("<tr>")
             html.write("<td>%s</td>" % button_html)
@@ -391,8 +388,14 @@ def summarize_stats(systems):
 
             html.write("</tr>\n")
         html.write("</tbody></table>\n")
-        html.write("<div class=scatter><h3>LUT Count vs Execution Time (1000/DMIPS)</h3></div>\n")
-        html.write("<script>\n insert_chart('.scatter',%s);\n</script>" % str(data))
+        def add_chart(title,data):
+            id=hash(title)
+            id = id if id >0 else -id
+            if len(data):
+                html.write("<div id=\"id_%x\"><h3>%s</h3></div>\n" % (id,title))
+                html.write("<script>\n insert_chart(\"#id_%x\",%s);\n</script>" % (id,str(data)))
+        add_chart("LUT Count vs Execution Time (1000/DMIPS)",dhry_data)
+        add_chart("LUT Count vs FMax", fmax_data)
         html.write("</body></html>\n")
 
 SYSTEMS=[]
@@ -539,11 +542,11 @@ if __name__ == '__main__':
                 s.run_dhrystone_sim(args.use_qsub))
 
         while len(processes) > 25:
+            processes_next = [ p for p in processes if p.poll() == None ]
+            if len(processes_next) != len(processes):
+                processes = processes_next
+                break
             time.sleep(5)
-            for p in processes:
-                if p.poll() != None:
-                    processes.remove(p)
-                    break
 
     for p in processes:
         p.wait()
@@ -552,6 +555,5 @@ if __name__ == '__main__':
         if not args.no_stats:
             s.get_build_stats()
             s.get_dhrystone_stats()
-
     if not args.no_stats:
         summarize_stats(SYSTEMS)
