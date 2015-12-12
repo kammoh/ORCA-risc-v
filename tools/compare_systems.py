@@ -66,7 +66,7 @@ class system:
                         "pipe%s_"+
                         "ssc%s_"+
                         "fwd%s") %(self.branch_prediction,
-                                   self.btb_size,
+                                   self.btb_size if self.branch_prediction == "true" else "0" ,
                                    self.divide_enable,
                                    self.multiply_enable,
                                    self.include_counters,
@@ -283,11 +283,38 @@ function insert_chart(element_select,data) {
 		  .attr("cx", function (d,i) { return x(d[0]); } )
 		  .attr("cy", function (d) { return y(d[1]); } )
 		  .attr("r", 8)
+		  .attr("class", function (d) { return d[2].split("_").slice(2).join(" "); } )
 		  .append("svg:title").text(  function (d,i) { return d[2] } );
 }
 """
 
+check_boxes_html="""
+<div >
+<input class="green-selector" type="checkbox"  onchange="toggle_checkbox(this)" name="btbsz0">    btbsz0      </input>
+<input class="green-selector" type="checkbox"  onchange="toggle_checkbox(this)" name="btbsz8">    btbsz8		</input>
+<input class="green-selector" type="checkbox"  onchange="toggle_checkbox(this)" name="btbsz16">   btbsz16		</input>
+<input class="green-selector" type="checkbox"  onchange="toggle_checkbox(this)" name="btbsz256">  tbsz256	</input>
+<input class="green-selector" type="checkbox"  onchange="toggle_checkbox(this)" name="btbsz4096"> btbsz4096</input>
+<input class="green-selector" type="checkbox"  onchange="toggle_checkbox(this)" name="div1">      div1				</input>
+<input class="green-selector" type="checkbox"  onchange="toggle_checkbox(this)" name="mul1">      mul1				</input>
+<input class="green-selector" type="checkbox"  onchange="toggle_checkbox(this)" name="count1">    count1		</input>
+<input class="green-selector" type="checkbox"  onchange="toggle_checkbox(this)" name="pipe3">     pipe3			</input>
+<input class="green-selector" type="checkbox"  onchange="toggle_checkbox(this)" name="ssc1">      ssc1				</input>
+<input class="green-selector" type="checkbox"  onchange="toggle_checkbox(this)" name="fwd1">      fwd1          </input>
+<script>
+function toggle_checkbox(k) {
 
+   var name =  d3.select(k).attr("name");
+   var sel = d3.selectAll("."+name);
+   if (d3.select(k).property("checked")){
+      sel.style("fill","green");
+   }else{
+      sel.style("fill","steelblue");
+   }
+}
+</script>
+</div>
+"""
 
 def summarize_stats(systems):
     try:
@@ -352,11 +379,12 @@ def summarize_stats(systems):
         fmax_data=[]
         for sys in systems:
             try:
+                fmax_data.append([sys.cpu_postfit_size,sys.fmax,sys.directory])
                 dmips_per_mhz=((5*1000000./1757)/int(sys.dhrystones))
                 dmips=dmips_per_mhz*sys.fmax
                 dmips_per_lut=dmips*1000/sys.cpu_postfit_size;
                 dhry_data.append([sys.cpu_postfit_size,1000./dmips,sys.directory])
-                fmax_data.append([sys.cpu_postfit_size,sys.fmax,sys.directory])
+
                 dmips_per_mhz="%.3f" % dmips_per_mhz
                 dmips="%.3f"% dmips
                 dmips_per_lut="%.3f"% dmips_per_lut
@@ -388,6 +416,7 @@ def summarize_stats(systems):
 
             html.write("</tr>\n")
         html.write("</tbody></table>\n")
+        html.write(check_boxes_html);
         def add_chart(title,data):
             id=hash(title)
             id = id if id >0 else -id
@@ -486,7 +515,7 @@ if 0:
 else:
 
     for bp in ["false","true"]:
-        for btb_size in ["1","8","16","256","4096"]:
+        for btb_size in ["1","16","256","4096"]:
             if bp== "false" and btb_size != "1":
                 continue;
             for mul in ["0","1"]:
@@ -542,11 +571,9 @@ if __name__ == '__main__':
                 s.run_dhrystone_sim(args.use_qsub))
 
         while len(processes) > 25:
-            processes_next = [ p for p in processes if p.poll() == None ]
-            if len(processes_next) != len(processes):
-                processes = processes_next
-                break
-            time.sleep(5)
+            processes = [ p for p in processes if p.poll() == None ]
+            if len(processes) > 25:
+                time.sleep(5)
 
     for p in processes:
         p.wait()
