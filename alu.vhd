@@ -26,7 +26,7 @@ architecture rtl of shifter is
   constant SHIFT_AMT_SIZE : natural := shift_amt'length;
   signal left_tmp         : signed(REGISTER_SIZE downto 0);
   signal right_tmp        : signed(REGISTER_SIZE downto 0);
-
+  constant MULTI_4_BIT    : boolean := true;
 begin  -- architecture rtl
   cycle1 : if SINGLE_CYCLE generate
     left_tmp  <= SHIFT_LEFT(shifted_value, to_integer(shift_amt));
@@ -34,7 +34,60 @@ begin  -- architecture rtl
     done      <= '1';
   end generate cycle1;
 
-  cycleN : if not SINGLE_CYCLE generate
+  cycle4N : if not SINGLE_CYCLE  and MULTI_4_BIT generate
+
+    signal left_nxt   : signed(REGISTER_SIZE downto 0);
+    signal right_nxt  : signed(REGISTER_SIZE downto 0);
+    signal count      : unsigned(SHIFT_AMT_SIZE downto 0);
+    signal count_next : unsigned(SHIFT_AMT_SIZE downto 0);
+    signal count_sub4 : unsigned(SHIFT_AMT_SIZE downto 0);
+    signal shift4     : std_logic;
+    type state_t is (start, running, fini);
+    signal state      : state_t := start;
+
+  begin
+    count_sub4 <= count -4;
+    shift4     <= not count_sub4(count_sub4'left);
+    count_next <= count_sub4                when shift4 = '1' else count -1;
+    left_nxt   <= SHIFT_LEFT(left_tmp, 4)   when shift4 = '1' else SHIFT_LEFT(left_tmp, 1);
+    right_nxt  <= SHIFT_RIGHT(right_tmp, 4) when shift4 = '1' else SHIFT_RIGHT(right_tmp, 1);
+
+    process(clk)
+    begin
+      if rising_edge(clk) then
+        case state is
+          when start =>
+            done <= '0';
+            if enable = '1' then
+              left_tmp  <= shifted_value;
+              right_tmp <= shifted_value;
+              count     <= unsigned("0"&shift_amt);
+              if shift_amt /= 0 then
+                state <= running;
+              else
+                state <= fini;
+                done  <= '1';
+              end if;
+            end if;
+          when running =>
+            assert enable = '1' report "enable went low during shift" severity error;
+            left_tmp  <= left_nxt;
+            right_tmp <= right_nxt;
+            count     <= count_next;
+            if count = 1 or count = 4 then
+              done  <= '1';
+              state <= fini;
+            end if;
+          when others =>
+            state <= start;
+            done  <= '0';
+        end case;
+      end if;
+    end process;
+
+  end generate cycle4N;
+
+  cycle1N : if not SINGLE_CYCLE and not MULTI_4_BIT generate
 
     signal left_nxt  : signed(REGISTER_SIZE downto 0);
     signal right_nxt : signed(REGISTER_SIZE downto 0);
@@ -79,7 +132,7 @@ begin  -- architecture rtl
       end if;
     end process;
 
-  end generate cycleN;
+  end generate cycle1N;
 
   right_result <= unsigned(right_tmp(REGISTER_SIZE-1 downto 0));
   left_result  <= unsigned(left_tmp(REGISTER_SIZE-1 downto 0));
@@ -181,7 +234,7 @@ begin  -- architecture rtl
     instruction(14 downto 12) = "000"                           when "00",
     instruction(14 downto 12) = "000" and instruction(30) = '0' when "01",
     false                                                       when others;
-  sub    <= op1+op2 when is_add else op1 - op2;
+  sub <= op1+op2 when is_add else op1 - op2;
 
 
   shifter_multiply <=
