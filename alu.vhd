@@ -320,11 +320,12 @@ architecture rtl of divider is
 begin  -- architecture rtl
 
   div_proc : process(clk)
-    alias D    : unsigned(REGISTER_SIZE-1 downto 0) is denominator;
-    variable N : unsigned(REGISTER_SIZE-1 downto 0);
-    variable R : unsigned(REGISTER_SIZE -1 downto 0);
-    variable Q : unsigned(REGISTER_SIZE-1 downto 0);
-
+    alias D        : unsigned(REGISTER_SIZE-1 downto 0) is denominator;
+    variable N     : unsigned(REGISTER_SIZE-1 downto 0);
+    variable R     : unsigned(REGISTER_SIZE-1 downto 0);
+    variable Q     : unsigned(REGISTER_SIZE-1 downto 0);
+    variable sub   : unsigned(REGISTER_SIZE downto 0);
+    variable Q_lsb : std_logic;
   begin
 
     if RISING_EDGE(clk) then
@@ -332,7 +333,6 @@ begin  -- architecture rtl
         when START =>
 
           if enable then
-            Q     := (others => '0');
             R     := (others => '0');
             N     := numerator;
             state <= DIVIDING;
@@ -343,10 +343,14 @@ begin  -- architecture rtl
           R(REGISTER_SIZE-1 downto 1) := R(REGISTER_SIZE-2 downto 0);
           R(0)                        := N(N'left);
           N                           := SHIFT_LEFT(N, 1);
-          if R >= D then
-            R        := R - D;
-            Q(count) := '1';
+
+          Q_lsb := '0';
+          sub   := ("0"&R)-("0"&D);
+          if sub(sub'left) = '0' then
+            R     := sub(R'range);
+            Q_lsb := '1';
           end if;
+          Q := Q(Q'left-1 downto 0) & Q_lsb;
           if count /= 0 then
             count <= count - 1;
           else
@@ -401,18 +405,6 @@ entity arithmetic_unit is
 end entity arithmetic_unit;
 
 architecture rtl of arithmetic_unit is
-
-  function shift_sc_gen (
-    constant mul   : boolean;
-    constant ssc : natural)
-    return natural is
-  begin
-    if mul then
-      return 0;
-    else
-      return ssc;
-    end if;
-  end function;
 
   constant SHIFTER_USE_MULTIPLIER : boolean := MULTIPLY_ENABLE;
   constant SHIFT_SC               : natural := conditional(SHIFTER_USE_MULTIPLIER,0, SHIFTER_SINGLE_CYCLE);
