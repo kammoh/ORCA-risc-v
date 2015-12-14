@@ -10,6 +10,12 @@ package utils is
   function log2_f(
     N : integer)
     return integer;
+  function conditional (
+    constant a        :    boolean;
+    constant if_true  : in integer;
+    constant if_false : in integer)
+    return integer;
+
 
   function branch_pack_signal (
     pc     : std_logic_vector;
@@ -36,8 +42,8 @@ package utils is
 
 end utils;
 package body utils is
-    function log2_f(
-     N : integer)
+  function log2_f(
+    N : integer)
     return integer is
     variable i : integer := 0;
   begin
@@ -57,6 +63,19 @@ package body utils is
     end loop;
     return i;
   end log2;
+
+  function conditional (
+    constant a        :    boolean;
+    constant if_true  : in integer;
+    constant if_false : in integer)
+    return integer is
+  begin
+    if a then
+      return if_true;
+    else
+      return if_false;
+    end if;
+  end conditional;
 
   function ceil_log2(i : natural) return integer is
     variable temp    : integer := i;

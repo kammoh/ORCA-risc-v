@@ -20,7 +20,7 @@ entity execute is
     RESET_VECTOR         : natural;
     MULTIPLY_ENABLE      : boolean;
     DIVIDE_ENABLE        : boolean;
-    SHIFTER_SINGLE_CYCLE : boolean;
+    SHIFTER_SINGLE_CYCLE : natural range 0 to 2;
     INCLUDE_COUNTERS     : boolean;
     FORWARD_ALU_ONLY     : boolean);
   port(

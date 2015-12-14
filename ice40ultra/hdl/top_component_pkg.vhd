@@ -74,7 +74,7 @@ package top_component_pkg is
       REGISTER_SIZE        : integer              := 32;
       RESET_VECTOR         : natural              := 16#00000200#;
       MULTIPLY_ENABLE      : natural range 0 to 1 := 0;
-      SHIFTER_SINGLE_CYCLE : natural range 0 to 1 := 0);
+      SHIFTER_SINGLE_CYCLE : natural range 0 to 2 := 0);
     port(
       clk   : in std_logic;
       reset : in std_logic;

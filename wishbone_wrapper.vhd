@@ -10,7 +10,7 @@ entity riscV_wishbone is
     REGISTER_SIZE        : integer              := 32;
     RESET_VECTOR         : natural              := 16#00000200#;
     MULTIPLY_ENABLE      : natural range 0 to 1 := 0;
-    SHIFTER_SINGLE_CYCLE : natural range 0 to 1 := 0;
+    SHIFTER_SINGLE_CYCLE : natural range 0 to 2 := 0;
     INCLUDE_COUNTERS     : natural range 0 to 1 := 0;
     BRANCH_PREDICTORS    : natural              := 0);
 

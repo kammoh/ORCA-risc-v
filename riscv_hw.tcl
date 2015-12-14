@@ -117,10 +117,10 @@ This setting is overridden by enabling Hardware Multiply. \
 If Hardware Multiply is enabled then the shift instruction \
 uses the multiplier \(2 cycles\)."
 set_parameter_property SHIFTER_SINGLE_CYCLE TYPE NATURAL
-set_parameter_property SHIFTER_SINGLE_CYCLE UNITS None
-set_parameter_property SHIFTER_SINGLE_CYCLE ALLOWED_RANGES 0:1
+set_parameter_property SHIFTER_SINGLE_CYCLE UNITS Cycles
+set_parameter_property SHIFTER_SINGLE_CYCLE ALLOWED_RANGES {0:One 1:ThirtyTwo 2:Eight}
 set_parameter_property SHIFTER_SINGLE_CYCLE HDL_PARAMETER true
-set_display_item_property SHIFTER_SINGLE_CYCLE DISPLAY_HINT boolean
+
 
 add_parameter          FORWARD_ALU_ONLY natural 1
 set_parameter_property FORWARD_ALU_ONLY ALLOWED_RANGES 0:1

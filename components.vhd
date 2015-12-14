@@ -12,7 +12,7 @@ package rv_components is
       RESET_VECTOR         : natural              := 16#00000200#;
       MULTIPLY_ENABLE      : natural range 0 to 1 := 0;
       DIVIDE_ENABLE        : natural range 0 to 1 := 0;
-      SHIFTER_SINGLE_CYCLE : natural range 0 to 1 := 0;
+      SHIFTER_SINGLE_CYCLE : natural range 0 to 2 := 0;
       INCLUDE_COUNTERS     : natural range 0 to 1 := 0;
       BRANCH_PREDICTORS    : natural              := 0;
       FORWARD_ALU_ONLY     : natural range 0 to 1 := 1);
@@ -94,7 +94,7 @@ package rv_components is
       RESET_VECTOR         : natural;
       MULTIPLY_ENABLE      : boolean;
       DIVIDE_ENABLE        : boolean;
-      SHIFTER_SINGLE_CYCLE : boolean;
+      SHIFTER_SINGLE_CYCLE : natural range 0 to 2;
       INCLUDE_COUNTERS     : boolean;
       FORWARD_ALU_ONLY     : boolean);
     port(
@@ -164,7 +164,7 @@ package rv_components is
       SIGN_EXTENSION_SIZE  : integer;
       MULTIPLY_ENABLE      : boolean;
       DIVIDE_ENABLE        : boolean;
-      SHIFTER_SINGLE_CYCLE : boolean
+      SHIFTER_SINGLE_CYCLE : natural range 0 to 2
       );
     port (
       clk               : in  std_logic;

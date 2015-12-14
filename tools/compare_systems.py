@@ -291,7 +291,7 @@ function insert_chart(element_select,data) {
 check_boxes_html="""
 <div >
 <input class="green-selector" type="checkbox"  onchange="toggle_checkbox(this)" name="btbsz0">    btbsz0      </input>
-<input class="green-selector" type="checkbox"  onchange="toggle_checkbox(this)" name="btbsz8">    btbsz8		</input>
+<input class="green-selector" type="checkbox"  onchange="toggle_checkbox(this)" name="btbsz1">    btbsz1		</input>
 <input class="green-selector" type="checkbox"  onchange="toggle_checkbox(this)" name="btbsz16">   btbsz16		</input>
 <input class="green-selector" type="checkbox"  onchange="toggle_checkbox(this)" name="btbsz256">  tbsz256	</input>
 <input class="green-selector" type="checkbox"  onchange="toggle_checkbox(this)" name="btbsz4096"> btbsz4096</input>
@@ -299,7 +299,9 @@ check_boxes_html="""
 <input class="green-selector" type="checkbox"  onchange="toggle_checkbox(this)" name="mul1">      mul1				</input>
 <input class="green-selector" type="checkbox"  onchange="toggle_checkbox(this)" name="count1">    count1		</input>
 <input class="green-selector" type="checkbox"  onchange="toggle_checkbox(this)" name="pipe3">     pipe3			</input>
+<input class="green-selector" type="checkbox"  onchange="toggle_checkbox(this)" name="ssc0">      ssc0				</input>
 <input class="green-selector" type="checkbox"  onchange="toggle_checkbox(this)" name="ssc1">      ssc1				</input>
+<input class="green-selector" type="checkbox"  onchange="toggle_checkbox(this)" name="ssc2">      ssc2				</input>
 <input class="green-selector" type="checkbox"  onchange="toggle_checkbox(this)" name="fwd1">      fwd1          </input>
 <script>
 function toggle_checkbox(k) {
@@ -523,8 +525,8 @@ else:
                     if div == "1" and mul == '0':
                         continue;
                     for ic in ["0","1"]:
-                        for ssc in ["0","1"]:
-                            if mul == '1' and ssc == '1':
+                        for ssc in ["0","1","2"]:
+                            if mul == '1' and ssc != '0':
                                 continue;
                             for ps in ["3","4"]:
                                 SYSTEMS.append(system(branch_prediction=bp,

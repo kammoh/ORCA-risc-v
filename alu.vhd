@@ -9,7 +9,7 @@ entity shifter is
 
   generic (
     REGISTER_SIZE : natural;
-    SINGLE_CYCLE  : boolean
+    SINGLE_CYCLE  : natural range 0 to 2
     );
   port(
     clk           : in  std_logic;
@@ -26,15 +26,14 @@ architecture rtl of shifter is
   constant SHIFT_AMT_SIZE : natural := shift_amt'length;
   signal left_tmp         : signed(REGISTER_SIZE downto 0);
   signal right_tmp        : signed(REGISTER_SIZE downto 0);
-  constant MULTI_4_BIT    : boolean := true;
 begin  -- architecture rtl
-  cycle1 : if SINGLE_CYCLE generate
+  cycle1 : if SINGLE_CYCLE = 0 generate
     left_tmp  <= SHIFT_LEFT(shifted_value, to_integer(shift_amt));
     right_tmp <= SHIFT_RIGHT(shifted_value, to_integer(shift_amt));
     done      <= '1';
   end generate cycle1;
 
-  cycle4N : if not SINGLE_CYCLE  and MULTI_4_BIT generate
+  cycle4N : if SINGLE_CYCLE = 2 generate
 
     signal left_nxt   : signed(REGISTER_SIZE downto 0);
     signal right_nxt  : signed(REGISTER_SIZE downto 0);
@@ -87,7 +86,7 @@ begin  -- architecture rtl
 
   end generate cycle4N;
 
-  cycle1N : if not SINGLE_CYCLE and not MULTI_4_BIT generate
+  cycle1N : if SINGLE_CYCLE = 1 generate
 
     signal left_nxt  : signed(REGISTER_SIZE downto 0);
     signal right_nxt : signed(REGISTER_SIZE downto 0);
@@ -381,7 +380,7 @@ entity arithmetic_unit is
     SIGN_EXTENSION_SIZE  : integer;
     MULTIPLY_ENABLE      : boolean;
     DIVIDE_ENABLE        : boolean;
-    SHIFTER_SINGLE_CYCLE : boolean);
+    SHIFTER_SINGLE_CYCLE : natural range 0 to 2);
 
   port (
     clk               : in  std_logic;
@@ -403,9 +402,20 @@ end entity arithmetic_unit;
 
 architecture rtl of arithmetic_unit is
 
+  function shift_sc_gen (
+    constant mul   : boolean;
+    constant ssc : natural)
+    return natural is
+  begin
+    if mul then
+      return 0;
+    else
+      return ssc;
+    end if;
+  end function;
+
   constant SHIFTER_USE_MULTIPLIER : boolean := MULTIPLY_ENABLE;
-  constant SHIFT_SC               : boolean :=
-    SHIFTER_SINGLE_CYCLE or SHIFTER_USE_MULTIPLIER;
+  constant SHIFT_SC               : natural := conditional(SHIFTER_USE_MULTIPLIER,0, SHIFTER_SINGLE_CYCLE);
 
   --op codes
   constant OP     : std_logic_vector(6 downto 0) := "0110011";
@@ -495,7 +505,7 @@ architecture rtl of arithmetic_unit is
   component shifter is
     generic (
       REGISTER_SIZE : natural;
-      SINGLE_CYCLE  : boolean
+      SINGLE_CYCLE  : natural
       );
     port(
       clk           : in  std_logic;
